@@ -11,7 +11,7 @@ function ai() {
   }
   if (!client) {
     const { GoogleGenAI } = require('@google/genai'); // nạp khi cần để tiết kiệm RAM lúc khởi động
-    client = new GoogleGenAI({ apiKey: config.geminiApiKey });
+    client = new GoogleGenAI({ apiKey: config.geminiApiKey, httpOptions: { apiVersion: 'v1beta' } });
   }
   return client;
 }
@@ -20,20 +20,38 @@ function isEnabled() { return Boolean(config.geminiApiKey); }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-// Gói miễn phí giới hạn số lượt/phút: gặp 429/503 thì chờ rồi thử lại (tối đa 3 lần)
-async function withRetry(fn) {
-  for (let attempt = 1; ; attempt++) {
-    try { return await fn(); } catch (e) {
-      const code = e.status || e.code || (String(e.message).match(/\b(429|500|503)\b/) || [])[1];
-      if (attempt >= 4 || ![429, 500, 503, '429', '500', '503'].includes(code)) throw e;
-      await sleep(15000 * attempt);
+const busy = e => [429, 500, 503].includes(Number(e.status || e.code || (String(e.message).match(/\b(429|500|503)\b/) || [])[1]));
+
+// Model chính bận (503 quá tải / 429 hết lượt) -> chuyển ngay sang model dự phòng;
+// tất cả đều bận -> chờ rồi thử lại cả vòng (tối đa 3 vòng)
+// Nhớ model vừa chạy được trong 10 phút để không phải thử lại model đang quá tải mỗi lần
+let preferred = null; let preferredUntil = 0;
+
+async function withFallback(call) {
+  let models = [...new Set([config.geminiModel, ...config.geminiFallbackModels])];
+  if (preferred && Date.now() < preferredUntil) models = [preferred, ...models.filter(m => m !== preferred)];
+  for (let round = 1; ; round++) {
+    let lastErr;
+    for (const model of models) {
+      try {
+        const r = await call(model);
+        if (model !== config.geminiModel) { preferred = model; preferredUntil = Date.now() + 10 * 60 * 1000; } else preferred = null;
+        return r;
+      } catch (e) {
+        if (!busy(e)) throw e;
+        lastErr = e;
+        if (model === preferred) preferred = null;
+        console.warn(`[ai] ${model} bận (${e.status || e.code}), thử model khác`);
+      }
     }
+    if (round >= 3) throw lastErr;
+    await sleep(10000 * round);
   }
 }
 
 async function generateJson(parts, schema, systemInstruction) {
-  const res = await withRetry(() => ai().models.generateContent({
-    model: config.geminiModel,
+  const res = await withFallback(model => ai().models.generateContent({
+    model,
     contents: [{ role: 'user', parts }],
     config: {
       systemInstruction,

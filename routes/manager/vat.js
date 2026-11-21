@@ -2,6 +2,7 @@
 // Kho hóa đơn VAT — tách biệt hoàn toàn với kho hàng thường
 const express = require('express');
 const db = require('../../db');
+const config = require('../../config');
 const v = require('../../services/validate');
 const fmt = require('../../services/format');
 const drive = require('../../services/driveService');
@@ -11,7 +12,6 @@ const vatSync = require('../../services/vatSync');
 const router = express.Router();
 const TABS = ['in', 'stock', 'exported', 'exports', 'out'];
 
-let syncing = false; // tránh bấm "Cập nhật" 2 lần cùng lúc
 
 router.get('/vat', (req, res) => {
   res.locals.nav = 'm-vat';
@@ -52,22 +52,16 @@ router.get('/vat/invoices/:id', (req, res, next) => {
   res.json({ invoice: inv, items });
 });
 
-router.post('/vat/sync/:direction', async (req, res) => {
+router.post('/vat/sync/:direction', (req, res) => {
   const direction = req.params.direction === 'out' ? 'out' : 'in';
-  if (syncing) return res.status(409).json({ error: 'Đang cập nhật, vui lòng chờ...' });
-  syncing = true;
-  try {
-    const r = await vatSync.sync(direction);
-    res.json(r);
-  } catch (e) {
-    console.error('[vat] sync', e.expose ? e.message : e);
-    const msg = e.expose ? e.message
-      : /not found|404/i.test(e.message) ? 'Không tìm thấy thư mục Drive — kiểm tra ID và đã share thư mục cho email Service Account chưa.'
-        : /permission|403|insufficient/i.test(e.message) ? 'Service Account chưa có quyền đọc thư mục này (hãy share thư mục cho email Service Account).'
-          : `Lỗi kết nối Google Drive: ${e.message}`;
-    res.status(e.status || 502).json({ error: msg });
-  } finally { syncing = false; }
+  const folder = direction === 'in' ? config.driveVatInputFolderId : config.driveVatOutputFolderId;
+  if (!folder) return res.status(400).json({ error: `Chưa cấu hình ${direction === 'in' ? 'DRIVE_VAT_INPUT_FOLDER_ID' : 'DRIVE_VAT_OUTPUT_FOLDER_ID'} trong .env` });
+  if (!drive.status().credentials) return res.status(400).json({ error: 'Chưa có file Service Account (credentials/service-account.json)' });
+  const { job, started } = vatSync.start(direction, req.user.full_name);
+  res.status(started ? 202 : 409).json({ started, job, error: started ? null : 'Đang quét, vui lòng chờ xong rồi bấm lại.' });
 });
+
+router.get('/vat/sync/status', (req, res) => res.json({ job: vatSync.status() }));
 
 const exportSchema = v.z.object({
   quantity: v.z.coerce.number().positive('Số lượng phải > 0'),

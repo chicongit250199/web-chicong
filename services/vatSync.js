@@ -8,7 +8,6 @@ const { parseInvoiceXml } = require('./vatXml');
 const aiService = require('./aiService');
 const { stripVi } = require('./inventory');
 
-const MAX_PER_RUN = 15; // mỗi lần bấm "Cập nhật" xử lý tối đa 15 hóa đơn (PDF qua AI mất vài giây/file)
 
 const q = {
   known: db.prepare('SELECT drive_file_id FROM vat_drive_files WHERE status <> ?'),
@@ -62,7 +61,7 @@ const saveInvoice = db.transaction((direction, file, fmt, data, pdfFile) => {
   return { id, duplicate: false };
 });
 
-async function sync(direction) {
+async function sync(direction, { limit = Infinity, onProgress = () => {} } = {}) {
   const folder = direction === 'in' ? config.driveVatInputFolderId : config.driveVatOutputFolderId;
   if (!folder) {
     const e = new Error(`Chưa cấu hình ${direction === 'in' ? 'DRIVE_VAT_INPUT_FOLDER_ID' : 'DRIVE_VAT_OUTPUT_FOLDER_ID'} trong .env`);
@@ -82,15 +81,18 @@ async function sync(direction) {
     groups.get(k).push(f);
   }
 
-  const result = { found: fresh.length, added: 0, duplicates: 0, errors: [], remaining: 0, usedAi: 0 };
+  const result = { found: fresh.length, total: Math.min(groups.size, limit), processed: 0, added: 0, duplicates: 0, errors: [], remaining: 0, usedAi: 0, current: '' };
+  onProgress(result);
   let processed = 0;
   for (const group of groups.values()) {
-    if (processed >= MAX_PER_RUN) { result.remaining += group.length; continue; }
+    if (processed >= limit) { result.remaining += group.length; continue; }
     const xml = group.find(f => kind(f) === 'xml');
     const pdf = group.find(f => kind(f) === 'pdf');
     const main = xml || pdf || group[0];
     const others = group.filter(f => f !== main);
     processed++;
+    result.current = main.name;
+    onProgress(result);
     try {
       const buf = await drive.download(main.id);
       let data = null;
@@ -110,11 +112,41 @@ async function sync(direction) {
     } catch (err) {
       result.errors.push(`${main.name}: ${err.message}`);
       q.markFile.run({ id: main.id, direction, name: main.name, mime: main.mimeType, invoice_id: null, status: 'error', error: String(err.message).slice(0, 500) });
-      // Thiếu API key / quyền: dừng sớm, không lặp lỗi cho mọi file
-      if (err.status === 400) break;
+      // Lỗi cấu hình (thiếu API key...): dừng sớm, không lặp lỗi cho mọi file
+      if (err.expose) break;
+    } finally {
+      result.processed = processed;
+      onProgress(result);
     }
   }
+  result.current = '';
   return result;
 }
 
-module.exports = { sync, kind };
+// ---- Chạy nền: bấm "Cập nhật" trả về ngay, trang hỏi tiến độ định kỳ ----
+let job = null;
+
+function status() { return job; }
+
+function start(direction, actor) {
+  if (job && job.running) return { job, started: false };
+  job = { direction, running: true, startedAt: new Date().toISOString(), finishedAt: null, error: null,
+    found: 0, total: 0, processed: 0, added: 0, duplicates: 0, errors: [], usedAi: 0, current: 'Đang đọc danh sách file trên Drive...' };
+  sync(direction, { onProgress: r => Object.assign(job, r) })
+    .then(r => {
+      Object.assign(job, r, { running: false, finishedAt: new Date().toISOString() });
+      require('./events').notify('inventory', `Quét hóa đơn ${direction === 'in' ? 'đầu vào' : 'bán ra'} xong: thêm ${r.added} hóa đơn${r.errors.length ? `, ${r.errors.length} file lỗi` : ''}`,
+        `/manager/vat?tab=${direction}`, actor);
+    })
+    .catch(e => {
+      console.error('[vat] sync', e.expose ? e.message : e);
+      const msg = e.expose ? e.message
+        : /not found|404/i.test(e.message) ? 'Không tìm thấy thư mục Drive — kiểm tra ID và đã share thư mục cho email Service Account chưa.'
+          : /permission|403|insufficient/i.test(e.message) ? 'Service Account chưa có quyền đọc thư mục này.'
+            : `Lỗi: ${e.message}`;
+      Object.assign(job, { running: false, finishedAt: new Date().toISOString(), error: msg, current: '' });
+    });
+  return { job, started: true };
+}
+
+module.exports = { sync, start, status, kind };

@@ -27,7 +27,9 @@ const config = {
   uploadDir: path.join(__dirname, 'public', 'uploads'),
 
   geminiApiKey: env.GEMINI_API_KEY || '',
-  geminiModel: env.GEMINI_MODEL || 'gemini-flash-latest',
+  geminiModel: env.GEMINI_MODEL || 'gemini-3.8-flash',
+  // Dùng khi model chính quá tải / hết lượt (phân tách bằng dấu phẩy)
+  geminiFallbackModels: (env.GEMINI_FALLBACK_MODELS || 'gemini-2.5-flash,gemini-3.5-flash-lite').split(',').map(s => s.trim()).filter(Boolean),
 
   googleServiceAccountPath: env.GOOGLE_SERVICE_ACCOUNT_PATH
     ? path.resolve(__dirname, env.GOOGLE_SERVICE_ACCOUNT_PATH) : '',

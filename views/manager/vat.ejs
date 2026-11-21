@@ -1,21 +1,29 @@
 <%- include('../app/_top') %>
 <% const ds = driveStatus; const ready = ds.credentials && aiEnabled; %>
 <div x-data="{
-    busy: '', result: null, err: '', ex: null, inv: null, invItems: [],
+    job: null, err: '', ex: null, inv: null, invItems: [], timer: null,
+    get running() { return this.job && this.job.running },
+    get pct() { return this.job && this.job.total ? Math.round(this.job.processed / this.job.total * 100) : 0 },
+    async init() { await this.poll(); },
+    async poll() {
+      try { const d = await api('/manager/vat/sync/status'); this.job = d.job; } catch (e) {}
+      clearTimeout(this.timer);
+      if (this.running) this.timer = setTimeout(() => this.poll(), 3000);
+    },
     async sync(dir) {
-      this.busy = dir; this.err = ''; this.result = null;
-      try { this.result = await api('/manager/vat/sync/' + dir, { method: 'POST' }); this.result.dir = dir; }
-      catch (e) { this.err = e.message } finally { this.busy = '' }
+      this.err = '';
+      try { const d = await api('/manager/vat/sync/' + dir, { method: 'POST' }); this.job = d.job; this.poll(); }
+      catch (e) { this.err = e.message }
     },
     async openInv(id) { const d = await api('/manager/vat/invoices/' + id); this.inv = d.invoice; this.invItems = d.items; }
   }" @keydown.escape.window="ex = null; inv = null">
   <div class="page-title">
     <h1><%- icon('receipt', 'h-6 w-6 text-brand-600') %>Kho hóa đơn VAT</h1>
     <div class="flex flex-wrap gap-2">
-      <button type="button" @click="sync('in')" :disabled="!!busy" class="btn-primary" <%= ds.inFolder ? '' : 'disabled title="Chưa cấu hình DRIVE_VAT_INPUT_FOLDER_ID"' %>>
-        <%- icon('refresh', 'h-4 w-4') %><span x-text="busy === 'in' ? 'Đang quét hóa đơn đầu vào...' : 'Cập nhật HĐ đầu vào'"></span></button>
-      <button type="button" @click="sync('out')" :disabled="!!busy" class="btn-secondary" <%= ds.outFolder ? '' : 'disabled title="Chưa cấu hình DRIVE_VAT_OUTPUT_FOLDER_ID"' %>>
-        <%- icon('refresh', 'h-4 w-4') %><span x-text="busy === 'out' ? 'Đang quét hóa đơn bán ra...' : 'Cập nhật HĐ bán ra'"></span></button>
+      <button type="button" @click="sync('in')" :disabled="running" class="btn-primary" <%= ds.inFolder ? '' : 'disabled title="Chưa cấu hình DRIVE_VAT_INPUT_FOLDER_ID"' %>>
+        <%- icon('refresh', 'h-4 w-4') %><span x-text="running && job.direction === 'in' ? 'Đang quét đầu vào...' : 'Cập nhật HĐ đầu vào'"></span></button>
+      <button type="button" @click="sync('out')" :disabled="running" class="btn-secondary" <%= ds.outFolder ? '' : 'disabled title="Chưa cấu hình DRIVE_VAT_OUTPUT_FOLDER_ID"' %>>
+        <%- icon('refresh', 'h-4 w-4') %><span x-text="running && job.direction === 'out' ? 'Đang quét bán ra...' : 'Cập nhật HĐ bán ra'"></span></button>
     </div>
   </div>
 
@@ -33,16 +41,24 @@
   <% } %>
 
   <div x-show="err" x-cloak class="mb-4 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-200 dark:bg-red-950 dark:text-red-200 dark:ring-red-900"><%- icon('alert', 'h-5 w-5') %><span x-text="err"></span></div>
-  <div x-show="result" x-cloak class="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-900 ring-1 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-100 dark:ring-emerald-900">
-    <template x-if="result">
-      <div>
-        <p class="font-semibold" x-text="'Hóa đơn ' + (result.dir === 'in' ? 'đầu vào' : 'bán ra') + ': tìm thấy ' + result.found + ' file mới · thêm ' + result.added + ' hóa đơn' + (result.duplicates ? ' · ' + result.duplicates + ' trùng' : '') + (result.usedAi ? ' · ' + result.usedAi + ' file đọc bằng AI' : '')"></p>
-        <p x-show="result.remaining" x-text="'Còn ' + result.remaining + ' file — bấm Cập nhật lần nữa để xử lý tiếp.'"></p>
-        <ul x-show="result.errors.length" class="mt-1 list-disc pl-5 text-red-700 dark:text-red-300"><template x-for="e in result.errors"><li x-text="e"></li></template></ul>
-        <a href="" class="mt-1 inline-block font-medium underline">Tải lại trang để xem</a>
-      </div>
-    </template>
-  </div>
+  <%# Tiến độ quét chạy nền %>
+  <template x-if="job">
+    <div class="mb-4 rounded-lg px-4 py-3 text-sm ring-1"
+         :class="job.error ? 'bg-red-50 text-red-900 ring-red-200 dark:bg-red-950 dark:text-red-100 dark:ring-red-900' : (job.running ? 'bg-blue-50 text-blue-900 ring-blue-200 dark:bg-blue-950 dark:text-blue-100 dark:ring-blue-900' : 'bg-emerald-50 text-emerald-900 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-100 dark:ring-emerald-900')">
+      <p class="font-semibold">
+        <span x-text="(job.running ? 'Đang quét' : 'Đã quét xong') + ' hóa đơn ' + (job.direction === 'in' ? 'đầu vào' : 'bán ra')"></span>
+        <span x-show="job.total" x-text="': ' + job.processed + ' / ' + job.total + ' (' + pct + '%)'"></span>
+        <span x-show="!job.running && !job.error" x-text="' · thêm ' + job.added + ' hóa đơn' + (job.duplicates ? ' · ' + job.duplicates + ' trùng' : '') + (job.usedAi ? ' · ' + job.usedAi + ' đọc bằng AI' : '')"></span>
+        <span x-show="!job.running && !job.error && !job.found"> — không có file mới</span>
+      </p>
+      <div x-show="job.running" class="mt-2 h-2 overflow-hidden rounded-full bg-blue-200 dark:bg-blue-900"><div class="h-full rounded-full bg-blue-600 transition-all" :style="'width:' + pct + '%'"></div></div>
+      <p x-show="job.running && job.current" class="mt-1 truncate text-xs opacity-75" x-text="'Đang đọc: ' + job.current"></p>
+      <p x-show="job.running" class="mt-1 text-xs opacity-75">Hóa đơn PDF đọc bằng AI mất khoảng 10–60 giây/file. Có thể rời trang, việc quét vẫn chạy trên máy chủ.</p>
+      <p x-show="job.error" x-text="job.error"></p>
+      <ul x-show="job.errors && job.errors.length" class="mt-1 list-disc pl-5 text-red-700 dark:text-red-300"><template x-for="e in job.errors"><li x-text="e"></li></template></ul>
+      <a x-show="!job.running && job.added" href="" class="mt-1 inline-block font-medium underline">Tải lại trang để xem hóa đơn mới</a>
+    </div>
+  </template>
 
   <div class="tabs">
     <% [['stock','Tồn kho VAT', counts.stock],['exported','Đã xuất hết', counts.exported],['exports','Lịch sử xuất', counts.exports],['in','HĐ đầu vào', counts.in],['out','HĐ bán ra', counts.out]].forEach(([k, l, n]) => { %>
