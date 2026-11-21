@@ -1,4 +1,4 @@
-// Form bán hàng: gợi ý hàng tồn kho, chọn serial, popup xác nhận
+// Form bán hàng: gợi ý hàng tồn kho, chọn serial, giỏ nhiều món, popup xác nhận
 window.sellForm = function (staffName, preset) {
   return {
     staffName: staffName,
@@ -12,6 +12,14 @@ window.sellForm = function (staffName, preset) {
     group: null, unitId: '', price: '', payment: 'cash',
     customer_name: '', customer_phone: '', delivery_address: '', warranty: '', kind: 'repair',
     confirm: false, sending: false, error: '', success: '', confirmTime: '',
+    cart: [], // các món đã thêm vào đơn: { item_id, name, serial, kind, price, warranty, label }
+
+    get total() { return this.cart.reduce(function (s, l) { return s + Number(l.price || 0); }, 0); },
+    get inCart() { return this.cart.filter(function (l) { return l.item_id; }).map(function (l) { return l.item_id; }); },
+    // Serial còn chọn được (bỏ món đã có trong đơn)
+    get freeUnits() { var ids = this.inCart; return this.group ? this.group.units.filter(function (u) { return ids.indexOf(u.id) < 0; }) : []; },
+    get draft() { return this.q.trim().length > 0; },
+    get allService() { return this.cart.length > 0 && this.cart.every(function (l) { return l.kind === 'repair'; }); },
 
     get unit() {
       if (!this.group) return null;
@@ -43,9 +51,11 @@ window.sellForm = function (staffName, preset) {
       var term = this.q.trim().toLowerCase();
       this.group = g; this.q = g.name; this.open = false;
       // Nếu tìm đúng serial thì chọn luôn; nếu không có serial thì lấy món nhập sớm nhất
-      var match = g.units.find(function (u) { return u.serial && u.serial.toLowerCase() === term; });
-      var first = match || (this.hasSerials ? null : g.units[0]);
-      this.unitId = first ? String(first.id) : (g.units.length === 1 ? String(g.units[0].id) : '');
+      var units = this.freeUnits;
+      if (!units.length) { this.error = 'Đã thêm hết số lượng còn trong kho của món này vào đơn.'; this.group = null; return; }
+      var match = units.find(function (u) { return u.serial && u.serial.toLowerCase() === term; });
+      var first = match || (this.hasSerials ? null : units[0]);
+      this.unitId = first ? String(first.id) : (units.length === 1 ? String(units[0].id) : '');
       this.applyUnit();
     },
     applyUnit: function () {
@@ -57,11 +67,36 @@ window.sellForm = function (staffName, preset) {
     },
     onPrice: function (e) { this.price = e.target.value.replace(/\D/g, ''); e.target.value = this.priceDisplay; },
 
+    // Kiểm tra món đang nhập; trả về dòng giỏ hoặc null (kèm báo lỗi)
+    currentLine: function () {
+      if (this.group && !this.unit) { this.error = 'Chọn số Serial của món hàng.'; return null; }
+      if (!this.group && !this.q.trim()) { this.error = 'Nhập tên hàng hóa / dịch vụ.'; return null; }
+      if (this.price === '') { this.error = 'Nhập giá tiền.'; return null; }
+      var u = this.unit;
+      var w = this.warranty !== '' ? this.warranty : (u && u.warranty_out_months != null ? String(u.warranty_out_months) : '');
+      return {
+        item_id: u ? u.id : null, name: this.group ? this.group.name : this.q.trim(), serial: u ? u.serial : null,
+        kind: this.group ? 'sale' : this.kind, price: this.price, warranty: this.warranty, warrantyShow: w === '' ? 0 : Number(w),
+      };
+    },
+    clearLine: function () {
+      this.q = ''; this.results = []; this.group = null; this.unitId = ''; this.price = ''; this.warranty = ''; this.open = false;
+    },
+    addLine: function () {
+      this.error = ''; this.success = '';
+      var line = this.currentLine();
+      if (!line) return;
+      this.cart.push(line);
+      this.clearLine();
+      if (this.$refs.q) this.$refs.q.focus();
+    },
+    removeLine: function (i) { this.cart.splice(i, 1); },
+
     openConfirm: function () {
       this.error = ''; this.success = '';
-      if (this.group && !this.unit) { this.error = 'Chọn số Serial của món hàng.'; return; }
-      if (!this.group && !this.q.trim()) { this.error = 'Nhập tên hàng hóa / dịch vụ.'; return; }
-      if (this.price === '') { this.error = 'Nhập giá tiền.'; return; }
+      // Đang nhập dở 1 món -> tự thêm vào đơn
+      if (this.draft || this.group) { var line = this.currentLine(); if (!line) return; this.cart.push(line); this.clearLine(); }
+      if (!this.cart.length) { this.error = 'Chưa có món nào trong đơn.'; return; }
       this.open = false;
       this.confirmTime = new Date().toLocaleString('vi-VN');
       this.confirm = true;
@@ -70,8 +105,8 @@ window.sellForm = function (staffName, preset) {
       var self = this;
       this.sending = true;
       api('/staff/sell', { method: 'POST', body: {
-        item_id: this.unit ? this.unit.id : null, name: this.free ? this.q.trim() : '', kind: this.kind, price: this.price, payment_method: this.payment, warranty_months: this.warranty,
-        customer_name: this.customer_name, customer_phone: this.customer_phone, delivery_address: this.delivery_address,
+        items: this.cart.map(function (l) { return { item_id: l.item_id, name: l.item_id ? '' : l.name, kind: l.kind, price: l.price, warranty_months: l.warranty }; }),
+        payment_method: this.payment, customer_name: this.customer_name, customer_phone: this.customer_phone, delivery_address: this.delivery_address,
       } }).then(function (d) {
         self.success = d.message; self.confirm = false; self.reset();
       }).catch(function (e) { self.error = e.message; self.confirm = false; })
@@ -80,6 +115,7 @@ window.sellForm = function (staffName, preset) {
     reset: function () {
       this.q = ''; this.results = []; this.group = null; this.unitId = ''; this.price = ''; this.payment = 'cash';
       this.customer_name = ''; this.customer_phone = ''; this.delivery_address = ''; this.warranty = ''; this.kind = 'repair';
+      this.cart = [];
     },
   };
 };
