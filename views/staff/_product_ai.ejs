@@ -1,0 +1,22 @@
+<%# Khối nút AI dùng chung cho form sản phẩm. Đặt BÊN TRONG phần tử có x-data="productAi()" %>
+<div class="rounded-xl border border-violet-200 bg-violet-50/60 p-3 dark:border-violet-900 dark:bg-violet-950/20">
+  <div class="flex flex-wrap items-center gap-2">
+    <button type="button" @click="research()" :disabled="!!busy" class="btn bg-gradient-to-r from-violet-600 to-fuchsia-600 px-3 py-2 text-sm text-white hover:opacity-90" <%= aiEnabled ? '' : 'disabled title="Chưa cấu hình GEMINI_API_KEY"' %>>
+      <%- icon('sparkles', 'h-4 w-4') %><span x-text="busy === 'research' ? 'AI đang tra cứu & viết (10–40 giây)...' : 'AI tra cứu thông số & viết bài'"></span></button>
+    <button type="button" @click="quick()" :disabled="!!busy" class="btn-secondary px-3 py-2 text-xs" <%= aiEnabled ? '' : 'disabled' %>>
+      <span x-text="busy === 'quick' ? 'Đang viết...' : 'Chỉ viết mô tả nhanh'"></span></button>
+  </div>
+  <p class="mt-1.5 text-xs text-slate-600 dark:text-slate-400">Nhập <strong>tên / model máy</strong> (và cấu hình cụ thể nếu có) → AI tìm thông số chính thức trên Google, điền <em>Cấu hình</em> và viết <em>Mô tả</em>. Nhớ đọc lại trước khi đăng.</p>
+  <p x-show="err" x-cloak class="mt-1.5 text-sm text-red-600" x-text="err"></p>
+  <template x-if="sources.length">
+    <div class="mt-2 text-xs">
+      <p class="font-medium text-slate-600 dark:text-slate-400" x-text="'Đã điền xong sau ' + took + ' giây · nguồn tham khảo:'"></p>
+      <ul class="mt-1 flex flex-wrap gap-1.5">
+        <template x-for="s in sources" :key="s.uri">
+          <li><a :href="s.uri" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-slate-600 ring-1 ring-slate-200 hover:text-brand-600 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700" x-text="s.title"></a></li>
+        </template>
+      </ul>
+    </div>
+  </template>
+  <% if (!aiEnabled) { %><p class="mt-1 text-xs text-amber-600">Chưa cấu hình GEMINI_API_KEY — vẫn có thể tự nhập.</p><% } %>
+</div>

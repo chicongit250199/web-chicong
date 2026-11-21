@@ -13,7 +13,7 @@ router.get('/products/new', (req, res) => {
   res.locals.nav = 'product-new';
   const mine = db.prepare(`SELECT p.*, c.name_vi AS cat_name FROM products p LEFT JOIN categories c ON c.id = p.category_id
                            WHERE p.created_by = ? ORDER BY p.id DESC LIMIT 20`).all(req.user.id);
-  res.render('staff/product_new', { title: 'Đăng sản phẩm', categories: qCats.all(), mine, aiEnabled: ai.isEnabled() });
+  res.render('staff/product_new', { title: 'Đăng sản phẩm', categories: qCats.all(), mine, aiEnabled: ai.isEnabled(), scripts: ['/js/product-ai.js'] });
 });
 
 // Gemini viết mô tả từ tên + cấu hình
@@ -27,6 +27,24 @@ router.post('/api/ai/describe', async (req, res) => {
   } catch (e) {
     console.error('[ai] describe', e.message);
     res.status(e.status || 502).json({ error: e.expose ? e.message : 'AI tạm thời không phản hồi, thử lại sau hoặc tự viết mô tả.' });
+  }
+});
+
+// Gemini tra cứu thông số thật trên Google + viết bài giới thiệu chi tiết
+router.post('/api/ai/research', async (req, res) => {
+  const name = String(req.body.name || '').trim();
+  if (name.length < 3) return res.status(422).json({ error: 'Nhập tên / model máy trước (VD: Dell Latitude 5420)' });
+  const cat = req.body.category_id ? db.prepare('SELECT name_vi FROM categories WHERE id = ?').get(req.body.category_id) : null;
+  try {
+    const r = await ai.researchProduct({
+      name, specs: String(req.body.specs || '').slice(0, 3000), category: cat && cat.name_vi,
+      price: req.body.price, condition: String(req.body.condition || '').slice(0, 100),
+    });
+    res.json(r);
+  } catch (e) {
+    console.error('[ai] research', e.message);
+    const quota = /429|quota|RESOURCE_EXHAUSTED/i.test(e.message);
+    res.status(e.status || 502).json({ error: e.expose ? e.message : quota ? 'Đã hết lượt AI miễn phí hôm nay, thử lại sau.' : 'AI tạm thời không phản hồi, thử lại sau ít phút.' });
   }
 });
 

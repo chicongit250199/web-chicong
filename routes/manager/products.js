@@ -23,7 +23,7 @@ router.get('/products/:id', (req, res, next) => {
   const p = qGet.get(req.params.id);
   if (!p) return next();
   res.locals.nav = 'm-products';
-  res.render('manager/product_edit', { title: p.name_vi, p, categories: db.prepare('SELECT * FROM categories ORDER BY sort_order, id').all(), aiEnabled: ai.isEnabled() });
+  res.render('manager/product_edit', { title: p.name_vi, p, categories: db.prepare('SELECT * FROM categories ORDER BY sort_order, id').all(), aiEnabled: ai.isEnabled(), scripts: ['/js/product-ai.js'] });
 });
 
 const editSchema = v.z.object({

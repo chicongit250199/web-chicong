@@ -83,6 +83,45 @@ async function writeProductDescription({ name, specs, category, price }) {
   return String(out.description || '').trim();
 }
 
+// Tra cứu thông số thật của model trên Google (grounding) rồi viết bài giới thiệu chi tiết.
+// Google Search không dùng chung được với responseJsonSchema -> yêu cầu JSON trong văn bản rồi tự tách.
+async function researchProduct({ name, specs, category, price, condition }) {
+  const prompt = [
+    `Sản phẩm: ${name}`,
+    category ? `Danh mục: ${category}` : '',
+    condition ? `Tình trạng: ${condition}` : '',
+    price ? `Giá bán tại cửa hàng: ${price} VNĐ` : '',
+    specs ? `Thông tin cửa hàng đã có (ưu tiên giữ đúng, nhất là cấu hình cụ thể của máy này):\n${specs}` : '',
+    '',
+    'Hãy TÌM TRÊN GOOGLE thông số kỹ thuật chính thức của đúng model này (trang hãng, trang review / bán lẻ uy tín), rồi trả về DUY NHẤT một khối JSON:',
+    '{"specs": "...", "description": "..."}',
+    '- specs: thông số chi tiết, mỗi dòng "Tên: giá trị" (CPU, RAM, Ổ cứng, Màn hình, Card đồ họa, Cổng kết nối, Wifi/Bluetooth, Pin, Trọng lượng, Hệ điều hành...). Với máy có nhiều cấu hình, dùng cấu hình cửa hàng đã ghi; thông số không chắc thì bỏ qua, KHÔNG bịa.',
+    '- description: bài giới thiệu tiếng Việt 250-400 từ, chuẩn SEO, giọng chuyên nghiệp thân thiện, gồm: đoạn mở đầu; các phần có tiêu đề ngắn viết HOA ở đầu dòng (THIẾT KẾ, HIỆU NĂNG, MÀN HÌNH, PIN & KẾT NỐI — chọn phần phù hợp loại sản phẩm); 3-5 gạch đầu dòng điểm nổi bật bắt đầu bằng "• "; đoạn "PHÙ HỢP VỚI" nói rõ đối tượng; câu kết mời liên hệ Chí Công Computer (Đà Nẵng). Văn bản thuần, không markdown, không dấu *, không link.',
+  ].filter(Boolean).join('\n');
+
+  const res = await withFallback(model => ai().models.generateContent({
+    model,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    config: {
+      tools: [{ googleSearch: {} }],
+      temperature: 0.3,
+      systemInstruction: 'Bạn là chuyên viên nội dung của cửa hàng máy tính Chí Công Computer. Chỉ dùng thông tin tìm được từ nguồn đáng tin; không chắc thì không ghi.',
+    },
+  }));
+  const text = (res.text || '').trim();
+  const m = text.match(/\{[\s\S]*\}/);
+  if (!m) throw Object.assign(new Error('AI không trả về đúng định dạng, thử lại.'), { status: 502, expose: true });
+  let out;
+  try { out = JSON.parse(m[0]); } catch {
+    // Một số model để xuống dòng thật trong chuỗi JSON -> thay bằng \n rồi đọc lại
+    out = JSON.parse(m[0].replace(/"((?:[^"\\]|\\.)*)"/gs, (s, inner) => '"' + inner.replace(/\r?\n/g, '\\n') + '"'));
+  }
+  const clean = s => String(s || '').replace(/\*\*/g, '').replace(/^#+\s*/gm, '').trim();
+  const chunks = (res.candidates && res.candidates[0] && res.candidates[0].groundingMetadata && res.candidates[0].groundingMetadata.groundingChunks) || [];
+  const sources = [...new Map(chunks.filter(c => c.web && c.web.uri).map(c => [c.web.title || c.web.uri, { title: c.web.title || c.web.uri, uri: c.web.uri }])).values()].slice(0, 8);
+  return { specs: clean(out.specs), description: clean(out.description), sources };
+}
+
 async function translateProduct({ name, desc }) {
   const lang = { type: 'object', properties: { name: { type: 'string' }, desc: { type: 'string' } }, required: ['name', 'desc'] };
   return generateJson(
@@ -132,4 +171,4 @@ async function extractInvoice(buffer, mimeType) {
     'Chỉ liệt kê dòng hàng hóa/dịch vụ thật, bỏ dòng chiết khấu/ghi chú. Không đoán nếu không có, để trống.');
 }
 
-module.exports = { isEnabled, writeProductDescription, translateProduct, extractInvoice };
+module.exports = { isEnabled, writeProductDescription, researchProduct, translateProduct, extractInvoice };

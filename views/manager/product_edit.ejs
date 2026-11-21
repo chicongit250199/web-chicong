@@ -39,6 +39,7 @@
     <% ['vi','en','ru','zh'].forEach(l => { %>
       <div x-show="lang === '<%= l %>'" <%= l !== 'vi' ? 'x-cloak' : '' %> class="space-y-3">
         <label class="block"><span class="label <%= l === 'vi' ? 'req' : '' %>">Tên</span><input name="name_<%= l %>" value="<%= p['name_' + l] || '' %>" class="input" <%= l === 'vi' ? 'required' : '' %>></label>
+        <% if (l === 'vi') { %><div x-data="productAi()"><%- include('../staff/_product_ai') %></div><% } %>
         <label class="block"><span class="label">Mô tả</span><textarea name="desc_<%= l %>" rows="10" class="input"><%= p['desc_' + l] || '' %></textarea></label>
       </div>
     <% }) %>
