@@ -15,5 +15,6 @@
   "product.call": "Позвонить",
   "product.specs": "Характеристики",
   "product.desc": "Описание",
-  "product.related": "Похожие товары"
+  "product.related": "Похожие товары",
+  "footer.directions": "Маршрут"
 }

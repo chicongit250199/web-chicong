@@ -12,6 +12,9 @@
         <a href="<%= contact.zalo %>" target="_blank" rel="noopener" class="btn bg-[#0068ff] text-white hover:opacity-90"><%- icon('chat', 'h-4 w-4') %>Zalo</a>
         <a href="<%= contact.whatsapp %>" target="_blank" rel="noopener" class="btn bg-[#25d366] text-white hover:opacity-90"><%- icon('chat', 'h-4 w-4') %>WhatsApp</a>
         <a href="<%= contact.tel %>" class="btn-secondary"><%- icon('phone', 'h-4 w-4') %><%= t('product.call') %></a>
+        <% if (settings.map_link) { %>
+          <a href="<%= settings.map_link %>" target="_blank" rel="noopener" class="btn-secondary"><%- icon('map', 'h-4 w-4') %><%= t('footer.directions') %></a>
+        <% } %>
       </div>
     </div>
   </div>

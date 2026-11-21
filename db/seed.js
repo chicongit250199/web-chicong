@@ -10,7 +10,10 @@ const DEFAULT_SETTINGS = {
   featured_rows: '2',
   logo_url: '',
   banner_url: '',
-  map_embed: '',
+  // Nhúng theo tên doanh nghiệp + địa chỉ để ghim đúng hồ sơ trên Google Maps
+  map_embed: 'https://www.google.com/maps?q=' + encodeURIComponent('Chí Công Computer - Sửa chữa máy tính, K18/9 Phan Tứ, Ngũ Hành Sơn, Đà Nẵng') + '&output=embed',
+  // Link mở Google Maps / chỉ đường
+  map_link: 'https://share.google/8HxJ7mW00V1oYRlnP',
 };
 
 const DEFAULT_CATEGORIES = [
