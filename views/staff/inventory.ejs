@@ -41,11 +41,11 @@
     </div>
   <% } %>
   <div class="tbl-wrap">
-    <table class="tbl">
+    <table class="tbl inv-tbl">
       <thead><tr>
         <% if (canDel) { %><th class="w-8"><input type="checkbox" class="h-4 w-4" @change="toggleAll($event)" :checked="sel.length && sel.length === all.length" aria-label="Chọn tất cả"></th><% } %>
-        <th>Mã hàng</th><th>Tên hàng</th><th>Serial</th><th>Ngày nhập</th><th>Tình trạng</th><th>NPP</th><th>BH nhập</th>
-        <th class="text-right">Giá KT</th><th class="text-right">Giá bán lẻ</th><th>BH xuất</th>
+        <th>Mã hàng</th><th>Tên hàng</th><th>Serial</th><th title="Ngày nhập">Nhập</th><th>Tình trạng</th><th>NPP</th><th title="Bảo hành nhập (tháng)">BH N</th>
+        <th class="text-right">Giá KT</th><th class="text-right">Giá bán lẻ</th><th title="Bảo hành xuất (tháng)">BH X</th>
         <% if (tab === 'sold') { %><th>Ngày bán</th><th>Khách hàng</th><th>Hết BH</th><% } %><th>Ghi chú</th>
         <% if (canDel) { %><th></th><% } %>
       </tr></thead>
@@ -54,21 +54,21 @@
           <tr :class="sel.includes(<%= i.id %>) && 'bg-brand-50/60 dark:bg-brand-900/20'">
             <% if (canDel) { %><td><input type="checkbox" class="h-4 w-4" value="<%= i.id %>" x-model.number="sel" aria-label="Chọn"></td><% } %>
             <td class="whitespace-nowrap text-xs"><%= i.item_code %></td>
-            <td class="min-w-48 font-medium"><%= i.name %></td>
-            <td class="font-mono text-xs"><%= i.serial || '' %></td>
-            <td class="whitespace-nowrap"><%= fmt.date(i.import_date) %></td>
-            <td><%= i.condition || '' %></td>
-            <td><%= i.supplier || '' %></td>
-            <td><%= i.warranty_in_months != null ? i.warranty_in_months + ' th' : '' %></td>
+            <td class="min-w-40 font-medium"><span class="line-clamp-2" title="<%= i.name %>"><%= i.name %></span></td>
+            <td class="max-w-[7.5rem] truncate font-mono text-[11px]" title="<%= i.serial || '' %>"><%= i.serial || '' %></td>
+            <td class="whitespace-nowrap text-xs" title="<%= fmt.date(i.import_date) %>"><%= fmt.dateShort(i.import_date) %></td>
+            <td class="text-xs"><%= i.condition || '' %></td>
+            <td class="max-w-[8rem] truncate text-xs" title="<%= i.supplier || '' %>"><%= i.supplier || '' %></td>
+            <td class="text-xs"><%= i.warranty_in_months != null ? i.warranty_in_months : '' %></td>
             <td class="whitespace-nowrap text-right tabular-nums"><%= fmt.num(i.tech_price) %></td>
             <td class="whitespace-nowrap text-right font-semibold tabular-nums"><%= fmt.num(i.retail_price) %></td>
-            <td><%= i.warranty_out_months != null ? i.warranty_out_months + ' th' : '' %></td>
+            <td class="text-xs"><%= i.warranty_out_months != null ? i.warranty_out_months : '' %></td>
             <% if (tab === 'sold') { %>
-              <td class="whitespace-nowrap"><%= fmt.date(i.sold_date) %></td>
+              <td class="whitespace-nowrap text-xs" title="<%= fmt.date(i.sold_date) %>"><%= fmt.dateShort(i.sold_date) %></td>
               <td><%= i.customer_name || '' %><br><span class="text-xs text-slate-500"><%= i.customer_phone || '' %></span></td>
-              <td class="whitespace-nowrap"><% if (i.warranty_end) { %><span class="<%= i.warranty_end >= today ? 'badge-green' : 'badge-gray' %>"><%= fmt.date(i.warranty_end) %></span><% } %></td>
+              <td class="whitespace-nowrap"><% if (i.warranty_end) { %><span class="<%= i.warranty_end >= today ? 'badge-green' : 'badge-gray' %>" title="<%= fmt.date(i.warranty_end) %>"><%= fmt.dateShort(i.warranty_end) %></span><% } %></td>
             <% } %>
-            <td class="max-w-56 text-xs text-slate-500"><%= i.note || '' %></td>
+            <td class="max-w-[10rem] truncate text-xs text-slate-500" title="<%= i.note || '' %>"><%= i.note || '' %></td>
             <% if (canDel) { %>
               <td class="whitespace-nowrap text-right"><button type="button" @click="ed = <%= JSON.stringify({ id: i.id, item_code: i.item_code || '', name: i.name, serial: i.serial || '', import_date: i.import_date || '', condition: i.condition || '', supplier: i.supplier || '', warranty_in_months: i.warranty_in_months ?? '', tech_price: i.tech_price ?? '', retail_price: i.retail_price ?? '', warranty_out_months: i.warranty_out_months ?? '', note: i.note || '', status: i.status, sold_date: i.sold_date || '', customer_name: i.customer_name || '', customer_phone: i.customer_phone || '', same: i.same_count }) %>"
                 class="inline-grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-slate-800" title="Sửa"><%- icon('edit', 'h-4 w-4') %></button><button type="button" @click="ask([<%= i.id %>], <%= JSON.stringify((i.name + (i.serial ? ' (SN ' + i.serial + ')' : '')).slice(0, 80)) %>)"

@@ -49,3 +49,6 @@
   .stat-label { @apply text-xs font-medium uppercase tracking-wide text-slate-500; }
   .stat-value { @apply mt-1 text-2xl font-bold tabular-nums; }
 }
+
+/* Bảng kho nhiều cột: đệm ô gọn hơn để vừa màn hình */
+.inv-tbl th, .inv-tbl td { padding-left: .5rem; padding-right: .5rem; }

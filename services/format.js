@@ -31,6 +31,7 @@ module.exports = {
   num: n => (n == null || n === '' ? '' : vnd.format(Number(n))),
   datetime: s => (s ? dtf.format(new Date(s)) : ''),
   date: plainDate,
+  dateShort: s => { const d = plainDate(s); return d ? d.slice(0, 6) + d.slice(8) : ''; }, // dd/mm/yy
   // 'YYYY-MM-DD' theo giờ Việt Nam
   todayYmd: (d = new Date()) => ymd.format(d),
   // '1.500.000' / '1,500,000 đ' -> 1500000

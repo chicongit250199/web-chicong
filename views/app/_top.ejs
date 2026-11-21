@@ -40,7 +40,7 @@
 </aside>
 
 <div class="pb-20 <%= isManager ? 'lg:pb-6 lg:pl-60 xl:pr-80' : 'md:pb-6 md:pl-16' %>">
-  <main class="mx-auto max-w-6xl p-4 md:p-6">
+  <main class="mx-auto <%= typeof wide !== 'undefined' && wide ? 'max-w-[1600px]' : 'max-w-6xl' %> p-4 md:p-6">
     <% flash.forEach(f => { %>
       <div x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 6000)" x-transition
            class="mb-4 flex items-start gap-2 rounded-lg px-4 py-3 text-sm <%= f.type === 'error' ? 'bg-red-50 text-red-800 ring-1 ring-red-200 dark:bg-red-950 dark:text-red-200 dark:ring-red-900' : 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-200 dark:ring-emerald-900' %>">
