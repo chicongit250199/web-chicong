@@ -15,7 +15,7 @@ const IMAGE_TYPES = /^image\/(jpeg|png|webp|gif|avif|heic|heif|bmp|tiff)$/;
 
 const imageUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024, files: 2 },
+  limits: { fileSize: 10 * 1024 * 1024, files: 10 },
   fileFilter: (req, file, cb) => cb(null, IMAGE_TYPES.test(file.mimetype)),
 });
 

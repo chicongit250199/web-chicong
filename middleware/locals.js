@@ -21,6 +21,10 @@ module.exports = function locals(req, res, next) {
   res.locals.t = i18n.translator(lang);
   res.locals.field = (row, base) => i18n.field(row, base, lang);
   res.locals.settings = s;
+  // Danh sách banner trang chủ: banner chính + banner trình chiếu
+  let extra = [];
+  try { extra = JSON.parse(s.banners || '[]'); } catch { extra = []; }
+  res.locals.bannerList = [s.banner_url, ...(Array.isArray(extra) ? extra : [])].filter(Boolean);
   res.locals.contact = contact.links(s.phone);
   res.locals.fmt = fmt;
   res.locals.icon = icon;

@@ -48,6 +48,38 @@
   <div class="flex justify-end border-t border-slate-200 pt-4 dark:border-slate-800"><button class="btn-primary"><%- icon('check', 'h-4 w-4') %>Lưu cài đặt</button></div>
 </form>
 
+<section id="banners" class="mb-6 scroll-mt-20">
+  <h2 class="mb-1 font-semibold">Banner trình chiếu</h2>
+  <p class="mb-3 text-sm text-slate-500">Banner chính (ở trên) luôn hiện đầu tiên, sau đó lần lượt các banner dưới đây, tự chuyển mỗi 5 giây. Nên dùng ảnh cùng tỉ lệ với banner chính.</p>
+  <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <% banners.forEach((b, i) => { %>
+      <div class="card overflow-hidden p-0">
+        <img src="<%= b %>" alt="" class="block h-auto w-full">
+        <div class="flex items-center justify-between px-3 py-2 text-sm">
+          <span class="text-slate-500">#<%= i + 2 %></span>
+          <span class="flex gap-1">
+            <form method="post" action="/manager/banners/<%= i %>/move"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="dir" value="up">
+              <button class="rounded-md px-2 py-1 hover:bg-slate-100 disabled:opacity-30 dark:hover:bg-slate-800" title="Lên trước" <%= i === 0 ? 'disabled' : '' %>>↑</button></form>
+            <form method="post" action="/manager/banners/<%= i %>/move"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="dir" value="down">
+              <button class="rounded-md px-2 py-1 hover:bg-slate-100 disabled:opacity-30 dark:hover:bg-slate-800" title="Xuống sau" <%= i === banners.length - 1 ? 'disabled' : '' %>>↓</button></form>
+            <form method="post" action="/manager/banners/<%= i %>/delete" @submit="confirm('Xóa banner này?') || $event.preventDefault()"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button class="rounded-md p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-950" title="Xóa"><%- icon('trash', 'h-4 w-4') %></button></form>
+          </span>
+        </div>
+      </div>
+    <% }) %>
+    <form method="post" action="/manager/banners?_csrf=<%= encodeURIComponent(csrfToken) %>" enctype="multipart/form-data" x-data="{ n: 0 }"
+          class="grid min-h-32 place-items-center gap-2 rounded-xl border-2 border-dashed border-slate-300 p-4 text-center dark:border-slate-700">
+      <label class="cursor-pointer text-sm">
+        <%- icon('upload', 'mx-auto mb-1 h-7 w-7 text-brand-600') %>
+        <span x-text="n ? n + ' ảnh đã chọn' : 'Chọn ảnh banner (nhiều ảnh)'"></span>
+        <input type="file" name="banners" accept="image/*" multiple class="sr-only" @change="n = $event.target.files.length">
+      </label>
+      <button class="btn-primary px-3 py-1.5" :disabled="!n"><%- icon('plusSquare', 'h-4 w-4') %>Thêm banner</button>
+    </form>
+  </div>
+</section>
+
 <section id="categories" class="mb-6 scroll-mt-20">
   <h2 class="mb-2 font-semibold">Danh mục</h2>
   <div class="tbl-wrap"><table class="tbl">

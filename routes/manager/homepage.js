@@ -14,7 +14,7 @@ router.get('/homepage', (req, res) => {
                                  FROM categories c ORDER BY c.sort_order, c.id`).all();
   const products = db.prepare(`SELECT p.*, c.name_vi AS cat_name FROM products p LEFT JOIN categories c ON c.id = p.category_id
                                WHERE p.status = 'approved' ORDER BY c.sort_order, p.is_featured DESC, p.created_at DESC`).all();
-  res.render('manager/homepage', { title: 'Sửa trang chủ', categories, products, iconNames: ICON_NAMES });
+  res.render('manager/homepage', { title: 'Sửa trang chủ', categories, products, iconNames: ICON_NAMES, banners: getBanners() });
 });
 
 const settingsSchema = v.z.object({
@@ -44,6 +44,36 @@ router.post('/homepage/settings', imageUpload.fields([{ name: 'logo', maxCount: 
     req.flash('success', 'Đã lưu cài đặt trang chủ.');
     res.redirect('/manager/homepage');
   } catch (e) { next(e); }
+});
+
+// ---------- Banner trình chiếu (ngoài banner chính) ----------
+function getBanners() {
+  try { const a = JSON.parse(settings.get('banners') || '[]'); return Array.isArray(a) ? a : []; } catch { return []; }
+}
+function saveBanners(list) { settings.set({ banners: JSON.stringify(list) }); }
+
+router.post('/banners', imageUpload.array('banners', 10), async (req, res, next) => {
+  try {
+    const files = req.files || [];
+    if (!files.length) { req.flash('error', 'Chọn ít nhất 1 ảnh banner.'); return res.redirect('/manager/homepage#banners'); }
+    const list = getBanners();
+    for (const f of files) list.push(await saveImage(f, 'banner'));
+    saveBanners(list);
+    req.flash('success', `Đã thêm ${files.length} banner.`);
+    res.redirect('/manager/homepage#banners');
+  } catch (e) { next(e); }
+});
+
+router.post('/banners/:i/move', (req, res) => {
+  const list = getBanners(); const i = Number(req.params.i); const j = req.body.dir === 'up' ? i - 1 : i + 1;
+  if (list[i] && list[j]) { [list[i], list[j]] = [list[j], list[i]]; saveBanners(list); }
+  res.redirect('/manager/homepage#banners');
+});
+
+router.post('/banners/:i/delete', (req, res) => {
+  const list = getBanners(); const i = Number(req.params.i);
+  if (list[i]) { removeImage(list[i]); list.splice(i, 1); saveBanners(list); req.flash('success', 'Đã xóa banner.'); }
+  res.redirect('/manager/homepage#banners');
 });
 
 // ---------- Danh mục ----------
