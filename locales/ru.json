@@ -1,0 +1,11 @@
+{
+  "nav.login": "Вход",
+  "nav.home": "Главная",
+  "theme.light": "Светлая",
+  "theme.dark": "Тёмная",
+  "theme.auto": "Авто",
+  "home.placeholder": "Главная страница в разработке.",
+  "home.see_more": "Смотреть ещё",
+  "product.contact": "Связаться",
+  "product.price_contact": "По запросу"
+}

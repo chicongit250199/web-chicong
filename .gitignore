@@ -1,0 +1,9 @@
+node_modules/
+.env
+data/
+credentials/
+public/uploads/*
+!public/uploads/.gitkeep
+public/css/app.css
+logs/
+*.log

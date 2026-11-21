@@ -1,0 +1,18 @@
+<header class="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white/90 px-4 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
+  <a href="<%= user.role === 'manager' ? '/manager' : '/staff' %>" class="flex items-center gap-2 font-semibold">
+    <% if (settings.logo_url) { %>
+      <img src="<%= settings.logo_url %>" alt="" class="h-8 w-auto">
+    <% } else { %>
+      <span class="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-sm font-bold text-white">CC</span>
+    <% } %>
+    <span class="hidden sm:inline"><%= settings.company_name %></span>
+  </a>
+  <div class="flex items-center gap-3">
+    <%- include('theme-switch') %>
+    <span class="hidden text-sm sm:inline"><%= user.full_name %></span>
+    <form method="post" action="/logout">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button class="rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950">Đăng xuất</button>
+    </form>
+  </div>
+</header>

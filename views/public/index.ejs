@@ -1,0 +1,22 @@
+<%- include('../partials/head') %>
+<main class="mx-auto max-w-5xl p-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h1 class="text-2xl font-bold"><%= settings.company_name %></h1>
+    <div class="flex items-center gap-2">
+      <nav class="inline-flex rounded-lg border border-slate-300 p-0.5 text-xs dark:border-slate-700">
+        <% languages.forEach(l => { %>
+          <a href="?lang=<%= l %>" class="rounded-md px-2 py-1 font-medium <%= l === lang ? 'bg-brand-600 text-white' : '' %>"><%= l.toUpperCase() %></a>
+        <% }) %>
+      </nav>
+      <%- include('../partials/theme-switch') %>
+    </div>
+  </div>
+  <p class="mt-2 text-slate-500"><%= t('home.placeholder') %></p>
+  <ul class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <% categories.forEach(c => { %>
+      <li class="card text-center font-medium"><%= field(c, 'name', lang) %></li>
+    <% }) %>
+  </ul>
+  <a href="/login" class="btn-primary mt-6 inline-block"><%= t('nav.login') %></a>
+</main>
+<%- include('../partials/foot') %>

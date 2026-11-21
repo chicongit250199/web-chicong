@@ -1,0 +1,35 @@
+<%- include('partials/head') %>
+<main class="grid min-h-screen place-items-center px-4">
+  <div class="w-full max-w-sm">
+    <div class="mb-6 text-center">
+      <% if (settings.logo_url) { %>
+        <img src="<%= settings.logo_url %>" alt="" class="mx-auto mb-3 h-14 w-auto">
+      <% } else { %>
+        <div class="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-brand-600 text-xl font-bold text-white">CC</div>
+      <% } %>
+      <h1 class="text-xl font-semibold"><%= settings.company_name %></h1>
+      <p class="text-sm text-slate-500">Hệ thống quản lý nội bộ</p>
+    </div>
+    <form method="post" action="/login" class="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="next" value="<%= next %>">
+      <% if (error) { %>
+        <div class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"><%= error %></div>
+      <% } %>
+      <label class="block">
+        <span class="label">Tên đăng nhập</span>
+        <input name="username" value="<%= username %>" required autofocus autocomplete="username" class="input">
+      </label>
+      <label class="block">
+        <span class="label">Mật khẩu</span>
+        <input name="password" type="password" required autocomplete="current-password" class="input">
+      </label>
+      <button class="btn-primary w-full">Đăng nhập</button>
+    </form>
+    <div class="mt-4 flex items-center justify-between text-sm">
+      <a href="/" class="text-slate-500 hover:underline">← Trang chủ</a>
+      <%- include('partials/theme-switch') %>
+    </div>
+  </div>
+</main>
+<%- include('partials/foot') %>
