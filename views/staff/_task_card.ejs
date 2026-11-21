@@ -12,7 +12,7 @@
   </div>
   <p class="mt-2 line-clamp-2 text-sm text-slate-600 dark:text-slate-300"><%= t.issue_desc %></p>
   <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-    <span class="flex items-center gap-1"><%- icon('phone', 'h-3.5 w-3.5') %><%= t.customer_name ? t.customer_name + ' · ' : '' %><%= t.customer_phone %></span>
+    <span class="flex items-center gap-1"><%- icon('phone', 'h-3.5 w-3.5') %><%= [t.customer_name, t.customer_phone].filter(Boolean).join(' · ') || 'Khách lẻ' %></span>
     <% if (t.assigned_name) { %><span class="flex items-center gap-1"><%- icon('userCheck', 'h-3.5 w-3.5') %><%= t.assigned_name %></span><% } %>
     <% if (t.expected_return_date) { %>
       <span class="flex items-center gap-1 <%= t.expected_return_date < fmt.todayYmd() && ['pending','processing'].includes(t.status) ? 'font-semibold text-red-600' : '' %>"><%- icon('clock', 'h-3.5 w-3.5') %>Hẹn <%= fmt.date(t.expected_return_date) %></span>

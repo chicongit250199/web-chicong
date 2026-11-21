@@ -12,8 +12,8 @@
       <input class="input bg-slate-50 dark:bg-slate-800/50" value="<%= fmt.datetime(now) %>" disabled></label>
     <label class="block"><span class="label">Tên khách hàng</span>
       <input name="customer_name" value="<%= val('customer_name') %>" class="input" maxlength="120" autocomplete="off"></label>
-    <label class="block"><span class="label req">SĐT khách hàng</span>
-      <input name="customer_phone" value="<%= val('customer_phone') %>" class="input" required inputmode="tel" pattern="[0-9+ .]{8,20}" autocomplete="off"></label>
+    <label class="block"><span class="label">SĐT khách hàng</span>
+      <input name="customer_phone" value="<%= val('customer_phone') %>" class="input" inputmode="tel" pattern="[0-9+ .]{8,20}" autocomplete="off"></label>
     <label class="block"><span class="label req">Model máy / linh kiện</span>
       <input name="device_model" value="<%= val('device_model') %>" class="input" required maxlength="200" placeholder="VD: Dell Latitude 5420" autocomplete="off"></label>
   </div>

@@ -74,7 +74,7 @@ router.get('/', (req, res) => {
 // ---------- Nhận máy ----------
 const createSchema = v.z.object({
   customer_name: v.text(120),
-  customer_phone: v.phone(true),
+  customer_phone: v.phone(false).transform(x => x || ''), // được để trống (cột NOT NULL → lưu '')
   device_model: v.reqText('Nhập Model máy / linh kiện', 200),
   specs: v.text(1000),
   issue_desc: v.reqText('Nhập mô tả lỗi', 2000),
@@ -100,7 +100,7 @@ router.post('/tasks', (req, res) => {
     const { lastInsertRowid } = q.insert.run({ ...data, ticket_code, received_by: req.user.id });
     return { id: lastInsertRowid, ticket_code };
   })();
-  notify('task_new', `${req.user.full_name} nhận máy ${data.device_model} (${task.ticket_code}) — KH ${data.customer_name || data.customer_phone}`, `/staff/tasks/${task.id}`, req.user.full_name);
+  notify('task_new', `${req.user.full_name} nhận máy ${data.device_model} (${task.ticket_code}) — KH ${data.customer_name || data.customer_phone || 'khách lẻ'}`, `/staff/tasks/${task.id}`, req.user.full_name);
   req.flash('success', `Đã lưu phiếu ${task.ticket_code}.`);
   res.redirect(req.body.print ? `/staff/tasks/${task.id}/print` : '/staff/tasks/new');
 });

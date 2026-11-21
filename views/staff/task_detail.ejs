@@ -14,7 +14,7 @@
         <h2 class="mb-3 font-semibold">Thông tin máy</h2>
         <dl class="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
           <div><dt class="text-slate-500">Model</dt><dd class="font-semibold"><%= task.device_model %></dd></div>
-          <div><dt class="text-slate-500">Khách hàng</dt><dd class="font-medium"><%= task.customer_name || '—' %> · <a class="text-brand-600 hover:underline" href="tel:<%= task.customer_phone %>"><%= task.customer_phone %></a></dd></div>
+          <div><dt class="text-slate-500">Khách hàng</dt><dd class="font-medium"><%= task.customer_name || '—' %><% if (task.customer_phone) { %> · <a class="text-brand-600 hover:underline" href="tel:<%= task.customer_phone %>"><%= task.customer_phone %></a><% } %></dd></div>
           <div class="sm:col-span-2"><dt class="text-slate-500">Mô tả lỗi</dt><dd class="whitespace-pre-line"><%= task.issue_desc %></dd></div>
           <% if (task.specs) { %><div class="sm:col-span-2"><dt class="text-slate-500">Cấu hình</dt><dd class="whitespace-pre-line"><%= task.specs %></dd></div><% } %>
           <div><dt class="text-slate-500">Báo giá dự kiến</dt><dd><%= task.estimated_price != null ? fmt.money(task.estimated_price) : '—' %></dd></div>
@@ -193,7 +193,7 @@
       <form method="post" action="/staff/tasks/<%= task.id %>/delete" class="modal space-y-3">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <h3 class="flex items-center gap-2 text-lg font-semibold text-red-600"><%- icon('trash', 'h-5 w-5') %><%= task.status === 'completed' ? 'Xóa máy đã trả' : 'Xóa task' %></h3>
-        <p class="text-sm">Xóa vĩnh viễn phiếu <strong><%= task.ticket_code %></strong> — <%= task.device_model %> (<%= task.customer_name || task.customer_phone %>)<%= histories.length ? ' cùng ' + histories.length + ' lần sửa trong lịch sử' : '' %>.</p>
+        <p class="text-sm">Xóa vĩnh viễn phiếu <strong><%= task.ticket_code %></strong> — <%= task.device_model %> (<%= task.customer_name || task.customer_phone || 'khách lẻ' %>)<%= histories.length ? ' cùng ' + histories.length + ' lần sửa trong lịch sử' : '' %>.</p>
         <% if (revenues.length) { %>
           <p class="rounded-lg bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">Doanh thu <strong><%= fmt.money(revenues.reduce((s, r) => s + r.amount, 0)) %></strong> của máy này cũng sẽ bị xóa khỏi thống kê.</p>
         <% } %>

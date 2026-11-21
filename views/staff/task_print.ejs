@@ -23,7 +23,7 @@
     <p class="center code"><%= task.ticket_code %></p>
     <table>
       <tr><td>Ngày nhận</td><td><%= fmt.datetime(task.created_at) %></td></tr>
-      <tr><td>Khách hàng</td><td><%= task.customer_name || '' %> — <%= task.customer_phone %></td></tr>
+      <tr><td>Khách hàng</td><td><%= [task.customer_name, task.customer_phone].filter(Boolean).join(' — ') %></td></tr>
       <tr><td>Model máy</td><td><strong><%= task.device_model %></strong></td></tr>
       <% if (task.specs) { %><tr><td>Cấu hình</td><td><%= task.specs %></td></tr><% } %>
       <tr><td>Tình trạng / lỗi</td><td><%= task.issue_desc %></td></tr>
