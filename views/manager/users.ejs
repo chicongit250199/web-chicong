@@ -1,0 +1,73 @@
+<%- include('../app/_top') %>
+<div x-data="{ m: null, u: {} }" @keydown.escape.window="m = null">
+  <div class="page-title">
+    <h1><%- icon('users', 'h-6 w-6 text-brand-600') %>Tài khoản nhân viên</h1>
+    <button type="button" @click="m = 'create'" class="btn-primary"><%- icon('plusSquare', 'h-4 w-4') %>Thêm tài khoản</button>
+  </div>
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Họ tên</th><th>Tên đăng nhập</th><th>Vai trò</th><th>Trạng thái</th><th class="text-right">Task đang mở</th><th>Tạo lúc</th><th class="text-right">Thao tác</th></tr></thead>
+    <tbody>
+      <% users.forEach(x => { %>
+        <tr class="<%= x.is_active ? '' : 'opacity-60' %>">
+          <td class="font-medium"><%= x.full_name %><%= x.id === user.id ? ' (bạn)' : '' %></td>
+          <td class="font-mono text-xs"><%= x.username %></td>
+          <td><span class="<%= x.role === 'manager' ? 'badge-violet' : 'badge-blue' %>"><%= x.role === 'manager' ? 'Quản lý' : 'Nhân viên' %></span></td>
+          <td><span class="<%= x.is_active ? 'badge-green' : 'badge-red' %>"><%= x.is_active ? 'Hoạt động' : 'Đã khóa' %></span></td>
+          <td class="text-right tabular-nums"><%= x.open_tasks %></td>
+          <td class="whitespace-nowrap text-xs"><%= fmt.datetime(x.created_at) %></td>
+          <td class="whitespace-nowrap text-right">
+            <button type="button" title="Sửa" @click="u = <%= JSON.stringify({ id: x.id, username: x.username, full_name: x.full_name, role: x.role }) %>; m = 'edit'" class="rounded-md p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800"><%- icon('edit', 'h-4 w-4') %></button>
+            <button type="button" title="Đổi mật khẩu" @click="u = <%= JSON.stringify({ id: x.id, username: x.username }) %>; m = 'password'" class="rounded-md p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800"><%- icon('key', 'h-4 w-4') %></button>
+            <% if (x.id !== user.id) { %>
+              <form method="post" action="/manager/users/<%= x.id %>/toggle" class="inline">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button title="<%= x.is_active ? 'Khóa' : 'Mở khóa' %>" class="rounded-md p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800"><%- icon(x.is_active ? 'lock' : 'unlock', 'h-4 w-4') %></button>
+              </form>
+              <form method="post" action="/manager/users/<%= x.id %>/delete" class="inline" @submit="confirm('Xóa tài khoản <%= x.username %>? Lịch sử task/doanh thu vẫn được giữ.') || $event.preventDefault()">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button title="Xóa" class="rounded-md p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"><%- icon('trash', 'h-4 w-4') %></button>
+              </form>
+            <% } %>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table></div>
+
+  <template x-if="m === 'create'">
+    <div class="modal-backdrop" @click.self="m = null">
+      <form method="post" action="/manager/users" class="modal space-y-3">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <h3 class="text-lg font-semibold">Thêm tài khoản</h3>
+        <label class="block"><span class="label req">Họ tên</span><input name="full_name" class="input" required></label>
+        <label class="block"><span class="label req">Tên đăng nhập</span><input name="username" class="input" required pattern="[a-zA-Z0-9._\-]{3,32}" autocomplete="off"></label>
+        <label class="block"><span class="label req">Mật khẩu</span><input name="password" type="text" class="input" required minlength="6" autocomplete="new-password"></label>
+        <label class="block"><span class="label">Vai trò</span><select name="role" class="input"><option value="staff">Nhân viên</option><option value="manager">Quản lý</option></select></label>
+        <div class="flex justify-end gap-2 pt-2"><button type="button" @click="m = null" class="btn-secondary">Hủy</button><button class="btn-primary">Tạo</button></div>
+      </form>
+    </div>
+  </template>
+  <template x-if="m === 'edit'">
+    <div class="modal-backdrop" @click.self="m = null">
+      <form method="post" :action="'/manager/users/' + u.id" class="modal space-y-3">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <h3 class="text-lg font-semibold">Sửa tài khoản <span class="font-mono text-base" x-text="u.username"></span></h3>
+        <label class="block"><span class="label req">Họ tên</span><input name="full_name" :value="u.full_name" class="input" required></label>
+        <label class="block"><span class="label">Vai trò</span><select name="role" class="input"><option value="staff" :selected="u.role === 'staff'">Nhân viên</option><option value="manager" :selected="u.role === 'manager'">Quản lý</option></select></label>
+        <div class="flex justify-end gap-2 pt-2"><button type="button" @click="m = null" class="btn-secondary">Hủy</button><button class="btn-primary">Lưu</button></div>
+      </form>
+    </div>
+  </template>
+  <template x-if="m === 'password'">
+    <div class="modal-backdrop" @click.self="m = null">
+      <form method="post" :action="'/manager/users/' + u.id + '/password'" class="modal space-y-3">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <h3 class="text-lg font-semibold">Đổi mật khẩu <span class="font-mono text-base" x-text="u.username"></span></h3>
+        <label class="block"><span class="label req">Mật khẩu mới</span><input name="password" type="text" class="input" required minlength="6" autocomplete="new-password"></label>
+        <p class="text-xs text-slate-500">Tài khoản này sẽ bị đăng xuất khỏi các thiết bị khác.</p>
+        <div class="flex justify-end gap-2 pt-2"><button type="button" @click="m = null" class="btn-secondary">Hủy</button><button class="btn-primary">Đổi mật khẩu</button></div>
+      </form>
+    </div>
+  </template>
+</div>
+<%- include('../app/_bottom') %>

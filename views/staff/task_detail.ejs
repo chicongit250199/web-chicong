@@ -1,0 +1,197 @@
+<%- include('../app/_top') %>
+<% const st = fmt.status(task.status); const nowStr = fmt.datetime(new Date().toISOString()); %>
+<div x-data="{ m: null }" @keydown.escape.window="m = null">
+  <div class="page-title">
+    <h1><%- icon('wrench', 'h-6 w-6 text-brand-600') %><%= task.ticket_code %> <span class="<%= st.cls %> text-sm"><%= st.label %></span></h1>
+    <div class="flex gap-2">
+      <a href="/staff/tasks/<%= task.id %>/print" target="_blank" class="btn-secondary"><%- icon('receipt', 'h-4 w-4') %>In phiếu</a>
+    </div>
+  </div>
+
+  <div class="grid gap-4 lg:grid-cols-3">
+    <div class="space-y-4 lg:col-span-2">
+      <section class="card">
+        <h2 class="mb-3 font-semibold">Thông tin máy</h2>
+        <dl class="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+          <div><dt class="text-slate-500">Model</dt><dd class="font-semibold"><%= task.device_model %></dd></div>
+          <div><dt class="text-slate-500">Khách hàng</dt><dd class="font-medium"><%= task.customer_name || '—' %> · <a class="text-brand-600 hover:underline" href="tel:<%= task.customer_phone %>"><%= task.customer_phone %></a></dd></div>
+          <div class="sm:col-span-2"><dt class="text-slate-500">Mô tả lỗi</dt><dd class="whitespace-pre-line"><%= task.issue_desc %></dd></div>
+          <% if (task.specs) { %><div class="sm:col-span-2"><dt class="text-slate-500">Cấu hình</dt><dd class="whitespace-pre-line"><%= task.specs %></dd></div><% } %>
+          <div><dt class="text-slate-500">Báo giá dự kiến</dt><dd><%= task.estimated_price != null ? fmt.money(task.estimated_price) : '—' %></dd></div>
+          <div><dt class="text-slate-500">Ngày trả dự kiến</dt><dd><%= task.expected_return_date ? fmt.date(task.expected_return_date) : '—' %></dd></div>
+          <div><dt class="text-slate-500">Phụ kiện</dt><dd><%= task.accessories || '—' %></dd></div>
+          <div><dt class="text-slate-500">Nhận lúc</dt><dd><%= fmt.datetime(task.created_at) %><%= task.received_name ? ' · ' + task.received_name : '' %></dd></div>
+          <% if (task.note) { %><div class="sm:col-span-2"><dt class="text-slate-500">Ghi chú</dt><dd class="whitespace-pre-line"><%= task.note %></dd></div><% } %>
+        </dl>
+      </section>
+
+      <% if (['done','unrepairable','completed'].includes(task.status)) { %>
+        <section class="card">
+          <h2 class="mb-3 font-semibold">Kết quả sửa chữa</h2>
+          <dl class="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+            <div><dt class="text-slate-500">KTV xử lý</dt><dd class="font-medium"><%= task.technician_name || '—' %></dd></div>
+            <div><dt class="text-slate-500">Cập nhật lúc</dt><dd><%= fmt.datetime(task.updated_at) %></dd></div>
+            <% if (task.fail_reason) { %><div class="sm:col-span-2"><dt class="text-slate-500">Lý do không sửa được</dt><dd class="font-medium text-red-600"><%= task.fail_reason %></dd></div><% } %>
+            <% if (task.repair_detail) { %><div class="sm:col-span-2"><dt class="text-slate-500">Chi tiết lỗi</dt><dd class="whitespace-pre-line"><%= task.repair_detail %></dd></div><% } %>
+            <% if (task.replaced_parts) { %><div class="sm:col-span-2"><dt class="text-slate-500">Vị trí sửa / linh kiện thay</dt><dd class="whitespace-pre-line"><%= task.replaced_parts %></dd></div><% } %>
+            <div><dt class="text-slate-500">Giá tiền</dt><dd class="font-semibold"><%= fmt.money(task.final_price || 0) %></dd></div>
+            <% if (task.status === 'completed') { %>
+              <div><dt class="text-slate-500">Thanh toán</dt><dd><%= fmt.payment(task.payment_method) %> · BH <%= task.warranty_months || 0 %> tháng</dd></div>
+              <div><dt class="text-slate-500">Trả máy lúc</dt><dd><%= fmt.datetime(task.completed_at) %></dd></div>
+            <% } %>
+          </dl>
+        </section>
+      <% } %>
+
+      <% if (histories.length) { %>
+        <section class="card">
+          <h2 class="mb-3 font-semibold">Lịch sử các lần sửa trước</h2>
+          <ol class="space-y-3">
+            <% histories.forEach(h => { %>
+              <li class="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800">
+                <p class="flex flex-wrap items-center gap-2 font-medium">Lần <%= h.attempt_no %> <span class="<%= fmt.status(h.status).cls %>"><%= fmt.status(h.status).label %></span>
+                  <span class="text-xs font-normal text-slate-500"><%= h.technician_name || '' %> · lưu <%= fmt.datetime(h.recorded_at) %></span></p>
+                <% if (h.repair_detail) { %><p class="mt-1"><span class="text-slate-500">Chi tiết:</span> <%= h.repair_detail %></p><% } %>
+                <% if (h.replaced_parts) { %><p><span class="text-slate-500">Thay:</span> <%= h.replaced_parts %></p><% } %>
+                <% if (h.fail_reason) { %><p class="text-red-600"><span class="text-slate-500">Lý do:</span> <%= h.fail_reason %></p><% } %>
+                <% if (h.price != null) { %><p><span class="text-slate-500">Giá:</span> <%= fmt.money(h.price) %></p><% } %>
+                <% if (h.note) { %><p class="whitespace-pre-line text-slate-600 dark:text-slate-400"><%= h.note %></p><% } %>
+              </li>
+            <% }) %>
+          </ol>
+        </section>
+      <% } %>
+    </div>
+
+    <%# ---- Cột hành động ---- %>
+    <aside class="space-y-4">
+      <section class="card space-y-3">
+        <h2 class="font-semibold">Thao tác</h2>
+        <% if (task.assigned_name) { %><p class="text-sm text-slate-500">Phụ trách: <strong class="text-slate-800 dark:text-slate-200"><%= task.assigned_name %></strong></p><% } %>
+
+        <% if (task.status === 'pending') { %>
+          <% if (canWork) { %>
+            <button type="button" @click="m = 'start'" class="btn-primary w-full"><%- icon('wrench', 'h-4 w-4') %>Xử lý</button>
+          <% } else { %>
+            <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">Task đã giao cho <%= task.assigned_name %>.</p>
+          <% } %>
+        <% } else if (task.status === 'processing') { %>
+          <% if (canWork) { %>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" @click="m = 'fail'" class="btn-danger"><%- icon('x', 'h-4 w-4') %>Không sửa được</button>
+              <button type="button" @click="m = 'done'" class="btn bg-emerald-600 text-white hover:bg-emerald-700"><%- icon('check', 'h-4 w-4') %>Xong</button>
+            </div>
+          <% } else { %>
+            <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200"><%= task.assigned_name %> đang sửa máy này.</p>
+          <% } %>
+        <% } else if (['done','unrepairable'].includes(task.status)) { %>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" @click="m = 'redo'" class="btn-secondary"><%- icon('refresh', 'h-4 w-4') %>Sửa lại</button>
+            <button type="button" @click="m = 'complete'" class="btn-primary"><%- icon('checkCircle', 'h-4 w-4') %>Hoàn thành</button>
+          </div>
+        <% } else { %>
+          <p class="text-sm text-slate-500">Đã trả máy cho khách.</p>
+          <% revenues.forEach(r => { %><p class="text-sm">Đã thu <strong><%= fmt.money(r.amount) %></strong> (<%= fmt.payment(r.payment_method) %>) · <%= r.staff_name %></p><% }) %>
+        <% } %>
+      </section>
+
+      <% if (isManager && ['pending','processing'].includes(task.status)) { %>
+        <form method="post" action="/manager/assign" class="card space-y-2">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="hidden" name="task_id" value="<%= task.id %>">
+          <input type="hidden" name="back" value="/staff/tasks/<%= task.id %>">
+          <label class="block"><span class="label">Giao cho nhân viên</span>
+            <select name="user_id" class="input">
+              <option value="">— Chưa giao —</option>
+              <% staffList.forEach(s => { %><option value="<%= s.id %>" <%= s.id === task.assigned_to ? 'selected' : '' %>><%= s.full_name %></option><% }) %>
+            </select></label>
+          <button class="btn-secondary w-full"><%- icon('userCheck', 'h-4 w-4') %>Lưu phân công</button>
+        </form>
+      <% } %>
+    </aside>
+  </div>
+
+  <%# ================= POPUP ================= %>
+  <template x-if="m === 'start'">
+    <div class="modal-backdrop" @click.self="m = null">
+      <form method="post" action="/staff/tasks/<%= task.id %>/start" class="modal space-y-4">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <h3 class="text-lg font-semibold">Xác nhận xử lý</h3>
+        <p class="text-sm">Bạn sẽ nhận sửa <strong><%= task.device_model %></strong> (<%= task.ticket_code %>). Task chuyển sang <strong>Đang sửa</strong>.</p>
+        <div class="flex justify-end gap-2"><button type="button" @click="m = null" class="btn-secondary">Hủy</button><button class="btn-primary">Xác nhận</button></div>
+      </form>
+    </div>
+  </template>
+
+  <template x-if="m === 'done'">
+    <div class="modal-backdrop" @click.self="m = null">
+      <form method="post" action="/staff/tasks/<%= task.id %>/done" class="modal space-y-3">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <h3 class="text-lg font-semibold text-emerald-700 dark:text-emerald-400">Sửa xong</h3>
+        <label class="block"><span class="label">Chi tiết lỗi</span><textarea name="repair_detail" rows="3" class="input"></textarea></label>
+        <label class="block"><span class="label">Vị trí sửa chữa / linh kiện đã thay</span><textarea name="replaced_parts" rows="2" class="input"></textarea></label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block"><span class="label">KTV xử lý</span><input class="input bg-slate-50 dark:bg-slate-800/50" value="<%= user.full_name %>" disabled></label>
+          <label class="block"><span class="label">Thời gian</span><input class="input bg-slate-50 dark:bg-slate-800/50" value="<%= nowStr %>" disabled></label>
+        </div>
+        <label class="block" x-data="moneyInput('<%= task.estimated_price ?? '' %>')"><span class="label">Giá tiền (₫)</span>
+          <input class="input text-right text-lg font-semibold tabular-nums" inputmode="numeric" :value="display" @input="onInput($event)">
+          <input type="hidden" name="final_price" :value="raw"></label>
+        <div class="flex justify-end gap-2 pt-2"><button type="button" @click="m = null" class="btn-secondary">Hủy</button><button class="btn bg-emerald-600 text-white hover:bg-emerald-700">Lưu</button></div>
+      </form>
+    </div>
+  </template>
+
+  <template x-if="m === 'fail'">
+    <div class="modal-backdrop" @click.self="m = null">
+      <form method="post" action="/staff/tasks/<%= task.id %>/fail" class="modal space-y-3">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <h3 class="text-lg font-semibold text-red-600">Không sửa được</h3>
+        <label class="block"><span class="label req">Lý do</span><textarea name="fail_reason" rows="3" class="input" required></textarea></label>
+        <label class="block"><span class="label">Ghi chú</span><textarea name="note" rows="2" class="input"></textarea></label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block"><span class="label">KTV</span><input class="input bg-slate-50 dark:bg-slate-800/50" value="<%= user.full_name %>" disabled></label>
+          <label class="block"><span class="label">Thời gian</span><input class="input bg-slate-50 dark:bg-slate-800/50" value="<%= nowStr %>" disabled></label>
+        </div>
+        <div class="flex justify-end gap-2 pt-2"><button type="button" @click="m = null" class="btn-secondary">Hủy</button><button class="btn-danger">Lưu</button></div>
+      </form>
+    </div>
+  </template>
+
+  <template x-if="m === 'complete'">
+    <div class="modal-backdrop" @click.self="m = null">
+      <form method="post" action="/staff/tasks/<%= task.id %>/complete" class="modal space-y-3">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <h3 class="text-lg font-semibold">Hoàn thành — trả máy cho khách</h3>
+        <p class="text-sm text-slate-500"><%= task.device_model %> · <%= task.customer_name || '' %> <%= task.customer_phone %></p>
+        <label class="block" x-data="moneyInput('<%= task.status === 'unrepairable' ? 0 : (task.final_price ?? 0) %>')"><span class="label">Số tiền thanh toán (₫)</span>
+          <input class="input text-right text-lg font-semibold tabular-nums" inputmode="numeric" :value="display" @input="onInput($event)">
+          <input type="hidden" name="amount" :value="raw"></label>
+        <fieldset><legend class="label">Hình thức thanh toán</legend>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 p-3 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 dark:border-slate-700 dark:has-[:checked]:bg-brand-900/30"><input type="radio" name="payment_method" value="cash" checked><%- icon('cash', 'h-4 w-4') %>Tiền mặt</label>
+            <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 p-3 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 dark:border-slate-700 dark:has-[:checked]:bg-brand-900/30"><input type="radio" name="payment_method" value="transfer"><%- icon('bank', 'h-4 w-4') %>Chuyển khoản</label>
+          </div></fieldset>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block"><span class="label">Thời hạn bảo hành</span>
+            <select name="warranty_months" class="input"><% warrantyOptions.forEach(w => { %><option value="<%= w %>" <%= w === (task.status === 'unrepairable' ? 0 : 3) ? 'selected' : '' %>><%= w %> tháng</option><% }) %></select></label>
+          <label class="block"><span class="label">Thời gian</span><input class="input bg-slate-50 dark:bg-slate-800/50" value="<%= nowStr %>" disabled></label>
+        </div>
+        <div class="flex justify-end gap-2 pt-2"><button type="button" @click="m = null" class="btn-secondary">Hủy</button><button class="btn-primary"><%- icon('checkCircle', 'h-4 w-4') %>Xác nhận hoàn thành</button></div>
+      </form>
+    </div>
+  </template>
+
+  <template x-if="m === 'redo'">
+    <div class="modal-backdrop" @click.self="m = null">
+      <form method="post" action="/staff/tasks/<%= task.id %>/redo" class="modal space-y-3">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <h3 class="text-lg font-semibold">Sửa lại</h3>
+        <p class="text-sm">Thông tin lần sửa hiện tại sẽ được lưu vào lịch sử (không xóa), task quay về <strong>Đang sửa</strong>.</p>
+        <label class="block"><span class="label">Lý do sửa lại</span><textarea name="note" rows="2" class="input" placeholder="VD: khách báo còn lỗi..."></textarea></label>
+        <div class="flex justify-end gap-2"><button type="button" @click="m = null" class="btn-secondary">Hủy</button><button class="btn-primary">Xác nhận sửa lại</button></div>
+      </form>
+    </div>
+  </template>
+</div>
+<%- include('../app/_bottom') %>

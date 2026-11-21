@@ -1,0 +1,61 @@
+<%- include('../app/_top') %>
+<div class="page-title">
+  <h1><%- icon('archive', 'h-6 w-6 text-brand-600') %>Kho hàng</h1>
+  <a href="/staff/inventory/new" class="btn-primary"><%- icon('plusSquare', 'h-4 w-4') %>Nhập kho</a>
+</div>
+<div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+  <div class="stat"><p class="stat-label">Tồn kho</p><p class="stat-value"><%= fmt.num(counts.in_stock || 0) %></p></div>
+  <div class="stat"><p class="stat-label">Đã bán</p><p class="stat-value"><%= fmt.num(counts.sold || 0) %></p></div>
+  <div class="stat"><p class="stat-label">Giá trị tồn (giá KT)</p><p class="stat-value text-lg"><%= fmt.money(stockValue.tech) %></p></div>
+  <div class="stat"><p class="stat-label">Giá trị tồn (bán lẻ)</p><p class="stat-value text-lg"><%= fmt.money(stockValue.retail) %></p></div>
+</div>
+<div class="tabs">
+  <a href="?tab=in_stock<%= search ? '&q=' + encodeURIComponent(search) : '' %>" class="tab <%= tab === 'in_stock' ? 'tab-active' : '' %>">Kho hàng tồn kho (<%= counts.in_stock || 0 %>)</a>
+  <a href="?tab=sold<%= search ? '&q=' + encodeURIComponent(search) : '' %>" class="tab <%= tab === 'sold' ? 'tab-active' : '' %>">Kho hàng đã bán (<%= counts.sold || 0 %>)</a>
+</div>
+<form class="mb-3 flex gap-2">
+  <input type="hidden" name="tab" value="<%= tab %>">
+  <input name="q" value="<%= search %>" class="input" placeholder="Tên hàng, mã hàng, Serial, NPP<%= tab === 'sold' ? ', khách hàng, SĐT' : '' %>...">
+  <button class="btn-primary"><%- icon('search', 'h-4 w-4') %></button>
+</form>
+<div class="tbl-wrap">
+  <table class="tbl">
+    <thead><tr>
+      <th>Mã hàng</th><th>Tên hàng</th><th>Serial</th><th>Ngày nhập</th><th>Tình trạng</th><th>NPP</th><th>BH nhập</th>
+      <th class="text-right">Giá KT</th><th class="text-right">Giá bán lẻ</th><th>BH xuất</th>
+      <% if (tab === 'sold') { %><th>Ngày bán</th><th>Khách hàng</th><th>Hết BH</th><% } %><th>Ghi chú</th>
+    </tr></thead>
+    <tbody>
+      <% items.forEach(i => { %>
+        <tr>
+          <td class="whitespace-nowrap text-xs"><%= i.item_code %></td>
+          <td class="min-w-48 font-medium"><%= i.name %></td>
+          <td class="font-mono text-xs"><%= i.serial || '' %></td>
+          <td class="whitespace-nowrap"><%= fmt.date(i.import_date) %></td>
+          <td><%= i.condition || '' %></td>
+          <td><%= i.supplier || '' %></td>
+          <td><%= i.warranty_in_months != null ? i.warranty_in_months + ' th' : '' %></td>
+          <td class="whitespace-nowrap text-right tabular-nums"><%= fmt.num(i.tech_price) %></td>
+          <td class="whitespace-nowrap text-right font-semibold tabular-nums"><%= fmt.num(i.retail_price) %></td>
+          <td><%= i.warranty_out_months != null ? i.warranty_out_months + ' th' : '' %></td>
+          <% if (tab === 'sold') { %>
+            <td class="whitespace-nowrap"><%= fmt.date(i.sold_date) %></td>
+            <td><%= i.customer_name || '' %><br><span class="text-xs text-slate-500"><%= i.customer_phone || '' %></span></td>
+            <td class="whitespace-nowrap"><% if (i.warranty_end) { %><span class="<%= i.warranty_end >= today ? 'badge-green' : 'badge-gray' %>"><%= fmt.date(i.warranty_end) %></span><% } %></td>
+          <% } %>
+          <td class="max-w-56 text-xs text-slate-500"><%= i.note || '' %></td>
+        </tr>
+      <% }) %>
+      <% if (!items.length) { %><tr><td colspan="14" class="py-10 text-center text-slate-500">Không có hàng hóa</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<% if (pages > 1) { %>
+  <nav class="mt-4 flex flex-wrap items-center justify-center gap-1 text-sm">
+    <% const link = p => `?tab=${tab}&page=${p}${search ? '&q=' + encodeURIComponent(search) : ''}`; %>
+    <% if (page > 1) { %><a href="<%= link(page - 1) %>" class="btn-secondary px-3 py-1.5">‹</a><% } %>
+    <span class="px-3">Trang <%= page %> / <%= pages %> · <%= fmt.num(total) %> món</span>
+    <% if (page < pages) { %><a href="<%= link(page + 1) %>" class="btn-secondary px-3 py-1.5">›</a><% } %>
+  </nav>
+<% } %>
+<%- include('../app/_bottom') %>

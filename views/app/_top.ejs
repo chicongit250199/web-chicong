@@ -1,0 +1,50 @@
+<%- include('../partials/head') %>
+<div x-data="{ menu: false, notifs: false }" @open-notifs.window="notifs = true">
+<%- include('../partials/app-header') %>
+
+<% if (isManager) { %>
+  <%# Manager: sidebar trái cố định, luôn mở rộng %>
+  <aside class="fixed bottom-0 left-0 top-14 z-30 hidden w-60 overflow-y-auto border-r border-slate-200 bg-white px-3 py-4 lg:block dark:border-slate-800 dark:bg-slate-900">
+    <p class="mb-1 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">Quản lý</p>
+    <nav class="space-y-0.5"><% menuManager.forEach(item => { %><%- include('_nav_item', { item }) %><% }) %></nav>
+    <p class="mb-1 mt-5 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">Nghiệp vụ</p>
+    <nav class="space-y-0.5"><% menuStaff.slice(1).forEach(item => { %><%- include('_nav_item', { item }) %><% }) %></nav>
+  </aside>
+<% } else { %>
+  <%# Staff: thu gọn icon, hover mở rộng (đè lên nội dung) %>
+  <aside class="collapsible fixed bottom-0 left-0 top-14 z-30 hidden w-16 overflow-y-auto overflow-x-hidden border-r border-slate-200 bg-white px-2 py-3 transition-[width] duration-200 hover:w-60 hover:shadow-xl md:block dark:border-slate-800 dark:bg-slate-900">
+    <nav class="staff-nav space-y-0.5"><% menuStaff.forEach(item => { %><%- include('_nav_item', { item }) %><% }) %></nav>
+  </aside>
+<% } %>
+
+<%# Mobile: thanh dưới + drawer menu đầy đủ %>
+<nav class="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] text-[10px] font-medium backdrop-blur <%= isManager ? 'lg:hidden' : 'md:hidden' %> dark:border-slate-800 dark:bg-slate-900/95">
+  <% [[isManager ? '/manager' : '/staff', 'home', 'Tổng quan'], ['/staff/tasks/new', 'inbox', 'Nhận máy'], ['/staff/return', 'checkCircle', 'Trả máy'], ['/staff/sell', 'cart', 'Bán hàng']].forEach(([href, ic, label]) => { %>
+    <a href="<%= href %>" class="flex flex-col items-center gap-0.5 py-2 <%= path === href.replace(/\?.*/, '') ? 'text-brand-600' : 'text-slate-600 dark:text-slate-300' %>"><%- icon(ic, 'h-5 w-5') %><%= label %></a>
+  <% }) %>
+  <button type="button" @click="menu = true" class="flex flex-col items-center gap-0.5 py-2 text-slate-600 dark:text-slate-300"><%- icon('menu', 'h-5 w-5') %>Menu</button>
+</nav>
+<div x-show="menu" x-cloak x-transition.opacity class="fixed inset-0 z-50 bg-slate-950/50" @click="menu = false"></div>
+<aside x-show="menu" x-cloak x-transition:enter="transition duration-200" x-transition:enter-start="-translate-x-full" x-transition:leave="transition duration-150" x-transition:leave-end="-translate-x-full"
+       class="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] overflow-y-auto bg-white p-3 shadow-xl dark:bg-slate-900" @keydown.escape.window="menu = false">
+  <div class="mb-2 flex items-center justify-between px-2">
+    <span class="font-semibold">Menu</span>
+    <button type="button" @click="menu = false" class="rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Đóng"><%- icon('x', 'h-5 w-5') %></button>
+  </div>
+  <% if (isManager) { %>
+    <p class="mb-1 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">Quản lý</p>
+    <nav class="mb-4 space-y-0.5"><% menuManager.forEach(item => { %><%- include('_nav_item', { item }) %><% }) %></nav>
+    <p class="mb-1 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">Nghiệp vụ</p>
+  <% } %>
+  <nav class="space-y-0.5"><% menuStaff.forEach(item => { %><%- include('_nav_item', { item }) %><% }) %></nav>
+</aside>
+
+<div class="pb-20 <%= isManager ? 'lg:pb-6 lg:pl-60 xl:pr-80' : 'md:pb-6 md:pl-16' %>">
+  <main class="mx-auto max-w-6xl p-4 md:p-6">
+    <% flash.forEach(f => { %>
+      <div x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 6000)" x-transition
+           class="mb-4 flex items-start gap-2 rounded-lg px-4 py-3 text-sm <%= f.type === 'error' ? 'bg-red-50 text-red-800 ring-1 ring-red-200 dark:bg-red-950 dark:text-red-200 dark:ring-red-900' : 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-200 dark:ring-emerald-900' %>">
+        <%- icon(f.type === 'error' ? 'alert' : 'checkCircle', 'h-5 w-5 shrink-0') %><span class="flex-1"><%= f.message %></span>
+        <button type="button" @click="show = false" class="opacity-60 hover:opacity-100" aria-label="Đóng"><%- icon('x', 'h-4 w-4') %></button>
+      </div>
+    <% }) %>

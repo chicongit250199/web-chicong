@@ -1,18 +1,27 @@
-<header class="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white/90 px-4 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
-  <a href="<%= user.role === 'manager' ? '/manager' : '/staff' %>" class="flex items-center gap-2 font-semibold">
+<header class="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-3 backdrop-blur md:px-4 dark:border-slate-800 dark:bg-slate-900/95">
+  <a href="<%= user.role === 'manager' ? '/manager' : '/staff' %>" class="flex min-w-0 items-center gap-2 font-semibold">
     <% if (settings.logo_url) { %>
-      <img src="<%= settings.logo_url %>" alt="" class="h-8 w-auto">
+      <img src="<%= settings.logo_url %>" alt="" class="h-9 w-auto">
     <% } else { %>
-      <span class="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-sm font-bold text-white">CC</span>
+      <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-600 text-sm font-bold text-white">CC</span>
     <% } %>
-    <span class="hidden sm:inline"><%= settings.company_name %></span>
+    <span class="hidden truncate sm:inline"><%= settings.company_name %></span>
+    <span class="hidden rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold uppercase text-slate-500 sm:inline dark:bg-slate-800"><%= user.role === 'manager' ? 'Quản lý' : 'Nhân viên' %></span>
   </a>
-  <div class="flex items-center gap-3">
-    <%- include('theme-switch') %>
-    <span class="hidden text-sm sm:inline"><%= user.full_name %></span>
+  <div class="flex items-center gap-2">
+    <div class="hidden sm:block"><%- include('theme-switch') %></div>
+    <% if (user.role === 'manager') { %>
+      <button type="button" @click="$dispatch('open-notifs')" class="relative rounded-lg p-2 hover:bg-slate-100 xl:hidden dark:hover:bg-slate-800" aria-label="Thông báo">
+        <%- icon('bell', 'h-5 w-5') %>
+        <% if (typeof unreadCount !== 'undefined' && unreadCount) { %><span class="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500"></span><% } %>
+      </button>
+    <% } %>
+    <span class="hidden text-sm font-medium md:inline"><%= user.full_name %></span>
     <form method="post" action="/logout">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <button class="rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950">Đăng xuất</button>
+      <button class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950" title="Đăng xuất">
+        <%- icon('logout', 'h-4 w-4') %><span class="hidden sm:inline">Đăng xuất</span>
+      </button>
     </form>
   </div>
 </header>

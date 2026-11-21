@@ -1,0 +1,52 @@
+<%- include('../app/_top') %>
+<div class="page-title"><h1><%- icon('upload', 'h-6 w-6 text-brand-600') %>Đăng sản phẩm lên trang chủ</h1></div>
+<div class="grid gap-4 lg:grid-cols-3">
+  <form method="post" action="/staff/products?_csrf=<%= encodeURIComponent(csrfToken) %>" enctype="multipart/form-data" class="card space-y-4 lg:col-span-2"
+        x-data="{ name: '', specs: '', category_id: '', desc: '', preview: '', busy: false, err: '',
+                  async gen() { this.err = ''; this.busy = true;
+                    try { const d = await api('/staff/api/ai/describe', { method: 'POST', body: { name: this.name, specs: this.specs, category_id: this.category_id, price: $el.querySelector('[name=price]').value } }); this.desc = d.description; }
+                    catch (e) { this.err = e.message } finally { this.busy = false } } }">
+    <div class="grid gap-4 sm:grid-cols-2">
+      <label class="block"><span class="label req">Danh mục</span>
+        <select name="category_id" x-model="category_id" class="input" required>
+          <option value="">— Chọn —</option>
+          <% categories.forEach(c => { %><option value="<%= c.id %>"><%= c.name_vi %></option><% }) %>
+        </select></label>
+      <label class="block" x-data="moneyInput('')"><span class="label">Giá bán (₫) <span class="font-normal text-slate-400">— trống = Liên hệ</span></span>
+        <input class="input text-right tabular-nums" inputmode="numeric" :value="display" @input="onInput($event)"><input type="hidden" name="price" :value="raw"></label>
+    </div>
+    <label class="block"><span class="label req">Tên sản phẩm</span><input name="name_vi" x-model="name" class="input" required maxlength="200"></label>
+    <label class="block"><span class="label">Cấu hình / thông số</span><textarea name="specs_vi" x-model="specs" rows="4" class="input" placeholder="CPU: ...&#10;RAM: ...&#10;SSD: ..."></textarea></label>
+    <div>
+      <div class="mb-1 flex items-center justify-between gap-2">
+        <span class="label mb-0">Mô tả chi tiết</span>
+        <button type="button" @click="gen()" :disabled="busy || !name" class="btn bg-gradient-to-r from-violet-600 to-fuchsia-600 px-3 py-1.5 text-xs text-white hover:opacity-90" <%= aiEnabled ? '' : 'title="Chưa cấu hình GEMINI_API_KEY"' %>>
+          <%- icon('sparkles', 'h-4 w-4') %><span x-text="busy ? 'AI đang viết...' : 'Gemini AI viết mô tả'"></span></button>
+      </div>
+      <textarea name="desc_vi" x-model="desc" rows="9" class="input"></textarea>
+      <p x-show="err" x-cloak class="mt-1 text-sm text-red-600" x-text="err"></p>
+      <% if (!aiEnabled) { %><p class="mt-1 text-xs text-amber-600">Chưa cấu hình GEMINI_API_KEY — vẫn có thể tự viết mô tả.</p><% } %>
+    </div>
+    <label class="block"><span class="label">Ảnh sản phẩm <span class="font-normal text-slate-400">(tự nén WebP)</span></span>
+      <input type="file" name="image" accept="image/*" class="input p-1.5" @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : ''">
+      <img x-show="preview" x-cloak :src="preview" class="mt-2 h-40 rounded-lg border border-slate-200 object-contain dark:border-slate-800" alt=""></label>
+    <div class="flex justify-end gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
+      <a href="/staff/products/new" class="btn-secondary">Hủy</a>
+      <button class="btn-primary"><%- icon('upload', 'h-4 w-4') %><%= isManager ? 'Đăng ngay' : 'Gửi duyệt' %></button>
+    </div>
+  </form>
+  <aside>
+    <h2 class="mb-2 font-semibold">Sản phẩm tôi đã đăng</h2>
+    <ul class="card divide-y divide-slate-100 p-0 dark:divide-slate-800">
+      <% mine.forEach(p => { %>
+        <li class="flex items-center gap-3 px-3 py-2.5 text-sm">
+          <% if (p.image_url) { %><img src="<%= p.image_url %>" alt="" class="h-10 w-10 rounded object-cover"><% } else { %><span class="grid h-10 w-10 place-items-center rounded bg-slate-100 text-slate-400 dark:bg-slate-800"><%- icon('box', 'h-5 w-5') %></span><% } %>
+          <span class="min-w-0 flex-1"><span class="block truncate font-medium"><%= p.name_vi %></span><span class="text-xs text-slate-500"><%= p.cat_name || '' %></span></span>
+          <span class="<%= p.status === 'approved' ? 'badge-green' : 'badge-amber' %>"><%= p.status === 'approved' ? 'Đã duyệt' : 'Chờ duyệt' %></span>
+        </li>
+      <% }) %>
+      <% if (!mine.length) { %><li class="px-3 py-6 text-center text-sm text-slate-500">Chưa đăng sản phẩm nào</li><% } %>
+    </ul>
+  </aside>
+</div>
+<%- include('../app/_bottom') %>

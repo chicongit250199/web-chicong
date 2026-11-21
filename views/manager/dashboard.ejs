@@ -1,0 +1,46 @@
+<%- include('../app/_top') %>
+<div class="page-title">
+  <h1><%- icon('chart', 'h-6 w-6 text-brand-600') %>Doanh thu hôm nay <span class="text-base font-normal text-slate-500"><%= fmt.date(today) %></span></h1>
+  <a href="/manager/revenue" class="btn-secondary"><%- icon('trending', 'h-4 w-4') %>Thống kê chi tiết</a>
+</div>
+<div class="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+  <div class="stat col-span-2 xl:col-span-1">
+    <p class="stat-label">Tổng hôm nay</p>
+    <p class="stat-value text-3xl text-brand-700 dark:text-brand-300"><%= fmt.money(todayStats.total) %></p>
+    <p class="mt-1 text-xs text-slate-500"><%= todayStats.count %> giao dịch · hôm qua <%= fmt.money(yesterday) %></p>
+  </div>
+  <div class="stat"><p class="stat-label flex items-center gap-1"><%- icon('cash', 'h-3.5 w-3.5') %>Tiền mặt</p><p class="stat-value text-xl"><%= fmt.money(todayStats.cash) %></p></div>
+  <div class="stat"><p class="stat-label flex items-center gap-1"><%- icon('bank', 'h-3.5 w-3.5') %>Chuyển khoản</p><p class="stat-value text-xl"><%= fmt.money(todayStats.transfer) %></p></div>
+  <div class="stat"><p class="stat-label">Sửa chữa / Bán hàng</p><p class="mt-1 text-sm font-semibold tabular-nums"><%= fmt.money(todayStats.repair) %></p><p class="text-sm font-semibold tabular-nums"><%= fmt.money(todayStats.sale) %></p></div>
+</div>
+
+<div class="mb-4 grid gap-3 sm:grid-cols-5">
+  <% [['pending','Chờ xử lý','badge-blue'],['processing','Đang sửa','badge-amber'],['done','Sửa xong','badge-green'],['unrepairable','Không sửa được','badge-red']].forEach(([k, l, c]) => { %>
+    <a href="/staff/tasks?view=<%= k === 'done' || k === 'unrepairable' ? 'ready' : k === 'pending' ? 'all' : k %>" class="stat flex items-center justify-between hover:border-brand-400"><span class="text-sm"><%= l %></span><span class="<%= c %> text-base"><%= taskCounts[k] || 0 %></span></a>
+  <% }) %>
+  <div class="stat flex items-center justify-between"><span class="text-sm">Tháng này</span><span class="text-sm font-bold tabular-nums"><%= fmt.money(month.total) %></span></div>
+</div>
+
+<section class="card mb-4">
+  <h2 class="mb-3 font-semibold">Doanh thu 30 ngày gần nhất</h2>
+  <%- include('_bar_chart', { bars: chart, chartTitle: 'Doanh thu 30 ngày' }) %>
+</section>
+
+<section>
+  <h2 class="mb-2 font-semibold">Giao dịch hôm nay</h2>
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Giờ</th><th>Loại</th><th>Nội dung</th><th>Khách hàng</th><th class="text-right">Số tiền</th><th>Thanh toán</th><th>NV</th></tr></thead>
+    <tbody>
+      <% todayList.forEach(r => { %>
+        <tr><td class="whitespace-nowrap"><%= fmt.datetime(r.created_at).slice(-5) %></td>
+          <td><span class="<%= r.type === 'sale' ? 'badge-violet' : 'badge-blue' %>"><%= fmt.REVENUE_TYPE[r.type] %></span></td>
+          <td class="min-w-56"><%= r.content %><% if (r.delivery_address) { %><br><span class="text-xs text-slate-500">Giao: <%= r.delivery_address %></span><% } %></td>
+          <td><%= r.customer_name || '' %><br><span class="text-xs text-slate-500"><%= r.customer_phone || '' %></span></td>
+          <td class="whitespace-nowrap text-right font-semibold tabular-nums"><%= fmt.money(r.amount) %></td>
+          <td><%= fmt.payment(r.payment_method) %></td><td><%= r.staff_name %></td></tr>
+      <% }) %>
+      <% if (!todayList.length) { %><tr><td colspan="7" class="py-8 text-center text-slate-500">Chưa có giao dịch hôm nay</td></tr><% } %>
+    </tbody>
+  </table></div>
+</section>
+<%- include('../app/_bottom') %>

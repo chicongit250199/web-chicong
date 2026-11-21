@@ -12,6 +12,7 @@ const SqliteStore = require('./db/sessionStore');
 const { loadUser } = require('./middleware/auth');
 const csrf = require('./middleware/csrf');
 const locals = require('./middleware/locals');
+const flash = require('./middleware/flash');
 
 const app = express();
 app.disable('x-powered-by');
@@ -55,6 +56,7 @@ app.use(session({
 
 app.use(loadUser);
 app.use(locals);
+app.use(flash);
 
 app.use(csrf);
 
@@ -71,6 +73,8 @@ app.use((err, req, res, next) => {
   if (req.xhr || (req.get('accept') || '').includes('json')) return res.status(status).json({ error: err.expose ? err.message : 'Lỗi máy chủ' });
   res.status(status).render('error', { title: String(status), message: err.expose ? err.message : 'Có lỗi xảy ra, vui lòng thử lại.' });
 });
+
+if (process.env.BACKUP_DISABLED !== 'true') require('./services/backup').schedule(db);
 
 const server = app.listen(config.port, config.host, () => {
   console.log(`[server] Chí Công Computer chạy tại http://${config.host}:${config.port} (${config.isProd ? 'production' : 'development'})`);

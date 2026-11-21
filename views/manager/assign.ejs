@@ -1,0 +1,35 @@
+<%- include('../app/_top') %>
+<div class="page-title"><h1><%- icon('userCheck', 'h-6 w-6 text-brand-600') %>Phân task cho nhân viên</h1></div>
+<div class="mb-4 flex flex-wrap gap-2">
+  <% staff.forEach(s => { %>
+    <span class="card flex items-center gap-2 px-3 py-2 text-sm"><strong><%= s.full_name %></strong>
+      <span class="badge-blue" title="Được giao chưa làm"><%= s.pending %></span><span class="badge-amber" title="Đang sửa"><%= s.processing %></span></span>
+  <% }) %>
+</div>
+<div class="tbl-wrap"><table class="tbl">
+  <thead><tr><th>Mã phiếu</th><th>Máy</th><th>Lỗi</th><th>Khách</th><th>Trạng thái</th><th>Hẹn trả</th><th>Giao cho</th></tr></thead>
+  <tbody>
+    <% tasks.forEach(t => { const st = fmt.status(t.status); %>
+      <tr>
+        <td><a href="/staff/tasks/<%= t.id %>" class="font-medium text-brand-600 hover:underline"><%= t.ticket_code %></a><br><span class="text-xs text-slate-500"><%= fmt.datetime(t.created_at) %></span></td>
+        <td class="font-medium"><%= t.device_model %></td>
+        <td class="max-w-64 text-xs"><span class="line-clamp-2"><%= t.issue_desc %></span></td>
+        <td class="text-xs"><%= t.customer_name || '' %><br><%= t.customer_phone %></td>
+        <td><span class="<%= st.cls %>"><%= st.label %></span></td>
+        <td class="whitespace-nowrap text-xs <%= t.expected_return_date && t.expected_return_date < fmt.todayYmd() ? 'font-semibold text-red-600' : '' %>"><%= fmt.date(t.expected_return_date) %></td>
+        <td>
+          <form method="post" action="/manager/assign" class="flex gap-1">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="task_id" value="<%= t.id %>">
+            <select name="user_id" class="input py-1.5 text-xs" @change="$el.form.submit()">
+              <option value="">— Chưa giao —</option>
+              <% staff.forEach(s => { %><option value="<%= s.id %>" <%= s.id === t.assigned_to ? 'selected' : '' %>><%= s.full_name %></option><% }) %>
+            </select>
+            <noscript><button class="btn-secondary px-2 py-1 text-xs">Lưu</button></noscript>
+          </form>
+        </td>
+      </tr>
+    <% }) %>
+    <% if (!tasks.length) { %><tr><td colspan="7" class="py-10 text-center text-slate-500">Không có task chưa xử lý</td></tr><% } %>
+  </tbody>
+</table></div>
+<%- include('../app/_bottom') %>

@@ -1,0 +1,31 @@
+<%#
+  Biểu đồ cột 1 chuỗi (doanh thu). bars: [{ label, value, tip }]
+  1 màu (brand), cột mảnh bo 4px phía trên, khe 2px, lưới mờ, tooltip khi hover/chạm.
+%>
+<% const max = Math.max(1, ...bars.map(b => b.value));
+   const niceStep = (() => { const raw = max / 4; const p = Math.pow(10, Math.floor(Math.log10(raw))); return [1, 2, 2.5, 5, 10].map(m => m * p).find(s => s >= raw); })();
+   const top = niceStep * Math.ceil(max / niceStep);
+   const ticks = [0, 1, 2, 3, 4].map(i => (top / 4) * i).filter(t => t <= top);
+   const short = n => n >= 1e9 ? (n / 1e9).toFixed(n % 1e9 ? 1 : 0) + ' tỷ' : n >= 1e6 ? (n / 1e6).toFixed(n % 1e6 ? 1 : 0) + ' tr' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n);
+   const every = Math.ceil(bars.length / 12); %>
+<figure class="w-full" aria-label="<%= typeof chartTitle !== 'undefined' ? chartTitle : 'Biểu đồ doanh thu' %>">
+  <div class="flex gap-2">
+    <div class="relative h-52 w-12 shrink-0 text-right text-[11px] tabular-nums text-slate-400">
+      <% ticks.forEach(t => { %><span class="absolute right-0 -translate-y-1/2" style="bottom: <%= (t / top) * 100 %>%"><%= short(t) %></span><% }) %>
+    </div>
+    <div class="relative h-52 flex-1">
+      <% ticks.forEach(t => { %><div class="absolute inset-x-0 border-t <%= t === 0 ? 'border-slate-300 dark:border-slate-600' : 'border-dashed border-slate-200 dark:border-slate-800' %>" style="bottom: <%= (t / top) * 100 %>%"></div><% }) %>
+      <div class="absolute inset-0 flex items-end gap-[2px]">
+        <% bars.forEach(b => { %>
+          <div class="group relative flex h-full flex-1 items-end justify-center" tabindex="0" aria-label="<%= b.tip %>">
+            <div class="w-full max-w-10 rounded-t bg-brand-500 transition group-hover:bg-brand-700 group-focus:bg-brand-700 dark:bg-brand-400 dark:group-hover:bg-brand-300" style="height: <%= b.value > 0 ? Math.max(1.5, (b.value / top) * 100) : 0 %>%"></div>
+            <div class="pointer-events-none absolute bottom-full z-10 mb-1 hidden whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-xs text-white shadow-lg group-hover:block group-focus:block dark:bg-white dark:text-slate-900"><%= b.tip %></div>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+  <div class="ml-14 mt-1 flex gap-[2px] text-[10px] text-slate-400">
+    <% bars.forEach((b, i) => { %><span class="flex-1 truncate text-center"><%= i % every === 0 ? b.label : '' %></span><% }) %>
+  </div>
+</figure>

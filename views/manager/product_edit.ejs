@@ -1,0 +1,61 @@
+<%- include('../app/_top') %>
+<div class="page-title">
+  <h1><%- icon('edit', 'h-6 w-6 text-brand-600') %>Sản phẩm <span class="<%= p.status === 'approved' ? 'badge-green' : 'badge-amber' %> text-sm"><%= p.status === 'approved' ? 'Đã duyệt' : 'Chờ duyệt' %></span></h1>
+  <div class="flex gap-2">
+    <% if (p.status === 'approved') { %><a href="/p/<%= p.id %>" target="_blank" class="btn-secondary"><%- icon('external', 'h-4 w-4') %>Xem</a><% } %>
+    <a href="/manager/products?tab=<%= p.status %>" class="btn-secondary"><%- icon('arrowLeft', 'h-4 w-4') %>Danh sách</a>
+  </div>
+</div>
+<p class="mb-3 text-sm text-slate-500">Người đăng: <strong><%= p.author || '—' %></strong> · <%= fmt.datetime(p.created_at) %></p>
+<form method="post" action="/manager/products/<%= p.id %>?_csrf=<%= encodeURIComponent(csrfToken) %>" enctype="multipart/form-data" class="space-y-4" x-data="{ lang: 'vi', busy: false }" @submit="busy = true">
+  <div class="card grid gap-4 md:grid-cols-[180px_1fr]">
+    <div x-data="{ prev: '' }">
+      <div class="grid aspect-square place-items-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
+        <img x-show="prev" :src="prev" alt="" class="h-full w-full object-contain">
+        <% if (p.image_url) { %><img x-show="!prev" src="<%= p.image_url %>" alt="" class="h-full w-full object-contain"><% } else { %><span x-show="!prev" class="text-slate-400"><%- icon('box', 'h-10 w-10') %></span><% } %>
+      </div>
+      <input type="file" name="image" accept="image/*" class="mt-2 w-full text-xs" @change="prev = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : ''">
+      <% if (p.image_url) { %><label class="mt-1 flex items-center gap-1.5 text-xs text-slate-500"><input type="checkbox" name="remove_image" value="1">Xóa ảnh</label><% } %>
+    </div>
+    <div class="grid content-start gap-4 sm:grid-cols-3">
+      <label class="block"><span class="label req">Danh mục</span>
+        <select name="category_id" class="input" required>
+          <% categories.forEach(c => { %><option value="<%= c.id %>" <%= c.id === p.category_id ? 'selected' : '' %>><%= c.name_vi %></option><% }) %>
+        </select></label>
+      <label class="block" x-data="moneyInput('<%= p.price ?? '' %>')"><span class="label">Giá (₫)</span>
+        <input class="input text-right tabular-nums" inputmode="numeric" :value="display" @input="onInput($event)"><input type="hidden" name="price" :value="raw"></label>
+      <label class="flex items-end gap-2 pb-2.5 text-sm"><input type="checkbox" name="is_featured" value="1" <%= p.is_featured ? 'checked' : '' %> class="h-4 w-4">★ Nổi bật trên trang chủ</label>
+      <label class="block sm:col-span-3"><span class="label">Cấu hình / thông số</span><textarea name="specs_vi" rows="4" class="input"><%= p.specs_vi || '' %></textarea></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="tabs mb-3">
+      <% [['vi','🇻🇳 Tiếng Việt'],['en','🇬🇧 English'],['ru','🇷🇺 Русский'],['zh','🇨🇳 中文']].forEach(([l, n]) => { %>
+        <button type="button" @click="lang = '<%= l %>'" class="tab" :class="lang === '<%= l %>' && 'tab-active'"><img src="/img/flags/<%= l %>.svg" alt="" class="mr-1 inline h-3 w-[18px] rounded-[2px] align-[-1px] ring-1 ring-black/10"><%= n.split(' ').slice(1).join(' ') %>
+          <% if (l !== 'vi' && !p['name_' + l]) { %><span class="ml-1 h-1.5 w-1.5 rounded-full bg-amber-500 inline-block align-middle"></span><% } %></button>
+      <% }) %>
+    </div>
+    <% ['vi','en','ru','zh'].forEach(l => { %>
+      <div x-show="lang === '<%= l %>'" <%= l !== 'vi' ? 'x-cloak' : '' %> class="space-y-3">
+        <label class="block"><span class="label <%= l === 'vi' ? 'req' : '' %>">Tên</span><input name="name_<%= l %>" value="<%= p['name_' + l] || '' %>" class="input" <%= l === 'vi' ? 'required' : '' %>></label>
+        <label class="block"><span class="label">Mô tả</span><textarea name="desc_<%= l %>" rows="10" class="input"><%= p['desc_' + l] || '' %></textarea></label>
+      </div>
+    <% }) %>
+  </div>
+
+  <div class="flex flex-wrap items-center justify-between gap-2">
+    <div class="flex gap-2">
+      <button formaction="/manager/products/<%= p.id %>/delete?_csrf=<%= encodeURIComponent(csrfToken) %>" class="btn-danger" @click="confirm('Xóa sản phẩm này?') || $event.preventDefault()"><%- icon('trash', 'h-4 w-4') %>Xóa</button>
+      <% if (p.status === 'approved') { %><button formaction="/manager/products/<%= p.id %>/unapprove?_csrf=<%= encodeURIComponent(csrfToken) %>" class="btn-secondary">Gỡ khỏi trang chủ</button><% } %>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button name="action" value="save" class="btn-secondary"><%- icon('check', 'h-4 w-4') %>Lưu</button>
+      <button name="action" value="translate" class="btn-secondary" <%= aiEnabled ? '' : 'disabled title="Chưa cấu hình GEMINI_API_KEY"' %>><%- icon('sparkles', 'h-4 w-4') %>Lưu & dịch lại bằng AI</button>
+      <% if (p.status !== 'approved') { %>
+        <button name="action" value="approve" class="btn-primary"><%- icon('checkCircle', 'h-4 w-4') %><span x-text="busy ? 'Đang duyệt & dịch...' : '<%= aiEnabled ? 'Duyệt & dịch EN/RU/ZH' : 'Duyệt' %>'"></span></button>
+      <% } %>
+    </div>
+  </div>
+</form>
+<%- include('../app/_bottom') %>

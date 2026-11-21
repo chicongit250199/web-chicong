@@ -1,0 +1,44 @@
+<%- include('../app/_top') %>
+<% const val = k => values[k] == null ? '' : values[k]; %>
+<div class="page-title"><h1><%- icon('plusSquare', 'h-6 w-6 text-brand-600') %>Nhập kho</h1></div>
+<% if (error) { %><div class="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-200 dark:bg-red-950 dark:text-red-200 dark:ring-red-900"><%= error %></div><% } %>
+<form method="post" action="/staff/inventory" class="card space-y-4" x-data="{ serials: <%= JSON.stringify(val('serials')) %> }">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <div class="grid gap-4 sm:grid-cols-3">
+    <label class="block"><span class="label">Mã hàng</span>
+      <input name="item_code" value="<%= val('item_code') %>" class="input uppercase" maxlength="64" placeholder="Bỏ trống để tự sinh">
+      <span class="mt-1 block text-xs text-slate-500">Các món cùng loại dùng chung 1 mã</span></label>
+    <label class="block sm:col-span-2"><span class="label req">Tên hàng hóa / linh kiện</span>
+      <input name="name" value="<%= val('name') %>" class="input" required maxlength="300"></label>
+  </div>
+  <div class="grid gap-4 sm:grid-cols-3">
+    <label class="block sm:col-span-2"><span class="label">Số Serial <span class="font-normal text-slate-400">(mỗi dòng 1 mã — mỗi serial tạo 1 món)</span></span>
+      <textarea name="serials" x-model="serials" rows="4" class="input font-mono" placeholder="SN001&#10;SN002"></textarea>
+      <span class="mt-1 block text-xs text-slate-500" x-text="(serials.split(/[\r\n,;]+/).filter(s => s.trim()).length || 0) + ' serial'"></span></label>
+    <label class="block"><span class="label">Số lượng <span class="font-normal text-slate-400">(khi không có serial)</span></span>
+      <input type="number" name="quantity" min="1" max="500" value="<%= val('quantity') || 1 %>" class="input" :disabled="serials.trim().length > 0"></label>
+  </div>
+  <div class="grid gap-4 sm:grid-cols-3">
+    <label class="block"><span class="label">Ngày nhập</span><input type="date" name="import_date" value="<%= val('import_date') %>" class="input"></label>
+    <label class="block"><span class="label">Tình trạng</span>
+      <input name="condition" value="<%= val('condition') %>" list="conditions" class="input" placeholder="Mới / Cũ / Like new...">
+      <datalist id="conditions"><option value="Mới"><option value="Cũ"><option value="Like new"><option value="Đã qua sử dụng"></datalist></label>
+    <label class="block"><span class="label">Nhà phân phối (NPP)</span>
+      <input name="supplier" value="<%= val('supplier') %>" list="suppliers" class="input">
+      <datalist id="suppliers"><% suppliers.forEach(s => { %><option value="<%= s %>"><% }) %></datalist></label>
+  </div>
+  <div class="grid gap-4 sm:grid-cols-4">
+    <label class="block"><span class="label">THBH nhập (tháng)</span><input type="number" min="0" name="warranty_in_months" value="<%= val('warranty_in_months') %>" class="input"></label>
+    <label class="block" x-data="moneyInput('<%= val('tech_price') %>')"><span class="label">Giá kỹ thuật (₫)</span>
+      <input class="input text-right tabular-nums" inputmode="numeric" :value="display" @input="onInput($event)"><input type="hidden" name="tech_price" :value="raw"></label>
+    <label class="block" x-data="moneyInput('<%= val('retail_price') %>')"><span class="label">Giá bán lẻ (₫)</span>
+      <input class="input text-right tabular-nums" inputmode="numeric" :value="display" @input="onInput($event)"><input type="hidden" name="retail_price" :value="raw"></label>
+    <label class="block"><span class="label">THBH xuất (tháng)</span><input type="number" min="0" name="warranty_out_months" value="<%= val('warranty_out_months') %>" class="input"></label>
+  </div>
+  <label class="block"><span class="label">Ghi chú</span><input name="note" value="<%= val('note') %>" class="input"></label>
+  <div class="flex justify-end gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
+    <a href="/staff/inventory/new" class="btn-secondary">Hủy</a>
+    <button class="btn-primary"><%- icon('check', 'h-4 w-4') %>Lưu vào kho</button>
+  </div>
+</form>
+<%- include('../app/_bottom') %>

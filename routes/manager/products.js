@@ -1,0 +1,90 @@
+'use strict';
+const express = require('express');
+const db = require('../../db');
+const v = require('../../services/validate');
+const ai = require('../../services/aiService');
+const { imageUpload, saveImage, removeImage } = require('../../services/upload');
+
+const router = express.Router();
+const qGet = db.prepare(`SELECT p.*, u.full_name AS author FROM products p LEFT JOIN users u ON u.id = p.created_by WHERE p.id = ?`);
+
+router.get('/products', (req, res) => {
+  res.locals.nav = 'm-products';
+  const tab = req.query.tab === 'approved' ? 'approved' : 'pending';
+  const s = String(req.query.q || '').trim();
+  const products = db.prepare(`SELECT p.*, c.name_vi AS cat_name, u.full_name AS author FROM products p
+      LEFT JOIN categories c ON c.id = p.category_id LEFT JOIN users u ON u.id = p.created_by
+      WHERE p.status = ? ${s ? 'AND p.name_vi LIKE ?' : ''} ORDER BY p.created_at DESC LIMIT 300`).all(...[tab, s && `%${s}%`].filter(Boolean));
+  const counts = Object.fromEntries(db.prepare('SELECT status, COUNT(*) c FROM products GROUP BY status').all().map(r => [r.status, r.c]));
+  res.render('manager/products', { title: 'Duyệt sản phẩm', tab, products, counts, search: s });
+});
+
+router.get('/products/:id', (req, res, next) => {
+  const p = qGet.get(req.params.id);
+  if (!p) return next();
+  res.locals.nav = 'm-products';
+  res.render('manager/product_edit', { title: p.name_vi, p, categories: db.prepare('SELECT * FROM categories ORDER BY sort_order, id').all(), aiEnabled: ai.isEnabled() });
+});
+
+const editSchema = v.z.object({
+  category_id: v.z.coerce.number().int().positive('Chọn danh mục'),
+  name_vi: v.reqText('Nhập tên sản phẩm', 200), name_en: v.text(200), name_ru: v.text(200), name_zh: v.text(200),
+  specs_vi: v.text(3000),
+  desc_vi: v.text(8000), desc_en: v.text(8000), desc_ru: v.text(8000), desc_zh: v.text(8000),
+  price: v.money,
+  is_featured: v.z.preprocess(x => (x ? 1 : 0), v.z.number()),
+});
+
+async function translateInto(p) {
+  const t = await ai.translateProduct({ name: p.name_vi, desc: p.desc_vi });
+  db.prepare(`UPDATE products SET name_en=?, desc_en=?, name_ru=?, desc_ru=?, name_zh=?, desc_zh=? WHERE id=?`)
+    .run(t.en.name, t.en.desc, t.ru.name, t.ru.desc, t.zh.name, t.zh.desc, p.id);
+}
+
+// Lưu chỉnh sửa; action = save | approve | translate
+router.post('/products/:id', imageUpload.single('image'), async (req, res, next) => {
+  try {
+    const p = qGet.get(req.params.id);
+    if (!p) return next();
+    const { data, error } = v.parse(editSchema, req.body);
+    if (error) { req.flash('error', error); return res.redirect(`/manager/products/${p.id}`); }
+    let image_url = p.image_url;
+    if (req.file) { image_url = await saveImage(req.file, 'product'); removeImage(p.image_url); }
+    if (req.body.remove_image) { removeImage(p.image_url); image_url = null; }
+    db.prepare(`UPDATE products SET category_id=@category_id, name_vi=@name_vi, name_en=@name_en, name_ru=@name_ru, name_zh=@name_zh, specs_vi=@specs_vi,
+                desc_vi=@desc_vi, desc_en=@desc_en, desc_ru=@desc_ru, desc_zh=@desc_zh, price=@price, is_featured=@is_featured, image_url=@image_url WHERE id=@id`)
+      .run({ ...data, image_url, id: p.id });
+
+    const action = req.body.action;
+    if (action === 'approve' || action === 'translate') {
+      let translated = false;
+      if (ai.isEnabled()) {
+        try { await translateInto({ ...p, ...data }); translated = true; } catch (e) {
+          console.error('[ai] translate', e.message);
+          req.flash('error', `Không dịch được bằng AI (${e.message}). Có thể bấm "Dịch lại" sau.`);
+        }
+      } else if (action === 'translate') req.flash('error', 'Chưa cấu hình GEMINI_API_KEY.');
+      if (action === 'approve') {
+        db.prepare(`UPDATE products SET status = 'approved' WHERE id = ?`).run(p.id);
+        req.flash('success', `Đã duyệt "${data.name_vi}"${translated ? ' và dịch sang EN / RU / ZH' : ''}.`);
+        return res.redirect('/manager/products');
+      }
+      if (translated) req.flash('success', 'Đã dịch sang EN / RU / ZH.');
+    } else req.flash('success', 'Đã lưu.');
+    res.redirect(`/manager/products/${p.id}`);
+  } catch (e) { next(e); }
+});
+
+router.post('/products/:id/unapprove', (req, res) => {
+  db.prepare(`UPDATE products SET status = 'pending' WHERE id = ?`).run(req.params.id);
+  req.flash('success', 'Đã gỡ sản phẩm khỏi trang chủ (chuyển về chờ duyệt).');
+  res.redirect(`/manager/products/${req.params.id}`);
+});
+
+router.post('/products/:id/delete', (req, res) => {
+  const p = qGet.get(req.params.id);
+  if (p) { db.prepare('DELETE FROM products WHERE id = ?').run(p.id); removeImage(p.image_url); req.flash('success', `Đã xóa "${p.name_vi}".`); }
+  res.redirect('/manager/products');
+});
+
+module.exports = router;

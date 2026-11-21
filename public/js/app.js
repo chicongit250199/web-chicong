@@ -34,8 +34,73 @@
     return data;
   };
 
+  // Bảng thông báo real-time cho Manager (SSE)
+  var TYPE = {
+    task_new: ['bg-blue-500', 'inbox'], task_processing: ['bg-amber-500', 'wrench'], task_done: ['bg-emerald-500', 'check'],
+    task_unrepairable: ['bg-red-500', 'alert'], task_completed: ['bg-violet-500', 'checkCircle'], task_redo: ['bg-orange-500', 'refresh'],
+    sale: ['bg-pink-500', 'cart'], product: ['bg-sky-500', 'upload'], inventory: ['bg-teal-500', 'archive'],
+  };
+  var ICONS = {
+    inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/>', wrench: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',
+    check: '<path d="M20 6L9 17l-5-5"/>', alert: '<path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/>',
+    checkCircle: '<path d="M22 4L12 14l-3-3"/><circle cx="12" cy="12" r="9"/>', refresh: '<path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.8-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/>',
+    cart: '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/>',
+    upload: '<path d="M17 8l-5-5-5 5M12 3v12"/>', archive: '<rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11h16V8"/>',
+  };
+  window.notifPanel = function () {
+    return {
+      items: [], unread: 0, live: false, toasts: [],
+      init: function () {
+        var self = this;
+        try { var d = JSON.parse(document.getElementById('notif-data').textContent); self.items = d.items; self.unread = d.unread; } catch (e) {}
+        var es = new EventSource('/manager/events');
+        es.onopen = function () { self.live = true; };
+        es.onerror = function () { self.live = false; };
+        es.addEventListener('notification', function (ev) {
+          var n = JSON.parse(ev.data);
+          self.items.unshift(n);
+          if (self.items.length > 60) self.items.pop();
+          self.unread++;
+          self.toasts.push(n);
+          setTimeout(function () { self.toasts = self.toasts.filter(function (t) { return t.id !== n.id; }); }, 5000);
+        });
+        setInterval(function () { self.items = self.items.slice(); }, 60000); // cập nhật "x phút trước"
+      },
+      markRead: function () {
+        var self = this;
+        api('/manager/notifications/read', { method: 'POST' }).then(function () {
+          self.unread = 0; self.items = self.items.map(function (n) { return Object.assign({}, n, { is_read: 1 }); });
+        });
+      },
+      typeColor: function (t) { return (TYPE[t] || ['bg-slate-500'])[0]; },
+      typeIcon: function (t) {
+        var k = (TYPE[t] || [null, 'check'])[1];
+        return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">' + ICONS[k] + '</svg>';
+      },
+      timeAgo: window.timeAgo,
+    };
+  };
+
+  window.timeAgo = function (iso) {
+    var s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return 'vừa xong';
+    if (s < 3600) return Math.floor(s / 60) + ' phút trước';
+    if (s < 86400) return Math.floor(s / 3600) + ' giờ trước';
+    return new Date(iso).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  };
+
+  // Ô nhập tiền: hiển thị 1.500.000, gửi lên số nguyên
+  window.moneyInput = function (initial) {
+    return {
+      raw: initial == null || initial === '' ? '' : String(initial),
+      get display() { return this.raw === '' ? '' : formatVnd(this.raw); },
+      onInput: function (e) { this.raw = e.target.value.replace(/\D/g, ''); e.target.value = this.display; },
+    };
+  };
+
   window.formatVnd = function (n) {
     if (n === null || n === undefined || n === '') return '';
-    return new Intl.NumberFormat('vi-VN').format(Number(String(n).replace(/[^\d-]/g, '')) || 0);
+    var num = typeof n === 'number' ? n : Number(String(n).replace(/[^\d-]/g, '')) || 0;
+    return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 3 }).format(num);
   };
 })();

@@ -1,0 +1,90 @@
+<%- include('../app/_top') %>
+<div class="page-title"><h1><%- icon('cart', 'h-6 w-6 text-brand-600') %>Bán hàng</h1></div>
+<div class="grid gap-4 lg:grid-cols-5" x-data="sellForm(<%= JSON.stringify(user.full_name) %>)">
+  <div class="space-y-4 lg:col-span-3">
+    <div x-show="success" x-cloak class="flex items-center gap-2 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-200 dark:ring-emerald-900"><%- icon('checkCircle', 'h-5 w-5') %><span x-text="success"></span></div>
+    <div x-show="error" x-cloak class="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-200 dark:bg-red-950 dark:text-red-200 dark:ring-red-900"><%- icon('alert', 'h-5 w-5') %><span x-text="error"></span></div>
+
+    <form class="card space-y-4" @submit.prevent="openConfirm()">
+      <div class="relative" @click.outside="open = false">
+        <label class="block"><span class="label req">Tên hàng hóa</span>
+          <input x-model="q" @input="search()" @keydown.arrow-down.prevent="move(1)" @keydown.arrow-up.prevent="move(-1)" @keydown.enter.prevent="choose()" @focus="results.length && (open = true)"
+                 class="input" placeholder="Gõ tên hàng, mã hàng hoặc số Serial..." autocomplete="off" autofocus></label>
+        <div x-show="open" x-cloak class="absolute z-20 mt-1 max-h-80 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
+          <template x-for="(g, i) in results" :key="g.item_code + g.name">
+            <button type="button" @click="choose(g)" @mouseenter="hi = i" class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm" :class="hi === i && 'bg-brand-50 dark:bg-slate-800'">
+              <span class="min-w-0"><span class="block truncate font-medium" x-text="g.name"></span><span class="block text-xs text-slate-500" x-text="g.item_code"></span></span>
+              <span class="shrink-0 text-right"><span class="block font-semibold tabular-nums" x-text="g.retail_price != null ? formatVnd(g.retail_price) + ' ₫' : '—'"></span><span class="badge-green" x-text="'Còn ' + g.qty"></span></span>
+            </button>
+          </template>
+          <p x-show="!results.length && !loading" class="px-3 py-3 text-sm text-slate-500">Không có hàng tồn phù hợp</p>
+        </div>
+      </div>
+
+      <template x-if="group && hasSerials">
+        <label class="block"><span class="label req">Số Serial</span>
+          <select x-model="unitId" @change="applyUnit()" class="input" required>
+            <option value="" x-text="'— Chọn Serial (còn ' + group.units.length + ') —'"></option>
+            <template x-for="u in group.units" :key="u.id"><option :value="u.id" x-text="(u.serial || '(không serial)') + (u.condition ? ' · ' + u.condition : '') + (u.retail_price != null ? ' · ' + formatVnd(u.retail_price) + ' ₫' : '')"></option></template>
+          </select></label>
+      </template>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <label class="block"><span class="label req">Giá tiền (₫)</span>
+          <input class="input text-right text-lg font-semibold tabular-nums" inputmode="numeric" :value="priceDisplay" @input="onPrice($event)" required></label>
+        <label class="block"><span class="label">Bảo hành (tháng)</span>
+          <select x-model="warranty" class="input"><option value="">Theo kho</option><% [0,1,3,6,9,12,24,36].forEach(w => { %><option value="<%= w %>"><%= w %> tháng</option><% }) %></select></label>
+      </div>
+      <fieldset><legend class="label">Hình thức thanh toán</legend>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 p-3 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 dark:border-slate-700 dark:has-[:checked]:bg-brand-900/30"><input type="radio" x-model="payment" value="cash"><%- icon('cash', 'h-4 w-4') %>Tiền mặt</label>
+          <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 p-3 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 dark:border-slate-700 dark:has-[:checked]:bg-brand-900/30"><input type="radio" x-model="payment" value="transfer"><%- icon('bank', 'h-4 w-4') %>Chuyển khoản</label>
+        </div></fieldset>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <label class="block"><span class="label">Tên khách hàng</span><input x-model="customer_name" class="input" autocomplete="off"></label>
+        <label class="block"><span class="label">SĐT khách hàng</span><input x-model="customer_phone" class="input" inputmode="tel" autocomplete="off"></label>
+      </div>
+      <label class="block"><span class="label">Địa chỉ <span class="font-normal text-slate-400">(Giao hàng)</span></span>
+        <input x-model="delivery_address" class="input" placeholder="Chỉ nhập khi cần giao hàng"></label>
+      <div class="flex justify-end gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
+        <button type="button" @click="reset(); error = ''; success = ''" class="btn-secondary">Hủy</button>
+        <button class="btn-primary"><%- icon('cart', 'h-4 w-4') %>Bán hàng</button>
+      </div>
+    </form>
+  </div>
+
+  <aside class="lg:col-span-2">
+    <h2 class="mb-2 font-semibold">Bán gần đây</h2>
+    <ul class="card divide-y divide-slate-100 p-0 dark:divide-slate-800">
+      <% recent.forEach(r => { %>
+        <li class="px-4 py-2.5 text-sm"><p class="font-medium"><%= r.content %></p>
+          <p class="text-xs text-slate-500"><%= fmt.datetime(r.created_at) %> · <%= r.staff_name %> · <strong class="text-slate-700 dark:text-slate-300"><%= fmt.money(r.amount) %></strong> · <%= fmt.payment(r.payment_method) %></p></li>
+      <% }) %>
+      <% if (!recent.length) { %><li class="px-4 py-6 text-center text-sm text-slate-500">Chưa có giao dịch</li><% } %>
+    </ul>
+  </aside>
+
+  <template x-if="confirm">
+    <div class="modal-backdrop" @click.self="confirm = false" @keydown.escape.window="confirm = false">
+      <div class="modal space-y-3">
+        <h3 class="text-lg font-semibold">Xác nhận bán hàng</h3>
+        <dl class="divide-y divide-slate-100 rounded-lg border border-slate-200 text-sm dark:divide-slate-800 dark:border-slate-800">
+          <div class="flex justify-between gap-3 px-3 py-2"><dt class="text-slate-500">Hàng hóa</dt><dd class="text-right font-medium" x-text="group.name"></dd></div>
+          <div class="flex justify-between gap-3 px-3 py-2" x-show="unit.serial"><dt class="text-slate-500">Serial</dt><dd class="font-mono" x-text="unit.serial"></dd></div>
+          <div class="flex justify-between gap-3 px-3 py-2"><dt class="text-slate-500">Giá tiền</dt><dd class="text-lg font-bold text-red-600" x-text="priceDisplay + ' ₫'"></dd></div>
+          <div class="flex justify-between gap-3 px-3 py-2"><dt class="text-slate-500">Thanh toán</dt><dd x-text="payment === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'"></dd></div>
+          <div class="flex justify-between gap-3 px-3 py-2"><dt class="text-slate-500">Bảo hành</dt><dd x-text="(warranty || unit.warranty_out_months || 0) + ' tháng'"></dd></div>
+          <div class="flex justify-between gap-3 px-3 py-2"><dt class="text-slate-500">Khách hàng</dt><dd class="text-right" x-text="(customer_name || '—') + (customer_phone ? ' · ' + customer_phone : '')"></dd></div>
+          <div class="flex justify-between gap-3 px-3 py-2" x-show="delivery_address"><dt class="text-slate-500">Giao hàng</dt><dd class="text-right" x-text="delivery_address"></dd></div>
+          <div class="flex justify-between gap-3 px-3 py-2"><dt class="text-slate-500">Nhân viên</dt><dd class="font-medium" x-text="staffName"></dd></div>
+          <div class="flex justify-between gap-3 px-3 py-2"><dt class="text-slate-500">Thời gian</dt><dd x-text="confirmTime"></dd></div>
+        </dl>
+        <div class="flex justify-end gap-2 pt-1">
+          <button type="button" @click="confirm = false" class="btn-secondary">Quay lại</button>
+          <button type="button" @click="submit()" :disabled="sending" class="btn-primary"><span x-text="sending ? 'Đang lưu...' : 'Xác nhận bán'"></span></button>
+        </div>
+      </div>
+    </div>
+  </template>
+</div>
+<%- include('../app/_bottom') %>

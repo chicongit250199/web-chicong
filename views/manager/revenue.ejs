@@ -1,0 +1,62 @@
+<%- include('../app/_top') %>
+<% const qs = new URLSearchParams({ group: f.group, from: f.from, to: f.to, type: f.type, payment: f.payment }).toString(); %>
+<div class="page-title">
+  <h1><%- icon('trending', 'h-6 w-6 text-brand-600') %>Thống kê doanh thu</h1>
+  <a href="/manager/revenue.csv?<%= qs %>" class="btn-secondary"><%- icon('download', 'h-4 w-4') %>Xuất Excel (CSV)</a>
+</div>
+<form class="card mb-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+  <label class="block"><span class="label">Gom theo</span>
+    <select name="group" class="input" @change="$el.form.from.value = ''; $el.form.to.value = ''; $el.form.submit()">
+      <% [['day','Ngày'],['month','Tháng'],['year','Năm']].forEach(([k, l]) => { %><option value="<%= k %>" <%= f.group === k ? 'selected' : '' %>><%= l %></option><% }) %>
+    </select></label>
+  <label class="block"><span class="label">Từ ngày</span><input type="date" name="from" value="<%= f.from %>" class="input"></label>
+  <label class="block"><span class="label">Đến ngày</span><input type="date" name="to" value="<%= f.to %>" class="input"></label>
+  <label class="block"><span class="label">Loại giao dịch</span>
+    <select name="type" class="input"><option value="">Tất cả</option><option value="repair" <%= f.type === 'repair' ? 'selected' : '' %>>Sửa chữa</option><option value="sale" <%= f.type === 'sale' ? 'selected' : '' %>>Bán hàng</option></select></label>
+  <label class="block"><span class="label">Thanh toán</span>
+    <select name="payment" class="input"><option value="">Tất cả</option><option value="cash" <%= f.payment === 'cash' ? 'selected' : '' %>>Tiền mặt</option><option value="transfer" <%= f.payment === 'transfer' ? 'selected' : '' %>>Chuyển khoản</option></select></label>
+  <div class="flex items-end"><button class="btn-primary w-full"><%- icon('search', 'h-4 w-4') %>Lọc</button></div>
+</form>
+
+<div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
+  <div class="stat col-span-2 lg:col-span-1"><p class="stat-label">Tổng doanh thu</p><p class="stat-value text-brand-700 dark:text-brand-300"><%= fmt.money(totals.total) %></p><p class="text-xs text-slate-500"><%= totals.count %> giao dịch</p></div>
+  <div class="stat"><p class="stat-label">Tiền mặt</p><p class="stat-value text-lg"><%= fmt.money(totals.cash) %></p></div>
+  <div class="stat"><p class="stat-label">Chuyển khoản</p><p class="stat-value text-lg"><%= fmt.money(totals.transfer) %></p></div>
+  <div class="stat"><p class="stat-label">Sửa chữa</p><p class="stat-value text-lg"><%= fmt.money(totals.repair) %></p></div>
+  <div class="stat"><p class="stat-label">Bán hàng</p><p class="stat-value text-lg"><%= fmt.money(totals.sale) %></p></div>
+</div>
+
+<section class="card mb-4">
+  <h2 class="mb-3 font-semibold">Doanh thu theo <%= { day: 'ngày', month: 'tháng', year: 'năm' }[f.group] %></h2>
+  <% if (chart.length) { %><%- include('_bar_chart', { bars: chart }) %><% } else { %><p class="py-8 text-center text-sm text-slate-500">Không có dữ liệu</p><% } %>
+</section>
+
+<div class="grid gap-4 xl:grid-cols-2">
+  <section>
+    <h2 class="mb-2 font-semibold">Bảng tổng hợp</h2>
+    <div class="tbl-wrap max-h-[480px] overflow-y-auto"><table class="tbl">
+      <thead class="sticky top-0"><tr><th><%= { day: 'Ngày', month: 'Tháng', year: 'Năm' }[f.group] %></th><th class="text-right">GD</th><th class="text-right">Tiền mặt</th><th class="text-right">Chuyển khoản</th><th class="text-right">Tổng</th></tr></thead>
+      <tbody>
+        <% rows.slice().reverse().filter(r => r.count).forEach(r => { %>
+          <tr><td class="whitespace-nowrap"><%= f.group === 'day' ? fmt.date(r.period) : periodLabel(r.period, f.group) %></td><td class="text-right tabular-nums"><%= r.count %></td>
+            <td class="text-right tabular-nums"><%= fmt.num(r.cash) %></td><td class="text-right tabular-nums"><%= fmt.num(r.transfer) %></td><td class="text-right font-semibold tabular-nums"><%= fmt.num(r.total) %></td></tr>
+        <% }) %>
+        <% if (!totals.count) { %><tr><td colspan="5" class="py-8 text-center text-slate-500">Không có giao dịch</td></tr><% } %>
+      </tbody>
+    </table></div>
+  </section>
+  <section>
+    <h2 class="mb-2 font-semibold">Chi tiết giao dịch <span class="text-xs font-normal text-slate-500">(300 gần nhất)</span></h2>
+    <div class="tbl-wrap max-h-[480px] overflow-y-auto"><table class="tbl">
+      <thead class="sticky top-0"><tr><th>Thời gian</th><th>Nội dung</th><th class="text-right">Số tiền</th><th>TT</th><th>NV</th></tr></thead>
+      <tbody>
+        <% details.forEach(r => { %>
+          <tr><td class="whitespace-nowrap text-xs"><%= fmt.datetime(r.created_at) %></td>
+            <td class="text-xs"><span class="<%= r.type === 'sale' ? 'badge-violet' : 'badge-blue' %> mr-1"><%= fmt.REVENUE_TYPE[r.type] %></span><%= r.content %></td>
+            <td class="whitespace-nowrap text-right font-semibold tabular-nums"><%= fmt.num(r.amount) %></td><td class="text-xs"><%= r.payment_method === 'cash' ? 'TM' : 'CK' %></td><td class="text-xs"><%= r.staff_name %></td></tr>
+        <% }) %>
+      </tbody>
+    </table></div>
+  </section>
+</div>
+<%- include('../app/_bottom') %>

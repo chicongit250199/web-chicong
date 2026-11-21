@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phiếu <%= task.ticket_code %></title>
+  <style>
+    body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #111; background: #fff; margin: 0; }
+    .sheet { max-width: 148mm; margin: 0 auto; padding: 10mm; }
+    h1 { font-size: 18px; margin: 8px 0 2px; text-align: center; }
+    .muted { color: #555; font-size: 12px; } .center { text-align: center; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; } td { padding: 5px 4px; border-bottom: 1px dotted #999; vertical-align: top; }
+    td:first-child { width: 38%; color: #444; } .sign { display: flex; justify-content: space-between; margin-top: 24px; text-align: center; }
+    .sign div { width: 45%; } .sign p { margin-top: 56px; } .code { font-size: 16px; font-weight: 700; letter-spacing: 1px; }
+    .actions { text-align: center; margin: 16px; } @media print { .actions { display: none; } }
+    button { padding: 8px 16px; font-size: 14px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="actions"><button type="button" id="print-btn">In phiếu</button></div>
+  <div class="sheet">
+    <div class="center"><strong><%= settings.legal_name %></strong><br><span class="muted"><%= settings.address %> · ĐT <%= settings.phone %></span></div>
+    <h1>PHIẾU NHẬN MÁY</h1>
+    <p class="center code"><%= task.ticket_code %></p>
+    <table>
+      <tr><td>Ngày nhận</td><td><%= fmt.datetime(task.created_at) %></td></tr>
+      <tr><td>Khách hàng</td><td><%= task.customer_name || '' %> — <%= task.customer_phone %></td></tr>
+      <tr><td>Model máy</td><td><strong><%= task.device_model %></strong></td></tr>
+      <% if (task.specs) { %><tr><td>Cấu hình</td><td><%= task.specs %></td></tr><% } %>
+      <tr><td>Tình trạng / lỗi</td><td><%= task.issue_desc %></td></tr>
+      <tr><td>Phụ kiện kèm theo</td><td><%= task.accessories || 'Không' %></td></tr>
+      <tr><td>Báo giá dự kiến</td><td><%= task.estimated_price != null ? fmt.money(task.estimated_price) : 'Báo sau khi kiểm tra' %></td></tr>
+      <tr><td>Hẹn trả</td><td><%= task.expected_return_date ? fmt.date(task.expected_return_date) : '' %></td></tr>
+    </table>
+    <p class="muted">Quý khách vui lòng mang theo phiếu này khi nhận máy. Cửa hàng không chịu trách nhiệm dữ liệu nếu không được thông báo trước.</p>
+    <div class="sign"><div><strong>Khách hàng</strong><p>&nbsp;</p></div><div><strong>Nhân viên nhận</strong><p><%= task.received_name || '' %></p></div></div>
+  </div>
+  <script nonce="<%= nonce %>">document.getElementById('print-btn').onclick = function () { window.print(); };</script>
+</body>
+</html>

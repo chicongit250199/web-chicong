@@ -15,7 +15,9 @@ function csrf(req, res, next) {
   if (SAFE.includes(req.method)) return next();
   if (!req.session.csrf) return reject(req, res);
 
-  const sent = req.get('x-csrf-token') || (req.body && req.body._csrf) || '';
+  // Form multipart (upload ảnh/Excel) được multer đọc sau middleware này -> token đi qua ?_csrf=
+  const multipart = (req.get('content-type') || '').startsWith('multipart/form-data');
+  const sent = req.get('x-csrf-token') || (req.body && req.body._csrf) || (multipart && req.query._csrf) || '';
   const a = Buffer.from(String(sent));
   const b = Buffer.from(req.session.csrf);
   if (a.length === b.length && crypto.timingSafeEqual(a, b)) return next();

@@ -1,0 +1,41 @@
+<%- include('../app/_top') %>
+<% const val = k => values[k] == null ? '' : values[k]; %>
+<div class="page-title">
+  <h1><%- icon('inbox', 'h-6 w-6 text-brand-600') %>Nhận máy</h1>
+  <span class="text-sm text-slate-500">Người nhận: <strong><%= user.full_name %></strong></span>
+</div>
+<% if (error) { %><div class="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-200 dark:bg-red-950 dark:text-red-200 dark:ring-red-900"><%= error %></div><% } %>
+<form method="post" action="/staff/tasks" class="card space-y-4" x-data x-ref="form">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <label class="block"><span class="label">Ngày giờ nhận</span>
+      <input class="input bg-slate-50 dark:bg-slate-800/50" value="<%= fmt.datetime(now) %>" disabled></label>
+    <label class="block"><span class="label">Tên khách hàng</span>
+      <input name="customer_name" value="<%= val('customer_name') %>" class="input" maxlength="120" autocomplete="off"></label>
+    <label class="block"><span class="label req">SĐT khách hàng</span>
+      <input name="customer_phone" value="<%= val('customer_phone') %>" class="input" required inputmode="tel" pattern="[0-9+ .]{8,20}" autocomplete="off"></label>
+    <label class="block"><span class="label req">Model máy / linh kiện</span>
+      <input name="device_model" value="<%= val('device_model') %>" class="input" required maxlength="200" placeholder="VD: Dell Latitude 5420" autocomplete="off"></label>
+  </div>
+  <label class="block"><span class="label">Cấu hình</span>
+    <textarea name="specs" rows="2" class="input" placeholder="CPU, RAM, ổ cứng..."><%= val('specs') %></textarea></label>
+  <label class="block"><span class="label req">Mô tả lỗi</span>
+    <textarea name="issue_desc" rows="3" class="input" required><%= val('issue_desc') %></textarea></label>
+  <div class="grid gap-4 sm:grid-cols-3">
+    <label class="block" x-data="moneyInput('<%= val('estimated_price') %>')"><span class="label">Báo giá dự kiến (₫)</span>
+      <input class="input text-right tabular-nums" inputmode="numeric" :value="display" @input="onInput($event)">
+      <input type="hidden" name="estimated_price" :value="raw"></label>
+    <label class="block"><span class="label">Ngày trả dự kiến</span>
+      <input type="date" name="expected_return_date" value="<%= val('expected_return_date') %>" class="input"></label>
+    <label class="block"><span class="label">Phụ kiện đi kèm</span>
+      <input name="accessories" value="<%= val('accessories') %>" class="input" placeholder="Sạc, túi, chuột..."></label>
+  </div>
+  <label class="block"><span class="label">Ghi chú</span>
+    <input name="note" value="<%= val('note') %>" class="input" placeholder="Mật khẩu máy, dữ liệu cần giữ..."></label>
+  <div class="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
+    <a href="/staff/tasks/new" class="btn-secondary">Hủy</a>
+    <button name="print" value="1" class="btn-secondary"><%- icon('receipt', 'h-4 w-4') %>Lưu & in phiếu</button>
+    <button class="btn-primary"><%- icon('check', 'h-4 w-4') %>Lưu</button>
+  </div>
+</form>
+<%- include('../app/_bottom') %>

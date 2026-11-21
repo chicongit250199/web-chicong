@@ -1,0 +1,68 @@
+<%- include('../app/_top') %>
+<div class="page-title"><h1><%- icon('search', 'h-6 w-6 text-brand-600') %>Tìm kiếm</h1></div>
+<form class="mb-5 flex gap-2">
+  <input name="q" value="<%= search %>" class="input text-base" placeholder="Nhập SĐT khách hàng, số Serial, mã phiếu hoặc model máy..." autofocus>
+  <button class="btn-primary"><%- icon('search', 'h-4 w-4') %>Tìm</button>
+</form>
+<% if (search) { %>
+  <section class="mb-6">
+    <h2 class="mb-2 font-semibold">Lịch sử sửa chữa <span class="badge-gray"><%= tasks.length %></span></h2>
+    <% if (tasks.length) { %>
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>Mã phiếu</th><th>Ngày nhận</th><th>Khách hàng</th><th>Model</th><th>Trạng thái</th><th class="text-right">Giá</th><th>Bảo hành</th></tr></thead>
+        <tbody>
+          <% tasks.forEach(t => { const st = fmt.status(t.status); %>
+            <tr>
+              <td><a href="/staff/tasks/<%= t.id %>" class="font-medium text-brand-600 hover:underline"><%= t.ticket_code %></a></td>
+              <td class="whitespace-nowrap"><%= fmt.datetime(t.created_at) %></td>
+              <td><%= t.customer_name || '' %><br><span class="text-xs text-slate-500"><%= t.customer_phone %></span></td>
+              <td><%= t.device_model %><br><span class="text-xs text-slate-500 line-clamp-1"><%= t.issue_desc %></span></td>
+              <td><span class="<%= st.cls %>"><%= st.label %></span></td>
+              <td class="whitespace-nowrap text-right tabular-nums"><%= t.final_price != null ? fmt.money(t.final_price) : '' %></td>
+              <td class="whitespace-nowrap text-xs"><% if (t.completed_at && t.warranty_months) { const end = new Date(t.completed_at); end.setMonth(end.getMonth() + t.warranty_months); const endY = fmt.todayYmd(end); %>
+                <span class="<%= endY >= today ? 'badge-green' : 'badge-gray' %>">đến <%= fmt.date(endY) %></span><% } %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table></div>
+    <% } else { %><p class="card text-sm text-slate-500">Không có task.</p><% } %>
+  </section>
+
+  <section class="mb-6">
+    <h2 class="mb-2 font-semibold">Hàng hóa / Serial bảo hành <span class="badge-gray"><%= items.length %></span></h2>
+    <% if (items.length) { %>
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>Serial</th><th>Hàng hóa</th><th>Trạng thái</th><th>Ngày bán</th><th>Khách hàng</th><th>Bảo hành</th><th>NPP / BH nhập</th></tr></thead>
+        <tbody>
+          <% items.forEach(i => { %>
+            <tr>
+              <td class="font-mono text-xs"><%= i.serial || '—' %></td>
+              <td><%= i.name %><br><span class="text-xs text-slate-500"><%= i.item_code %></span></td>
+              <td><span class="<%= i.status === 'sold' ? 'badge-gray' : 'badge-green' %>"><%= i.status === 'sold' ? 'Đã bán' : 'Tồn kho' %></span></td>
+              <td class="whitespace-nowrap"><%= fmt.date(i.sold_date) %></td>
+              <td><%= i.customer_name || '' %><br><span class="text-xs text-slate-500"><%= i.customer_phone || '' %></span></td>
+              <td class="whitespace-nowrap text-xs"><% if (i.warranty_end) { %><span class="<%= i.warranty_end >= today ? 'badge-green' : 'badge-red' %>"><%= i.warranty_end >= today ? 'Còn BH' : 'Hết BH' %> · <%= fmt.date(i.warranty_end) %></span><% } else if (i.status === 'sold') { %>Không BH<% } %></td>
+              <td class="text-xs"><%= i.supplier || '' %><%= i.warranty_in_months ? ' · ' + i.warranty_in_months + ' th' : '' %><br><span class="text-slate-500">Nhập <%= fmt.date(i.import_date) %></span></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table></div>
+    <% } else { %><p class="card text-sm text-slate-500">Không có hàng hóa.</p><% } %>
+  </section>
+
+  <% if (sales.length) { %>
+    <section>
+      <h2 class="mb-2 font-semibold">Giao dịch của khách <span class="badge-gray"><%= sales.length %></span></h2>
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>Thời gian</th><th>Loại</th><th>Nội dung</th><th class="text-right">Số tiền</th><th>Thanh toán</th><th>BH</th><th>NV</th></tr></thead>
+        <tbody><% sales.forEach(r => { %>
+          <tr><td class="whitespace-nowrap"><%= fmt.datetime(r.created_at) %></td><td><%= fmt.REVENUE_TYPE[r.type] %></td><td><%= r.content %></td>
+            <td class="whitespace-nowrap text-right tabular-nums"><%= fmt.money(r.amount) %></td><td><%= fmt.payment(r.payment_method) %></td><td><%= r.warranty_months || 0 %> th</td><td><%= r.staff_name %></td></tr>
+        <% }) %></tbody>
+      </table></div>
+    </section>
+  <% } %>
+<% } else { %>
+  <p class="card py-12 text-center text-sm text-slate-500">Tra cứu toàn bộ lịch sử sửa chữa và thông tin bảo hành theo SĐT khách hàng hoặc số Serial.</p>
+<% } %>
+<%- include('../app/_bottom') %>

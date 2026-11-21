@@ -1,0 +1,28 @@
+<%- include('../app/_top') %>
+<div class="page-title">
+  <h1><%- icon('checkSquare', 'h-6 w-6 text-brand-600') %>Duyệt sản phẩm</h1>
+  <a href="/staff/products/new" class="btn-primary"><%- icon('upload', 'h-4 w-4') %>Đăng sản phẩm</a>
+</div>
+<div class="tabs">
+  <a href="?tab=pending" class="tab <%= tab === 'pending' ? 'tab-active' : '' %>">Chờ duyệt (<%= counts.pending || 0 %>)</a>
+  <a href="?tab=approved" class="tab <%= tab === 'approved' ? 'tab-active' : '' %>">Đã duyệt (<%= counts.approved || 0 %>)</a>
+</div>
+<form class="mb-3 flex gap-2"><input type="hidden" name="tab" value="<%= tab %>"><input name="q" value="<%= search %>" class="input" placeholder="Tìm tên sản phẩm..."><button class="btn-primary"><%- icon('search', 'h-4 w-4') %></button></form>
+<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+  <% products.forEach(p => { %>
+    <a href="/manager/products/<%= p.id %>" class="card flex gap-3 p-3 hover:border-brand-400">
+      <% if (p.image_url) { %><img src="<%= p.image_url %>" alt="" class="h-20 w-20 shrink-0 rounded-lg object-cover"><% } else { %><span class="grid h-20 w-20 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-400 dark:bg-slate-800"><%- icon('box', 'h-8 w-8') %></span><% } %>
+      <span class="min-w-0 flex-1">
+        <span class="line-clamp-2 font-medium"><%= p.name_vi %></span>
+        <span class="mt-0.5 block text-xs text-slate-500"><%= p.cat_name || 'Chưa có danh mục' %> · <%= p.author || '—' %> · <%= fmt.datetime(p.created_at) %></span>
+        <span class="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+          <strong class="text-red-600"><%= p.price ? fmt.money(p.price) : 'Liên hệ' %></strong>
+          <% if (p.is_featured) { %><span class="badge-amber">★ Nổi bật</span><% } %>
+          <span class="<%= p.name_en && p.name_ru && p.name_zh ? 'badge-green' : 'badge-gray' %>"><%= p.name_en && p.name_ru && p.name_zh ? 'Đủ 4 ngôn ngữ' : 'Chưa dịch' %></span>
+        </span>
+      </span>
+    </a>
+  <% }) %>
+</div>
+<% if (!products.length) { %><p class="card py-12 text-center text-sm text-slate-500"><%= tab === 'pending' ? 'Không có sản phẩm chờ duyệt.' : 'Chưa có sản phẩm.' %></p><% } %>
+<%- include('../app/_bottom') %>

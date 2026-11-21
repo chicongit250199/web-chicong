@@ -1,0 +1,28 @@
+<%- include('../app/_top') %>
+<div class="page-title">
+  <h1><%- icon('home', 'h-6 w-6 text-brand-600') %>Xin chào, <%= user.full_name %></h1>
+  <a href="/staff/tasks/new" class="btn-primary"><%- icon('inbox', 'h-4 w-4') %>Nhận máy</a>
+</div>
+<div class="grid gap-4 lg:grid-cols-2">
+  <section>
+    <h2 class="mb-2 flex items-center justify-between font-semibold">
+      <span class="flex items-center gap-2"><span class="h-2.5 w-2.5 rounded-full bg-blue-500"></span>Task mới chưa nhận</span>
+      <span class="badge-blue"><%= newTasks.length %></span>
+    </h2>
+    <div class="space-y-2">
+      <% newTasks.forEach(t => { %><%- include('_task_card', { t }) %><% }) %>
+      <% if (!newTasks.length) { %><p class="card py-10 text-center text-sm text-slate-500">Không có task mới</p><% } %>
+    </div>
+  </section>
+  <section>
+    <h2 class="mb-2 flex items-center justify-between font-semibold">
+      <span class="flex items-center gap-2"><span class="h-2.5 w-2.5 rounded-full bg-amber-500"></span><%= isManager ? 'Đang xử lý / đã giao' : 'Task của tôi (đang làm / được giao)' %></span>
+      <span class="badge-amber"><%= mine.length %></span>
+    </h2>
+    <div class="space-y-2">
+      <% mine.forEach(t => { %><%- include('_task_card', { t }) %><% }) %>
+      <% if (!mine.length) { %><p class="card py-10 text-center text-sm text-slate-500">Chưa có task nào</p><% } %>
+    </div>
+  </section>
+</div>
+<%- include('../app/_bottom') %>

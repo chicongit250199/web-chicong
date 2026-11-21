@@ -1,0 +1,19 @@
+'use strict';
+const express = require('express');
+const { requireRole } = require('../../middleware/auth');
+const appShell = require('../../middleware/appShell');
+
+const router = express.Router();
+router.use(requireRole('manager'));
+// SSE không cần dữ liệu khung trang
+router.use((req, res, next) => (req.path === '/events' ? next() : appShell(req, res, next)));
+
+router.use(require('./revenue'));
+router.use(require('./users'));
+router.use(require('./assign'));
+router.use(require('./homepage'));
+router.use(require('./products'));
+router.use(require('./import'));
+router.use(require('./vat'));
+
+module.exports = router;

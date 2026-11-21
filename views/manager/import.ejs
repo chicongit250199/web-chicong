@@ -1,0 +1,62 @@
+<%- include('../app/_top') %>
+<div class="page-title"><h1><%- icon('fileSheet', 'h-6 w-6 text-brand-600') %>Import kho hàng từ Excel</h1></div>
+
+<% if (!data) { %>
+  <form method="post" action="/manager/import?_csrf=<%= encodeURIComponent(csrfToken) %>" enctype="multipart/form-data" class="card space-y-4" x-data="{ busy: false, name: '' }" @submit="busy = true">
+    <label class="grid cursor-pointer place-items-center gap-2 rounded-xl border-2 border-dashed border-slate-300 px-4 py-10 text-center hover:border-brand-500 dark:border-slate-700">
+      <%- icon('upload', 'h-10 w-10 text-brand-600') %>
+      <span class="font-medium" x-text="name || 'Chọn file Excel kho cũ (.xlsx / .xls)'"></span>
+      <span class="text-xs text-slate-500">Tối đa 15MB · đọc tất cả các sheet</span>
+      <input type="file" name="file" accept=".xlsx,.xls,.xlsm,.csv" required class="sr-only" @change="name = $event.target.files[0]?.name || ''">
+    </label>
+    <div class="flex justify-end"><button class="btn-primary" :disabled="busy"><%- icon('search', 'h-4 w-4') %><span x-text="busy ? 'Đang đọc file...' : 'Đọc & xem trước'"></span></button></div>
+  </form>
+  <section class="card mt-4 text-sm">
+    <h2 class="mb-2 font-semibold">Cấu trúc 15 cột được nhận diện</h2>
+    <p class="mb-2 text-slate-500">Hệ thống tự tìm dòng tiêu đề (không phân biệt dấu/hoa thường), thứ tự cột tùy ý:</p>
+    <div class="flex flex-wrap gap-1.5">
+      <% ['SKU → Mã hàng','Tên Linh Kiện','Số Serrial','Ngày nhập','Tình Trạng','NPP','THBH Nhập','Ngày bán','Tên KH','Đã Bán','SDT KH','THBH Xuất','Ghi chú','Giá KT','Giá bán lẻ'].forEach(c => { %><span class="badge-gray"><%= c %></span><% }) %>
+    </div>
+    <ul class="mt-3 list-disc space-y-1 pl-5 text-slate-600 dark:text-slate-400">
+      <li>Vào nhóm <strong>Đã bán</strong> nếu cột <em>Đã Bán</em> có giá trị (x, 1, ✓...) hoặc ô được tô màu, hoặc có <em>Ngày bán</em> / <em>Tên KH</em>. Còn lại vào <strong>Tồn kho</strong>.</li>
+      <li>Dòng trùng Serial (trong file hoặc đã có trong kho) được đánh dấu và bỏ qua.</li>
+      <li>SKU trống → tự sinh mã hàng từ tên. Ngày dạng dd/mm/yyyy hoặc ngày Excel; giá có thể ghi 1.500.000 / 1,5tr / 500k.</li>
+    </ul>
+  </section>
+<% } else { %>
+  <div class="card mb-4 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <p class="font-semibold"><%- icon('fileSheet', 'mr-1 inline h-5 w-5 text-emerald-600') %><%= data.fileName %></p>
+      <p class="text-sm text-slate-500"><%= summary.total %> dòng đọc được</p>
+    </div>
+    <div class="flex gap-2">
+      <form method="post" action="/manager/import/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn-secondary">Hủy / chọn file khác</button></form>
+      <form method="post" action="/manager/import/confirm" x-data="{ busy: false }" @submit="busy = true"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button class="btn-primary" :disabled="busy || <%= summary.in_stock + summary.sold === 0 %>"><%- icon('check', 'h-4 w-4') %><span x-text="busy ? 'Đang lưu...' : 'Xác nhận import <%= summary.in_stock + summary.sold %> món'"></span></button></form>
+    </div>
+  </div>
+  <% data.warnings.forEach(w => { %><p class="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200"><%= w %></p><% }) %>
+  <div class="mb-3 grid grid-cols-3 gap-3">
+    <a href="?show=in_stock" class="stat hover:border-brand-400 <%= filter === 'in_stock' ? 'ring-2 ring-brand-500' : '' %>"><p class="stat-label">Kho hàng tồn kho</p><p class="stat-value text-emerald-600"><%= summary.in_stock %></p></a>
+    <a href="?show=sold" class="stat hover:border-brand-400 <%= filter === 'sold' ? 'ring-2 ring-brand-500' : '' %>"><p class="stat-label">Kho hàng đã bán</p><p class="stat-value text-violet-600"><%= summary.sold %></p></a>
+    <a href="?show=duplicate" class="stat hover:border-brand-400 <%= filter === 'duplicate' ? 'ring-2 ring-brand-500' : '' %>"><p class="stat-label">Trùng Serial (bỏ qua)</p><p class="stat-value text-red-600"><%= summary.duplicate %></p></a>
+  </div>
+  <p class="mb-2 text-sm text-slate-500">Đang xem: <a href="?show=all" class="text-brand-600 hover:underline <%= filter === 'all' ? 'font-semibold' : '' %>">tất cả</a> · <%= shown %> dòng<%= shown > rows.length ? ` (hiện ${rows.length} dòng đầu)` : '' %></p>
+  <div class="tbl-wrap max-h-[65vh] overflow-y-auto"><table class="tbl text-xs">
+    <thead class="sticky top-0"><tr><th>Dòng</th><th>Nhóm</th><th>Mã hàng</th><th>Tên</th><th>Serial</th><th>Ngày nhập</th><th>Tình trạng</th><th>NPP</th><th>BH nhập</th><th class="text-right">Giá KT</th><th class="text-right">Giá bán lẻ</th><th>Ngày bán</th><th>Khách</th><th>BH xuất</th><th>Ghi chú</th></tr></thead>
+    <tbody>
+      <% rows.forEach(r => { %>
+        <tr class="<%= r.duplicate ? 'bg-red-50/60 dark:bg-red-950/30' : '' %>">
+          <td class="whitespace-nowrap text-slate-500"><%= r.sheet %>:<%= r.line %></td>
+          <td class="whitespace-nowrap"><% if (r.duplicate) { %><span class="badge-red" title="<%= r.duplicate %>">Trùng</span><% } else { %><span class="<%= r.status === 'sold' ? 'badge-violet' : 'badge-green' %>"><%= r.status === 'sold' ? 'Đã bán' : 'Tồn kho' %></span><% } %></td>
+          <td class="whitespace-nowrap"><%= r.item_code %></td><td class="min-w-40 font-medium"><%= r.name %></td><td class="font-mono"><%= r.serial || '' %></td>
+          <td class="whitespace-nowrap"><%= fmt.date(r.import_date) %></td><td><%= r.condition || '' %></td><td><%= r.supplier || '' %></td><td><%= r.warranty_in_months ?? '' %></td>
+          <td class="text-right tabular-nums"><%= fmt.num(r.tech_price) %></td><td class="text-right tabular-nums"><%= fmt.num(r.retail_price) %></td>
+          <td class="whitespace-nowrap"><%= fmt.date(r.sold_date) %></td><td><%= r.customer_name || '' %> <%= r.customer_phone || '' %></td><td><%= r.warranty_out_months ?? '' %></td>
+          <td class="max-w-48 text-slate-500"><%= r.duplicate ? r.duplicate + '. ' : '' %><%= r.note || '' %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table></div>
+<% } %>
+<%- include('../app/_bottom') %>

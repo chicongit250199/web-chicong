@@ -27,7 +27,7 @@ const config = {
   uploadDir: path.join(__dirname, 'public', 'uploads'),
 
   geminiApiKey: env.GEMINI_API_KEY || '',
-  geminiModel: env.GEMINI_MODEL || 'gemini-2.5-flash',
+  geminiModel: env.GEMINI_MODEL || 'gemini-flash-latest',
 
   googleServiceAccountPath: env.GOOGLE_SERVICE_ACCOUNT_PATH
     ? path.resolve(__dirname, env.GOOGLE_SERVICE_ACCOUNT_PATH) : '',

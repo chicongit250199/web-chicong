@@ -1,0 +1,117 @@
+'use strict';
+const express = require('express');
+const db = require('../../db');
+const fmt = require('../../services/format');
+const events = require('../../services/events');
+
+const router = express.Router();
+// Ngày theo giờ Việt Nam (UTC+7, không có giờ mùa hè)
+const VN_DAY = `date(created_at, '+7 hours')`;
+
+function addDays(ymd, n) {
+  const d = new Date(ymd + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+function filters(query) {
+  const today = fmt.todayYmd();
+  const valid = s => (/^\d{4}-\d{2}-\d{2}$/.test(s || '') ? s : null);
+  const group = ['day', 'month', 'year'].includes(query.group) ? query.group : 'day';
+  const defFrom = group === 'year' ? addDays(today, -365 * 5) : group === 'month' ? today.slice(0, 4) + '-01-01' : addDays(today, -29);
+  return {
+    group,
+    from: valid(query.from) || defFrom,
+    to: valid(query.to) || today,
+    type: ['repair', 'sale'].includes(query.type) ? query.type : '',
+    payment: ['cash', 'transfer'].includes(query.payment) ? query.payment : '',
+  };
+}
+
+function whereOf(f) {
+  const w = [`${VN_DAY} BETWEEN @from AND @to`];
+  if (f.type) w.push('type = @type');
+  if (f.payment) w.push('payment_method = @payment');
+  return 'WHERE ' + w.join(' AND ');
+}
+
+const SUMS = `COUNT(*) AS count, COALESCE(SUM(amount),0) AS total,
+  COALESCE(SUM(CASE WHEN payment_method='cash' THEN amount END),0) AS cash,
+  COALESCE(SUM(CASE WHEN payment_method='transfer' THEN amount END),0) AS transfer,
+  COALESCE(SUM(CASE WHEN type='repair' THEN amount END),0) AS repair,
+  COALESCE(SUM(CASE WHEN type='sale' THEN amount END),0) AS sale`;
+
+function aggregate(f) {
+  const period = { day: VN_DAY, month: `strftime('%Y-%m', created_at, '+7 hours')`, year: `strftime('%Y', created_at, '+7 hours')` }[f.group];
+  const rows = db.prepare(`SELECT ${period} AS period, ${SUMS} FROM revenues ${whereOf(f)} GROUP BY period ORDER BY period`).all(f);
+  // Điền các ngày không có doanh thu để biểu đồ liền mạch
+  if (f.group === 'day') {
+    const map = new Map(rows.map(r => [r.period, r]));
+    const out = [];
+    for (let d = f.from; d <= f.to && out.length < 400; d = addDays(d, 1)) {
+      out.push(map.get(d) || { period: d, count: 0, total: 0, cash: 0, transfer: 0, repair: 0, sale: 0 });
+    }
+    return out;
+  }
+  return rows;
+}
+
+function periodLabel(p, group) {
+  if (group === 'day') return `${p.slice(8, 10)}/${p.slice(5, 7)}`;
+  if (group === 'month') return `${p.slice(5, 7)}/${p.slice(0, 4)}`;
+  return p;
+}
+
+// ---------- Trang mặc định: doanh thu hôm nay ----------
+router.get('/', (req, res) => {
+  res.locals.nav = 'm-home';
+  const today = fmt.todayYmd();
+  const f = { group: 'day', from: addDays(today, -29), to: today, type: '', payment: '' };
+  const todayStats = db.prepare(`SELECT ${SUMS} FROM revenues WHERE ${VN_DAY} = ?`).get(today);
+  const yesterday = db.prepare(`SELECT COALESCE(SUM(amount),0) total FROM revenues WHERE ${VN_DAY} = ?`).get(addDays(today, -1)).total;
+  const month = db.prepare(`SELECT COALESCE(SUM(amount),0) total, COUNT(*) count FROM revenues WHERE strftime('%Y-%m', created_at, '+7 hours') = ?`).get(today.slice(0, 7));
+  const todayList = db.prepare(`SELECT * FROM revenues WHERE ${VN_DAY} = ? ORDER BY id DESC`).all(today);
+  const taskCounts = Object.fromEntries(db.prepare(`SELECT status, COUNT(*) c FROM tasks WHERE status <> 'completed' GROUP BY status`).all().map(r => [r.status, r.c]));
+  const rows = aggregate(f);
+  res.render('manager/dashboard', {
+    title: 'Doanh thu hôm nay', today, todayStats, yesterday, month, todayList, taskCounts,
+    chart: rows.map(r => ({ label: periodLabel(r.period, 'day'), value: r.total, tip: `${fmt.date(r.period)}: ${fmt.money(r.total)} · ${r.count} giao dịch` })),
+  });
+});
+
+// ---------- Thống kê theo Ngày / Tháng / Năm ----------
+router.get('/revenue', (req, res) => {
+  res.locals.nav = 'm-revenue';
+  const f = filters(req.query);
+  const rows = aggregate(f);
+  const totals = db.prepare(`SELECT ${SUMS} FROM revenues ${whereOf(f)}`).get(f);
+  const details = db.prepare(`SELECT * FROM revenues ${whereOf(f)} ORDER BY created_at DESC LIMIT 300`).all(f);
+  res.render('manager/revenue', {
+    title: 'Thống kê doanh thu', f, rows, totals, details,
+    chart: rows.map(r => ({ label: periodLabel(r.period, f.group), value: r.total, tip: `${periodLabel(r.period, f.group)}: ${fmt.money(r.total)} · ${r.count} giao dịch` })),
+    periodLabel,
+  });
+});
+
+// Xuất CSV (mở bằng Excel)
+router.get('/revenue.csv', (req, res) => {
+  const f = filters(req.query);
+  const rows = db.prepare(`SELECT * FROM revenues ${whereOf(f)} ORDER BY created_at`).all(f);
+  const esc = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+  const lines = [['Thời gian', 'Loại', 'Nội dung', 'Khách hàng', 'SĐT', 'Địa chỉ giao', 'Số tiền', 'Thanh toán', 'Bảo hành (tháng)', 'Nhân viên'].map(esc).join(',')];
+  for (const r of rows) {
+    lines.push([fmt.datetime(r.created_at), fmt.REVENUE_TYPE[r.type], r.content, r.customer_name, r.customer_phone, r.delivery_address, r.amount, fmt.payment(r.payment_method), r.warranty_months, r.staff_name].map(esc).join(','));
+  }
+  res.set('Content-Type', 'text/csv; charset=utf-8');
+  res.set('Content-Disposition', `attachment; filename="doanh-thu-${f.from}-${f.to}.csv"`);
+  res.send('﻿' + lines.join('\r\n'));
+});
+
+// ---------- Thông báo real-time ----------
+router.get('/events', events.stream);
+router.post('/notifications/read', (req, res) => {
+  db.prepare('UPDATE notifications SET is_read = 1 WHERE is_read = 0').run();
+  res.json({ ok: true });
+});
+
+module.exports = router;
