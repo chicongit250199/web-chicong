@@ -4,6 +4,7 @@ const db = require('../../db');
 const v = require('../../services/validate');
 const ai = require('../../services/aiService');
 const { imageUpload, saveImage } = require('../../services/upload');
+const gallery = require('../../services/productImages');
 const { notify } = require('../../services/events');
 
 const router = express.Router();
@@ -56,16 +57,19 @@ const productSchema = v.z.object({
   price: v.money,
 });
 
-router.post('/products', imageUpload.single('image'), async (req, res, next) => {
+router.post('/products', imageUpload.array('images', 5), async (req, res, next) => {
   try {
     const { data, error } = v.parse(productSchema, req.body);
     if (error) { req.flash('error', error); return res.redirect('/staff/products/new'); }
-    const image_url = req.file ? await saveImage(req.file, 'product') : null;
+    const urls = [];
+    for (const f of (req.files || []).slice(0, gallery.MAX)) urls.push(await saveImage(f, 'product'));
+    const image_url = urls[0] || null;
     // Manager đăng thì duyệt luôn
     const status = req.user.role === 'manager' ? 'approved' : 'pending';
     const r = db.prepare(`INSERT INTO products (category_id, name_vi, specs_vi, desc_vi, price, image_url, status, created_by)
                           VALUES (@category_id, @name_vi, @specs_vi, @desc_vi, @price, @image_url, @status, @created_by)`)
       .run({ ...data, image_url, status, created_by: req.user.id });
+    urls.forEach((u, i) => db.prepare('INSERT INTO product_images (product_id, url, sort) VALUES (?, ?, ?)').run(r.lastInsertRowid, u, i));
     if (status === 'pending') notify('product', `${req.user.full_name} đăng sản phẩm "${data.name_vi}" — chờ duyệt`, `/manager/products/${r.lastInsertRowid}`, req.user.full_name);
     req.flash('success', status === 'pending' ? 'Đã gửi sản phẩm, chờ Quản lý duyệt.' : 'Đã đăng sản phẩm. Vào "Duyệt sản phẩm" để dịch sang các ngôn ngữ khác.');
     res.redirect('/staff/products/new');

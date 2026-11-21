@@ -83,6 +83,53 @@ function osName() {
   return m ? m[1] : `${os.type()} ${os.release()}`;
 }
 
+// ---- Mạng: tốc độ tính từ chênh lệch byte trong /proc/net/dev giữa 2 lần đọc ----
+const NET_SKIP = /^(lo|docker|veth|br-|virbr|tun|tap|wg)/;
+function netCounters() {
+  const out = {};
+  for (const l of (read('/proc/net/dev', '') || '').split('\n').slice(2)) {
+    const m = l.match(/^\s*([^:]+):\s*(.*)$/);
+    if (!m || NET_SKIP.test(m[1].trim())) continue;
+    const v = m[2].trim().split(/\s+/).map(Number);
+    out[m[1].trim()] = { rx: v[0], tx: v[8] };
+  }
+  return out;
+}
+let lastNet = { t: Date.now(), c: netCounters() };
+let lastRates = {};
+function netRates() {
+  const now = Date.now();
+  const dt = (now - lastNet.t) / 1000;
+  if (dt < 1) return lastRates; // 2 lần đọc quá sát nhau -> giữ số cũ cho khỏi nhiễu
+  const c = netCounters();
+  const r = {};
+  for (const [n, v] of Object.entries(c)) {
+    const p = lastNet.c[n];
+    r[n] = {
+      rx: p ? Math.max(0, (v.rx - p.rx) / dt) : 0, tx: p ? Math.max(0, (v.tx - p.tx) / dt) : 0,
+      rxTotal: v.rx, txTotal: v.tx,
+    };
+  }
+  lastNet = { t: now, c };
+  lastRates = r;
+  return r;
+}
+function network(rates) {
+  const addrs = os.networkInterfaces();
+  return Object.keys(rates).map(name => {
+    const base = path.join('/sys/class/net', name);
+    const up = read(path.join(base, 'operstate')) === 'up';
+    const speed = Number(read(path.join(base, 'speed')));
+    const ip = (addrs[name] || []).find(a => a.family === 'IPv4');
+    return {
+      name, up, wifi: fs.existsSync(path.join(base, 'wireless')),
+      speed: up && speed > 0 ? speed : null, // Mbps; Wi-Fi thường không báo
+      mac: read(path.join(base, 'address')), ip: ip ? ip.address : null,
+      ...rates[name],
+    };
+  }).sort((a, b) => b.up - a.up || a.wifi - b.wifi);
+}
+
 // ---- Lịch sử 10 phút (lấy mẫu mỗi 10 giây, chạy nền, rất nhẹ) ----
 const HISTORY = 60;
 const history = [];
@@ -90,8 +137,12 @@ function sample(record = true) {
   const c = cpuUsage();
   const temps = temperatures();
   const cpuTemp = Math.max(...temps.filter(t => t.chip === 'coretemp').map(t => t.value), ...(temps.length ? [] : [0]));
+  const net = Object.values(netRates());
   if (record) {
-    history.push({ t: Date.now(), cpu: c.total, temp: Number.isFinite(cpuTemp) && cpuTemp > 0 ? cpuTemp : null });
+    history.push({
+      t: Date.now(), cpu: c.total, temp: Number.isFinite(cpuTemp) && cpuTemp > 0 ? cpuTemp : null,
+      rx: net.reduce((s, n) => s + n.rx, 0), tx: net.reduce((s, n) => s + n.tx, 0),
+    });
     if (history.length > HISTORY) history.shift();
   }
   return { c, temps };
@@ -120,6 +171,7 @@ function snapshot() {
     temps,
     memory: memory(),
     disks: [disk('/')].filter(Boolean),
+    network: network(netRates()),
     app: {
       node: process.version, pid: process.pid, uptime: process.uptime(), rss: process.memoryUsage().rss,
       manager: process.env.pm_id !== undefined ? 'PM2' : 'thủ công', env: config.isProd ? 'production' : 'development',

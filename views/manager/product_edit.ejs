@@ -8,14 +8,26 @@
 </div>
 <p class="mb-3 text-sm text-slate-500">Người đăng: <strong><%= p.author || '—' %></strong> · <%= fmt.datetime(p.created_at) %></p>
 <form method="post" action="/manager/products/<%= p.id %>?_csrf=<%= encodeURIComponent(csrfToken) %>" enctype="multipart/form-data" class="space-y-4" x-data="{ lang: 'vi', busy: false }" @submit="busy = true">
-  <div class="card grid gap-4 md:grid-cols-[180px_1fr]">
-    <div x-data="{ prev: '' }">
-      <div class="grid aspect-square place-items-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
-        <img x-show="prev" :src="prev" alt="" class="h-full w-full object-contain">
-        <% if (p.image_url) { %><img x-show="!prev" src="<%= p.image_url %>" alt="" class="h-full w-full object-contain"><% } else { %><span x-show="!prev" class="text-slate-400"><%- icon('box', 'h-10 w-10') %></span><% } %>
+  <div class="card grid gap-4 md:grid-cols-[260px_1fr]">
+    <div id="images" x-data="{ prevs: [] }" class="scroll-mt-20">
+      <p class="label">Ảnh sản phẩm <span class="font-normal text-slate-400">(<%= images.length %>/5 — ảnh ★ là ảnh đại diện)</span></p>
+      <div class="grid grid-cols-3 gap-2">
+        <% images.forEach((img, k) => { %>
+          <div class="group relative overflow-hidden rounded-lg border <%= k === 0 ? 'border-brand-500 ring-2 ring-brand-500/30' : 'border-slate-200 dark:border-slate-700' %> bg-white dark:bg-slate-800">
+            <img src="<%= img.url %>" alt="" class="aspect-square w-full object-contain p-1">
+            <% if (k === 0) { %><span class="absolute left-1 top-1 rounded bg-brand-600 px-1 text-[10px] font-bold text-white">★</span><% } %>
+            <div class="absolute inset-x-0 bottom-0 flex justify-center gap-1 bg-slate-900/60 p-1 opacity-0 transition group-hover:opacity-100">
+              <% if (k) { %><button formaction="/manager/products/<%= p.id %>/images/<%= img.id %>/cover?_csrf=<%= encodeURIComponent(csrfToken) %>" class="rounded bg-white/90 px-1.5 text-[11px] font-semibold text-slate-800" title="Đặt làm ảnh đại diện">★</button><% } %>
+              <button formaction="/manager/products/<%= p.id %>/images/<%= img.id %>/delete?_csrf=<%= encodeURIComponent(csrfToken) %>" class="rounded bg-red-600 px-1.5 text-[11px] font-semibold text-white" title="Xóa ảnh" @click="confirm('Xóa ảnh này?') || $event.preventDefault()">✕</button>
+            </div>
+          </div>
+        <% }) %>
+        <template x-for="u in prevs" :key="u"><img :src="u" alt="" class="aspect-square w-full rounded-lg border border-dashed border-brand-400 object-contain p-1"></template>
       </div>
-      <input type="file" name="image" accept="image/*" class="mt-2 w-full text-xs" @change="prev = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : ''">
-      <% if (p.image_url) { %><label class="mt-1 flex items-center gap-1.5 text-xs text-slate-500"><input type="checkbox" name="remove_image" value="1">Xóa ảnh</label><% } %>
+      <% if (images.length < 5) { %>
+        <input type="file" name="images" accept="image/*" multiple class="mt-2 w-full text-xs" @change="prevs = [...$event.target.files].slice(0, <%= 5 - images.length %>).map(f => URL.createObjectURL(f))">
+        <p class="mt-1 text-[11px] text-slate-500">Chọn được nhiều ảnh, thêm tối đa <%= 5 - images.length %> ảnh nữa — bấm Lưu để tải lên.</p>
+      <% } %>
     </div>
     <div class="grid content-start gap-4 sm:grid-cols-3">
       <label class="block"><span class="label req">Danh mục</span>

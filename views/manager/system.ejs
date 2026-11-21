@@ -93,6 +93,59 @@
         </section>
       </div>
 
+      <%# ---- Mạng ---- %>
+      <section class="card" x-show="d.network && d.network.length">
+        <h2 class="mb-3 flex items-center justify-between font-semibold">Mạng <span class="text-xs font-normal text-slate-500">tốc độ đang truyền thực tế · 10 phút gần nhất</span></h2>
+        <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+          <div class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+              <div class="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/60">
+                <p class="flex items-center gap-1.5 text-xs text-slate-500"><span class="inline-block h-2 w-2 rounded-full bg-brand-500"></span>Tải xuống</p>
+                <p class="text-xl font-bold tabular-nums" x-text="bps(netRx)"></p>
+              </div>
+              <div class="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/60">
+                <p class="flex items-center gap-1.5 text-xs text-slate-500"><span class="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>Tải lên</p>
+                <p class="text-xl font-bold tabular-nums" x-text="bps(netTx)"></p>
+              </div>
+            </div>
+            <template x-for="n in d.network" :key="n.name">
+              <div class="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700" :class="!n.up && 'opacity-60'">
+                <p class="flex items-center justify-between gap-2 font-medium">
+                  <span x-text="(n.wifi ? 'Wi-Fi' : 'Dây LAN') + ' · ' + n.name"></span>
+                  <span :class="n.up ? 'badge-green' : 'badge-amber'" x-text="n.up ? 'Đang kết nối' : 'Không dùng'"></span>
+                </p>
+                <dl class="mt-2 grid grid-cols-[6.5rem_1fr] gap-x-3 gap-y-1 text-slate-600 dark:text-slate-300">
+                  <template x-if="n.up && !n.wifi"><dt class="text-slate-500">Tốc độ cổng</dt></template>
+                  <template x-if="n.up && !n.wifi"><dd>
+                    <span x-text="linkSpeed(n.speed)"></span>
+                    <span x-show="n.speed && n.speed < 1000" class="block text-xs text-amber-600 dark:text-amber-400">Cổng đang chạy dưới 1 Gbps — kiểm tra dây mạng (Cat5e trở lên) hoặc cổng router/switch.</span>
+                  </dd></template>
+                  <template x-if="n.ip"><dt class="text-slate-500">IP</dt></template>
+                  <template x-if="n.ip"><dd class="font-mono" x-text="n.ip"></dd></template>
+                  <dt class="text-slate-500">MAC</dt><dd class="font-mono" x-text="n.mac"></dd>
+                  <template x-if="n.up"><dt class="text-slate-500">Từ lúc bật máy</dt></template>
+                  <template x-if="n.up"><dd x-text="'↓ ' + size(n.rxTotal) + ' · ↑ ' + size(n.txTotal)"></dd></template>
+                </dl>
+              </div>
+            </template>
+          </div>
+          <figure>
+            <svg viewBox="0 0 300 60" preserveAspectRatio="none" class="h-32 w-full" role="img" aria-label="Tốc độ mạng 10 phút">
+              <polygon :points="spark('rx', netMax).area" class="fill-brand-500/10"/>
+              <polyline :points="spark('rx', netMax).line" fill="none" class="stroke-brand-500" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+              <polyline :points="spark('tx', netMax).line" fill="none" class="stroke-emerald-500" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+            </svg>
+            <figcaption class="mt-1 flex flex-wrap justify-between gap-x-3 text-xs text-slate-500">
+              <span class="flex items-center gap-3">
+                <span class="flex items-center gap-1"><span class="inline-block h-0.5 w-3 bg-brand-500"></span>Tải xuống</span>
+                <span class="flex items-center gap-1"><span class="inline-block h-0.5 w-3 bg-emerald-500"></span>Tải lên</span>
+              </span>
+              <span x-text="'đỉnh 10 phút: ' + bps(netMax)"></span>
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
       <div class="grid gap-4 lg:grid-cols-2">
         <%# ---- Máy chủ ---- %>
         <section class="card">

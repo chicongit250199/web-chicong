@@ -2,7 +2,7 @@
 <div class="page-title"><h1><%- icon('upload', 'h-6 w-6 text-brand-600') %>Đăng sản phẩm lên trang chủ</h1></div>
 <div class="grid gap-4 lg:grid-cols-3">
   <form method="post" action="/staff/products?_csrf=<%= encodeURIComponent(csrfToken) %>" enctype="multipart/form-data" class="card space-y-4 lg:col-span-2"
-        x-data="{ preview: '' }">
+        x-data="{ previews: [] }">
     <div class="grid gap-4 sm:grid-cols-2">
       <label class="block"><span class="label req">Danh mục</span>
         <select name="category_id" class="input" required>
@@ -16,9 +16,9 @@
     <div x-data="productAi()"><%- include('_product_ai') %></div>
     <label class="block"><span class="label">Cấu hình / thông số</span><textarea name="specs_vi" rows="6" class="input" placeholder="CPU: ...&#10;RAM: ...&#10;SSD: ..."></textarea></label>
     <label class="block"><span class="label">Mô tả chi tiết</span><textarea name="desc_vi" rows="12" class="input"></textarea></label>
-    <label class="block"><span class="label">Ảnh sản phẩm <span class="font-normal text-slate-400">(tự nén WebP)</span></span>
-      <input type="file" name="image" accept="image/*" class="input p-1.5" @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : ''">
-      <img x-show="preview" x-cloak :src="preview" class="mt-2 h-40 rounded-lg border border-slate-200 object-contain dark:border-slate-800" alt=""></label>
+    <label class="block"><span class="label">Ảnh sản phẩm <span class="font-normal text-slate-400">(tối đa 5 ảnh, ảnh đầu là ảnh đại diện — tự nén WebP)</span></span>
+      <input type="file" name="images" accept="image/*" multiple class="input p-1.5" @change="previews = [...$event.target.files].slice(0, 5).map(f => URL.createObjectURL(f))">
+      <div x-show="previews.length" x-cloak class="mt-2 grid grid-cols-5 gap-2"><template x-for="u in previews" :key="u"><img :src="u" class="aspect-square w-full rounded-lg border border-slate-200 object-contain dark:border-slate-800" alt=""></template></div></label>
     <div class="flex justify-end gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
       <a href="/staff/products/new" class="btn-secondary">Hủy</a>
       <button class="btn-primary"><%- icon('upload', 'h-4 w-4') %><%= isManager ? 'Đăng ngay' : 'Gửi duyệt' %></button>

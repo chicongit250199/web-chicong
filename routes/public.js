@@ -65,6 +65,7 @@ router.get('/p/:id', (req, res, next) => {
   const related = p.category_id ? q.related.all(p.category_id, p.id) : [];
   res.render('public/product', {
     title: res.locals.field(p, 'name'), p, cat, related,
+    images: (() => { const l = db.prepare('SELECT url FROM product_images WHERE product_id = ? ORDER BY sort, id').all(p.id).map(r => r.url); return l.length ? l : (p.image_url ? [p.image_url] : []); })(),
     descBlocks: rich.parseDescription(res.locals.field(p, 'desc')), specRows: rich.parseSpecs(p.specs_vi), titleCase: rich.titleCase,
   });
 });

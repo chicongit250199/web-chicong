@@ -18,6 +18,20 @@ window.systemPage = function () {
       s = Math.floor(s); var d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
       return (d ? d + ' ngày ' : '') + (d || h ? h + ' giờ ' : '') + m + ' phút';
     },
+    // tốc độ mạng: byte/giây -> bit/giây (đơn vị nhà mạng hay dùng)
+    bps: function (b) {
+      var v = (b || 0) * 8;
+      return v >= 1e9 ? (v / 1e9).toFixed(2) + ' Gbps' : v >= 1e6 ? (v / 1e6).toFixed(v >= 1e8 ? 0 : 1) + ' Mbps' : v >= 1e3 ? Math.round(v / 1e3) + ' Kbps' : Math.round(v) + ' bps';
+    },
+    linkSpeed: function (m) { return m == null ? '—' : m >= 1000 ? (m / 1000) + ' Gbps' : m + ' Mbps'; },
+    get netUp() { return this.d && this.d.network ? this.d.network.filter(function (n) { return n.up; }) : []; },
+    get netRx() { return this.netUp.reduce(function (s, n) { return s + n.rx; }, 0); },
+    get netTx() { return this.netUp.reduce(function (s, n) { return s + n.tx; }, 0); },
+    // thang biểu đồ mạng: đỉnh cao nhất trong 10 phút (tối thiểu 1 Mbps để đường không nhảy loạn khi mạng rảnh)
+    get netMax() {
+      var h = this.d ? this.d.history : [];
+      return Math.max.apply(null, [125000].concat(h.map(function (p) { return Math.max(p.rx || 0, p.tx || 0); })));
+    },
     time: function (iso) { return iso ? new Date(iso).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '—'; },
 
     // ---- số liệu tổng hợp ----

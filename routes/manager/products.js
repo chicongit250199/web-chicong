@@ -4,6 +4,7 @@ const db = require('../../db');
 const v = require('../../services/validate');
 const ai = require('../../services/aiService');
 const { imageUpload, saveImage, removeImage } = require('../../services/upload');
+const gallery = require('../../services/productImages');
 
 const router = express.Router();
 const qGet = db.prepare(`SELECT p.*, u.full_name AS author FROM products p LEFT JOIN users u ON u.id = p.created_by WHERE p.id = ?`);
@@ -30,7 +31,7 @@ router.get('/products/:id', (req, res, next) => {
   const p = qGet.get(req.params.id);
   if (!p) return next();
   res.locals.nav = 'm-products';
-  res.render('manager/product_edit', { title: p.name_vi, p, categories: db.prepare('SELECT * FROM categories ORDER BY sort_order, id').all(), aiEnabled: ai.isEnabled(), scripts: ['/js/product-ai.js'] });
+  res.render('manager/product_edit', { title: p.name_vi, p, images: gallery.list(p.id), categories: db.prepare('SELECT * FROM categories ORDER BY sort_order, id').all(), aiEnabled: ai.isEnabled(), scripts: ['/js/product-ai.js'] });
 });
 
 const editSchema = v.z.object({
@@ -50,18 +51,22 @@ async function translateInto(p) {
 }
 
 // Lưu chỉnh sửa; action = save | approve | translate
-router.post('/products/:id', imageUpload.single('image'), async (req, res, next) => {
+router.post('/products/:id', imageUpload.array('images', 5), async (req, res, next) => {
   try {
     const p = qGet.get(req.params.id);
     if (!p) return next();
     const { data, error } = v.parse(editSchema, req.body);
     if (error) { req.flash('error', error); return res.redirect(`/manager/products/${p.id}`); }
-    let image_url = p.image_url;
-    if (req.file) { image_url = await saveImage(req.file, 'product'); removeImage(p.image_url); }
-    if (req.body.remove_image) { removeImage(p.image_url); image_url = null; }
+    // Ảnh mới thêm vào bộ ảnh (tối đa 5)
+    let skipped = 0;
+    for (const f of req.files || []) {
+      const url = await saveImage(f, 'product');
+      if (!gallery.add(p.id, url)) { removeImage(url); skipped++; }
+    }
+    if (skipped) req.flash('error', `Mỗi sản phẩm tối đa ${gallery.MAX} ảnh — bỏ qua ${skipped} ảnh.`);
     db.prepare(`UPDATE products SET category_id=@category_id, name_vi=@name_vi, name_en=@name_en, name_ru=@name_ru, name_zh=@name_zh, specs_vi=@specs_vi,
-                desc_vi=@desc_vi, desc_en=@desc_en, desc_ru=@desc_ru, desc_zh=@desc_zh, price=@price, is_featured=@is_featured, image_url=@image_url, condition=@condition WHERE id=@id`)
-      .run({ ...data, image_url, id: p.id });
+                desc_vi=@desc_vi, desc_en=@desc_en, desc_ru=@desc_ru, desc_zh=@desc_zh, price=@price, is_featured=@is_featured, condition=@condition WHERE id=@id`)
+      .run({ ...data, id: p.id });
 
     const action = req.body.action;
     if (action === 'approve' || action === 'translate') {
@@ -89,9 +94,25 @@ router.post('/products/:id/unapprove', (req, res) => {
   res.redirect(`/manager/products/${req.params.id}`);
 });
 
+// Ảnh: xóa / đặt làm ảnh đại diện
+router.post('/products/:id/images/:imageId/delete', (req, res) => {
+  gallery.remove(Number(req.params.imageId));
+  res.redirect(`/manager/products/${req.params.id}#images`);
+});
+router.post('/products/:id/images/:imageId/cover', (req, res) => {
+  gallery.makeCover(Number(req.params.imageId));
+  res.redirect(`/manager/products/${req.params.id}#images`);
+});
+
 router.post('/products/:id/delete', (req, res) => {
   const p = qGet.get(req.params.id);
-  if (p) { db.prepare('DELETE FROM products WHERE id = ?').run(p.id); removeImage(p.image_url); req.flash('success', `Đã xóa "${p.name_vi}".`); }
+  if (p) {
+    const imgs = gallery.list(p.id);
+    db.prepare('DELETE FROM products WHERE id = ?').run(p.id);
+    for (const i of imgs) if (!db.prepare('SELECT 1 FROM product_images WHERE url = ?').get(i.url)) removeImage(i.url);
+    if (p.image_url && !imgs.some(i => i.url === p.image_url)) removeImage(p.image_url);
+    req.flash('success', `Đã xóa "${p.name_vi}".`);
+  }
   res.redirect('/manager/products');
 });
 
