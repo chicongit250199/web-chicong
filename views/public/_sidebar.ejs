@@ -24,7 +24,7 @@
   <nav class="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] text-[11px] font-medium backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
     <a href="/" class="flex flex-col items-center gap-0.5 py-2 <%= path === '/' ? 'text-brand-600' : 'text-slate-600 dark:text-slate-300' %>"><%- icon('home', 'h-5 w-5') %><%= t('nav.home') %></a>
     <button type="button" @click="open = true" class="flex flex-col items-center gap-0.5 py-2 text-slate-600 dark:text-slate-300"><%- icon('grid', 'h-5 w-5') %><%= t('nav.categories') %></button>
-    <a href="<%= contact.zalo %>" target="_blank" rel="noopener" class="flex flex-col items-center gap-0.5 py-2 text-slate-600 dark:text-slate-300"><%- icon('chat', 'h-5 w-5') %>Zalo</a>
+    <a href="<%= contact.zalo %>" target="_blank" rel="noopener" class="flex flex-col items-center gap-0.5 py-2 text-slate-600 dark:text-slate-300"><span class="grid h-5 w-5 place-items-center rounded-md bg-[#0068ff] text-white"><%- icon('zalo', 'h-4 w-4') %></span>Zalo</a>
     <a href="/login" class="flex flex-col items-center gap-0.5 py-2 text-brand-600"><%- icon('login', 'h-5 w-5') %><%= t('nav.login') %></a>
   </nav>
   <div x-show="open" x-cloak x-transition.opacity class="fixed inset-0 z-50 bg-slate-950/50" @click="open = false"></div>
