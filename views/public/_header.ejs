@@ -25,23 +25,25 @@
 <% } %>
 
 <% if (bannerList.length) { %>
-  <%# Có banner: thanh mỏng trên cùng + banner hiển thị trọn vẹn đúng tỉ lệ ảnh %>
-  <header class="pb-2 md:pb-4">
-    <div class="mx-auto flex h-12 max-w-7xl items-center justify-between gap-3 px-4">
-      <a href="/" class="flex min-w-0 items-center gap-2">
-        <% if (settings.logo_url) { %><img src="<%= settings.logo_url %>" alt="" class="h-8 w-auto shrink-0 object-contain"><% } %>
-        <span class="truncate text-sm font-bold"><%= settings.company_name %></span>
-      </a>
-      <% controls() %>
+  <%# Có banner: banner tràn hết bề ngang, đúng tỉ lệ ảnh; thanh logo + ngôn ngữ + giao diện nổi đè lên trên banner %>
+  <header class="relative mb-3 md:mb-5">
+    <div class="pointer-events-none absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/55 via-black/25 to-transparent pb-6 md:pb-10">
+      <div class="pointer-events-auto mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 md:h-16">
+        <a href="/" class="flex min-w-0 items-center gap-2 text-white">
+          <% if (settings.logo_url) { %><img src="<%= settings.logo_url %>" alt="" class="h-9 w-auto shrink-0 object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,.6)] md:h-11"><% } %>
+          <span class="truncate text-sm font-bold drop-shadow-[0_1px_2px_rgba(0,0,0,.8)] md:text-base"><%= settings.company_name %></span>
+        </a>
+        <% controls() %>
+      </div>
     </div>
     <h1 class="sr-only"><%= settings.company_name %> — <%= settings.legal_name %></h1>
     <% if (bannerList.length === 1) { %>
-      <a href="/" class="mx-auto block max-w-5xl md:px-4">
-        <img src="<%= bannerList[0] %>" alt="<%= settings.company_name %>" class="block h-auto w-full md:rounded-xl md:shadow-md">
+      <a href="/" class="block">
+        <img src="<%= bannerList[0] %>" alt="<%= settings.company_name %>" class="block h-auto w-full">
       </a>
     <% } else { %>
       <%# Trình chiếu: các ảnh chồng cùng 1 ô lưới, đổi độ mờ; tự chạy liên tục 4s/ảnh (chỉ tạm nghỉ khi tab bị ẩn), vuốt trên điện thoại %>
-      <div class="mx-auto max-w-5xl md:px-4">
+      <div>
         <div x-data="{ i: 0, n: <%= bannerList.length %>, t: null, x0: null,
                        go(k) { this.i = (k + this.n) % this.n },
                        start() { clearInterval(this.t); this.t = setInterval(() => this.go(this.i + 1), 4000) },
@@ -49,17 +51,17 @@
              x-init="start(); document.addEventListener('visibilitychange', () => document.hidden ? stop() : start())"
              @touchstart.passive="x0 = $event.touches[0].clientX; stop()"
              @touchend="if (x0 !== null) { const d = $event.changedTouches[0].clientX - x0; if (Math.abs(d) > 40) go(i + (d < 0 ? 1 : -1)); x0 = null } start()"
-             class="group relative grid overflow-hidden md:rounded-xl md:shadow-md" role="region" aria-roledescription="carousel" aria-label="Banner">
+             class="group relative grid overflow-hidden" role="region" aria-roledescription="carousel" aria-label="Banner">
           <% bannerList.forEach((b, k) => { %>
             <img src="<%= b %>" alt="<%= settings.company_name %>" <%= k ? 'loading="lazy"' : '' %>
                  class="col-start-1 row-start-1 block h-auto w-full transition-opacity duration-700"
                  :class="i === <%= k %> ? 'opacity-100' : 'pointer-events-none opacity-0'" :aria-hidden="i !== <%= k %>">
           <% }) %>
           <button type="button" @click="go(i - 1); start()" aria-label="Banner trước"
-                  class="absolute left-2 top-1/2 hidden h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-black/30 text-white opacity-0 transition hover:bg-black/50 group-hover:opacity-100 md:grid">‹</button>
+                  class="absolute left-3 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-black/30 text-white opacity-0 transition hover:bg-black/50 group-hover:opacity-100 md:grid">‹</button>
           <button type="button" @click="go(i + 1); start()" aria-label="Banner sau"
-                  class="absolute right-2 top-1/2 hidden h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-black/30 text-white opacity-0 transition hover:bg-black/50 group-hover:opacity-100 md:grid">›</button>
-          <div class="absolute inset-x-0 bottom-1.5 flex justify-center gap-1.5 md:bottom-2.5">
+                  class="absolute right-3 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-black/30 text-white opacity-0 transition hover:bg-black/50 group-hover:opacity-100 md:grid">›</button>
+          <div class="absolute inset-x-0 bottom-2 z-10 flex justify-center gap-1.5 md:bottom-4">
             <% bannerList.forEach((b, k) => { %>
               <button type="button" @click="go(<%= k %>); start()" aria-label="Banner <%= k + 1 %>"
                       class="h-1.5 rounded-full shadow transition-all md:h-2" :class="i === <%= k %> ? 'w-5 bg-white md:w-6' : 'w-1.5 bg-white/60 md:w-2'"></button>
