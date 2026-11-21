@@ -18,6 +18,7 @@ const GROUPS = [
       { key: 'tasks-pending', href: '/staff/tasks?view=pending', icon: 'list', label: 'Task chưa làm', badge: 'pending', roles: ['staff', 'manager'] },
       { key: 'tasks-assigned', href: '/staff/tasks?view=assigned', icon: 'userCheck', label: 'Task được giao', badge: 'assigned', roles: ['staff', 'manager'] },
       { key: 'tasks-processing', href: '/staff/tasks?view=processing', icon: 'wrench', label: 'Task đang làm', badge: 'processing', roles: ['staff', 'manager'] },
+      { key: 'tasks-overdue', href: '/staff/tasks?view=overdue', icon: 'alert', label: 'Task quá hạn', badge: 'overdue', roles: ['staff', 'manager'] },
       { key: 'return', href: '/staff/return', icon: 'checkCircle', label: 'Trả máy', badge: 'ready', roles: ['staff', 'manager'] },
       { key: 'completed', href: '/staff/tasks?view=completed', icon: 'checkSquare', label: 'Máy đã trả', roles: ['staff', 'manager'] },
       { key: 'm-assign', href: '/manager/assign', icon: 'users', label: 'Phân task', badge: 'unassigned', roles: ['manager'] },

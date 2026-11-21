@@ -2,6 +2,7 @@
 // Dữ liệu cho khung trang nội bộ: menu, số đếm trên badge, thông báo (manager)
 const db = require('../db');
 const menu = require('../services/menu');
+const taskAlerts = require('../services/taskAlerts');
 
 const q = {
   pending: db.prepare(`SELECT COUNT(*) c FROM tasks WHERE status = 'pending' AND assigned_to IS NULL`),
@@ -32,6 +33,10 @@ module.exports = function appShell(req, res, next) {
   res.locals.isManager = isManager;
   res.locals.menuGroups = menu.groupsFor(isManager ? 'manager' : 'staff');
   res.locals.badges = badges;
+  // Task quá lâu chưa thay đổi -> khung cảnh báo đầu trang + nhãn trên thẻ task
+  res.locals.taskAlerts = taskAlerts.forUser(u);
+  res.locals.alertOf = taskAlerts.level;
+  badges.overdue = res.locals.taskAlerts.length;
   res.locals.nav = '';
   next();
 };

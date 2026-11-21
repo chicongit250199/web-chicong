@@ -5,6 +5,7 @@ const v = require('../../services/validate');
 const fmt = require('../../services/format');
 const { nextTicketCode } = require('../../services/tickets');
 const { notify } = require('../../services/events');
+const taskAlerts = require('../../services/taskAlerts');
 
 const router = express.Router();
 
@@ -33,6 +34,7 @@ function listTasks(view, user, search) {
     case 'processing': where.push(`t.status = 'processing'`); if (!isManager) where.push('t.assigned_to = @uid'); break;
     case 'ready': where.push(`t.status IN ('done','unrepairable')`); break;
     case 'completed': where.push(`t.status = 'completed'`); break;
+    case 'overdue': where.push(taskAlerts.OVERDUE_WHERE); if (!isManager) where.push('(t.assigned_to IS NULL OR t.assigned_to = @uid)'); break;
     default: break;
   }
   if (search) {
@@ -40,13 +42,13 @@ function listTasks(view, user, search) {
     params.s = `%${search}%`;
   }
   params.uid = user.id;
-  const order = view === 'completed' ? 't.completed_at DESC' : 't.created_at ASC';
+  const order = view === 'completed' ? 't.completed_at DESC' : view === 'overdue' ? `${taskAlerts.AGE} DESC` : 't.created_at ASC';
   return db.prepare(`${LIST_SQL} ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY ${order} LIMIT 200`).all(params);
 }
 
 const VIEW_TITLES = {
   pending: ['Task chưa làm', 'tasks-pending'], assigned: ['Task được giao', 'tasks-assigned'],
-  processing: ['Task đang làm', 'tasks-processing'], ready: ['Chờ trả máy', 'return'], completed: ['Máy đã trả', 'completed'],
+  processing: ['Task đang làm', 'tasks-processing'], ready: ['Chờ trả máy', 'return'], completed: ['Máy đã trả', 'completed'], overdue: ['Task quá hạn', 'tasks-overdue'],
   all: ['Tất cả Task', 'tasks-pending'],
 };
 
