@@ -1,0 +1,20 @@
+<%- include('_layout_top') %>
+<main class="mx-auto max-w-7xl px-4 py-8">
+  <nav class="mb-4 text-sm text-slate-500"><a href="/" class="hover:underline"><%= t('nav.home') %></a> / <span class="text-slate-800 dark:text-slate-200"><%= field(cat, 'name') %></span></nav>
+  <h1 class="mb-6 flex items-center gap-2 text-2xl font-bold"><%- icon(cat.icon, 'h-7 w-7 text-brand-600') %><%= field(cat, 'name') %> <span class="text-base font-normal text-slate-500">(<%= total %>)</span></h1>
+  <% if (!products.length) { %>
+    <div class="card py-16 text-center text-slate-500"><%= t('home.empty') %></div>
+  <% } else { %>
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5">
+      <% products.forEach(p => { %><%- include('_card', { p, catIcon: cat.icon }) %><% }) %>
+    </div>
+  <% } %>
+  <% if (pages > 1) { %>
+    <nav class="mt-8 flex flex-wrap justify-center gap-1">
+      <% for (let i = 1; i <= pages; i++) { %>
+        <a href="?page=<%= i %>" class="min-w-9 rounded-lg px-3 py-1.5 text-center text-sm font-medium <%= i === page ? 'bg-brand-600 text-white' : 'border border-slate-300 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800' %>"><%= i %></a>
+      <% } %>
+    </nav>
+  <% } %>
+</main>
+<%- include('_layout_bottom') %>

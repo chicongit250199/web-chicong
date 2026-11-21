@@ -1,0 +1,19 @@
+<footer class="mt-12 border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+  <div class="mx-auto grid max-w-7xl gap-6 px-4 py-8 md:grid-cols-2">
+    <div class="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
+      <iframe src="<%= mapSrc %>" class="h-56 w-full md:h-64" style="border:0" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen title="Google Maps"></iframe>
+    </div>
+    <div class="space-y-3 text-sm">
+      <p class="text-base font-bold"><%= settings.legal_name %></p>
+      <p class="flex gap-2"><%- icon('receipt', 'h-5 w-5 shrink-0 text-brand-600') %><span><%= t('footer.tax_id') %>: <strong><%= settings.tax_id %></strong></span></p>
+      <p class="flex gap-2"><%- icon('map', 'h-5 w-5 shrink-0 text-brand-600') %><span><%= t('footer.address') %>: <%= settings.address %></span></p>
+      <p class="flex gap-2"><%- icon('phone', 'h-5 w-5 shrink-0 text-brand-600') %><span><%= t('footer.phone') %>: <a href="<%= contact.tel %>" class="font-semibold hover:underline"><%= settings.phone %></a></span></p>
+      <div class="flex flex-wrap gap-2 pt-1">
+        <a href="<%= contact.zalo %>" target="_blank" rel="noopener" class="btn bg-[#0068ff] text-white hover:opacity-90"><%- icon('chat', 'h-4 w-4') %>Zalo</a>
+        <a href="<%= contact.whatsapp %>" target="_blank" rel="noopener" class="btn bg-[#25d366] text-white hover:opacity-90"><%- icon('chat', 'h-4 w-4') %>WhatsApp</a>
+        <a href="<%= contact.tel %>" class="btn-secondary"><%- icon('phone', 'h-4 w-4') %><%= t('product.call') %></a>
+      </div>
+    </div>
+  </div>
+  <p class="border-t border-slate-200 py-4 text-center text-xs text-slate-500 dark:border-slate-800">© <%= new Date().getFullYear() %> <%= settings.company_name %></p>
+</footer>

@@ -4,8 +4,16 @@
   "theme.light": "Sáng",
   "theme.dark": "Tối",
   "theme.auto": "Tự động",
-  "home.placeholder": "Trang chủ đang được xây dựng.",
   "home.see_more": "Xem thêm",
   "product.contact": "Liên hệ ngay",
-  "product.price_contact": "Liên hệ"
+  "product.price_contact": "Liên hệ",
+  "nav.categories": "Danh mục",
+  "home.empty": "Chưa có sản phẩm.",
+  "footer.tax_id": "MST",
+  "footer.address": "Địa chỉ",
+  "footer.phone": "SĐT",
+  "product.call": "Gọi ngay",
+  "product.specs": "Cấu hình",
+  "product.desc": "Mô tả sản phẩm",
+  "product.related": "Sản phẩm cùng danh mục"
 }

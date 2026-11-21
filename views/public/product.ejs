@@ -1,0 +1,46 @@
+<%- include('_layout_top') %>
+<main class="mx-auto max-w-7xl px-4 py-8">
+  <nav class="mb-4 text-sm text-slate-500">
+    <a href="/" class="hover:underline"><%= t('nav.home') %></a>
+    <% if (cat) { %> / <a href="/c/<%= cat.id %>" class="hover:underline"><%= field(cat, 'name') %></a><% } %>
+  </nav>
+  <div class="grid gap-6 md:grid-cols-2 md:gap-10">
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <% if (p.image_url) { %>
+        <img src="<%= p.image_url %>" alt="<%= field(p, 'name') %>" class="aspect-square w-full object-contain">
+      <% } else { %>
+        <div class="grid aspect-square place-items-center text-slate-300 dark:text-slate-600"><%- icon(cat ? cat.icon : 'box', 'h-32 w-32') %></div>
+      <% } %>
+    </div>
+    <div>
+      <h1 class="text-2xl font-bold md:text-3xl"><%= field(p, 'name') %></h1>
+      <p class="mt-3 text-3xl font-bold text-red-600 dark:text-red-400"><%= p.price ? fmt.money(p.price) : t('product.price_contact') %></p>
+      <div class="mt-5 flex flex-wrap gap-2">
+        <a href="<%= contact.zalo %>" target="_blank" rel="noopener" class="btn bg-[#0068ff] text-white hover:opacity-90"><%- icon('chat', 'h-4 w-4') %><%= t('product.contact') %> Zalo</a>
+        <a href="<%= contact.whatsapp %>" target="_blank" rel="noopener" class="btn bg-[#25d366] text-white hover:opacity-90"><%- icon('chat', 'h-4 w-4') %>WhatsApp</a>
+        <a href="<%= contact.tel %>" class="btn-secondary"><%- icon('phone', 'h-4 w-4') %><%= settings.phone %></a>
+      </div>
+      <% if (p.specs_vi) { %>
+        <section class="mt-6">
+          <h2 class="mb-2 font-semibold"><%= t('product.specs') %></h2>
+          <div class="card whitespace-pre-line text-sm leading-relaxed"><%= p.specs_vi %></div>
+        </section>
+      <% } %>
+    </div>
+  </div>
+  <% if (field(p, 'desc')) { %>
+    <section class="mt-8">
+      <h2 class="mb-2 text-lg font-semibold"><%= t('product.desc') %></h2>
+      <div class="card whitespace-pre-line leading-relaxed"><%= field(p, 'desc') %></div>
+    </section>
+  <% } %>
+  <% if (related.length) { %>
+    <section class="mt-10">
+      <h2 class="mb-4 text-lg font-semibold"><%= t('product.related') %></h2>
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-5">
+        <% related.forEach(r => { %><%- include('_card', { p: r, catIcon: cat && cat.icon }) %><% }) %>
+      </div>
+    </section>
+  <% } %>
+</main>
+<%- include('_layout_bottom') %>

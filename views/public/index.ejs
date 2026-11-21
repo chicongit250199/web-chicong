@@ -1,22 +1,27 @@
-<%- include('../partials/head') %>
-<main class="mx-auto max-w-5xl p-4">
-  <div class="flex flex-wrap items-center justify-between gap-3">
-    <h1 class="text-2xl font-bold"><%= settings.company_name %></h1>
-    <div class="flex items-center gap-2">
-      <nav class="inline-flex rounded-lg border border-slate-300 p-0.5 text-xs dark:border-slate-700">
-        <% languages.forEach(l => { %>
-          <a href="?lang=<%= l %>" class="rounded-md px-2 py-1 font-medium <%= l === lang ? 'bg-brand-600 text-white' : '' %>"><%= l.toUpperCase() %></a>
-        <% }) %>
-      </nav>
-      <%- include('../partials/theme-switch') %>
-    </div>
-  </div>
-  <p class="mt-2 text-slate-500"><%= t('home.placeholder') %></p>
-  <ul class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-    <% categories.forEach(c => { %>
-      <li class="card text-center font-medium"><%= field(c, 'name', lang) %></li>
-    <% }) %>
-  </ul>
-  <a href="/login" class="btn-primary mt-6 inline-block"><%= t('nav.login') %></a>
+<%- include('_layout_top') %>
+<%# Hiện đúng `rows` hàng ở mọi màn hình: ẩn sản phẩm vượt quá rows × số cột %>
+<style>
+  .feat-grid > :nth-child(n+<%= rows * 2 + 1 %>) { display: none; }
+  @media (min-width: 640px)  { .feat-grid > :nth-child(n+<%= rows * 2 + 1 %>) { display: flex; } .feat-grid > :nth-child(n+<%= rows * 3 + 1 %>) { display: none; } }
+  @media (min-width: 1024px) { .feat-grid > :nth-child(n+<%= rows * 3 + 1 %>) { display: flex; } .feat-grid > :nth-child(n+<%= rows * 4 + 1 %>) { display: none; } }
+  @media (min-width: 1280px) { .feat-grid > :nth-child(n+<%= rows * 4 + 1 %>) { display: flex; } .feat-grid > :nth-child(n+<%= rows * 5 + 1 %>) { display: none; } }
+</style>
+<main class="mx-auto max-w-7xl space-y-10 px-4 py-8">
+  <% if (!sections.length) { %>
+    <div class="card py-16 text-center text-slate-500"><%= t('home.empty') %></div>
+  <% } %>
+  <% sections.forEach(s => { %>
+    <section id="cat-<%= s.cat.id %>" class="scroll-mt-4">
+      <div class="mb-4 flex items-end justify-between gap-3 border-b border-slate-200 pb-2 dark:border-slate-800">
+        <h2 class="flex items-center gap-2 text-lg font-bold md:text-xl"><%- icon(s.cat.icon, 'h-6 w-6 text-brand-600') %><%= field(s.cat, 'name') %></h2>
+      </div>
+      <div class="feat-grid grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5">
+        <% s.products.forEach(p => { %><%- include('_card', { p, catIcon: s.cat.icon }) %><% }) %>
+      </div>
+      <div class="mt-4 text-center">
+        <a href="/c/<%= s.cat.id %>" class="btn-secondary"><%= t('home.see_more') %> (<%= s.total %>) <%- icon('arrowRight', 'h-4 w-4') %></a>
+      </div>
+    </section>
+  <% }) %>
 </main>
-<%- include('../partials/foot') %>
+<%- include('_layout_bottom') %>

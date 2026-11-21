@@ -4,8 +4,16 @@
   "theme.light": "Светлая",
   "theme.dark": "Тёмная",
   "theme.auto": "Авто",
-  "home.placeholder": "Главная страница в разработке.",
   "home.see_more": "Смотреть ещё",
   "product.contact": "Связаться",
-  "product.price_contact": "По запросу"
+  "product.price_contact": "По запросу",
+  "nav.categories": "Каталог",
+  "home.empty": "Товаров пока нет.",
+  "footer.tax_id": "ИНН",
+  "footer.address": "Адрес",
+  "footer.phone": "Телефон",
+  "product.call": "Позвонить",
+  "product.specs": "Характеристики",
+  "product.desc": "Описание",
+  "product.related": "Похожие товары"
 }

@@ -8,7 +8,8 @@
     "watch:css": "tailwindcss -i public/css/input.css -o public/css/app.css --watch",
     "dev": "node --watch server.js",
     "start": "node server.js",
-    "prestart": "npm run build:css"
+    "prestart": "npm run build:css",
+    "seed:demo": "node scripts/seed-demo.js"
   },
   "dependencies": {
     "alpinejs": "^3.17.5",

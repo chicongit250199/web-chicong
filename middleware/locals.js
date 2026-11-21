@@ -4,6 +4,8 @@ const config = require('../config');
 const settings = require('../services/settings');
 const i18n = require('../services/i18n');
 const fmt = require('../services/format');
+const { icon } = require('../services/icons');
+const contact = require('../services/contact');
 
 module.exports = function locals(req, res, next) {
   let lang = req.query.lang;
@@ -13,11 +15,21 @@ module.exports = function locals(req, res, next) {
     lang = config.languages.includes(req.cookies.lang) ? req.cookies.lang : config.defaultLang;
   }
   req.lang = lang;
+  const s = settings.all();
   res.locals.lang = lang;
   res.locals.languages = config.languages;
   res.locals.t = i18n.translator(lang);
-  res.locals.settings = settings.all();
+  res.locals.field = (row, base) => i18n.field(row, base, lang);
+  res.locals.settings = s;
+  res.locals.contact = contact.links(s.phone);
   res.locals.fmt = fmt;
+  res.locals.icon = icon;
   res.locals.path = req.path;
+  // Link đổi ngôn ngữ giữ nguyên trang hiện tại
+  res.locals.langUrl = l => {
+    const u = new URL(req.originalUrl, 'http://x');
+    u.searchParams.set('lang', l);
+    return u.pathname + u.search;
+  };
   next();
 };

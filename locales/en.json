@@ -4,8 +4,16 @@
   "theme.light": "Light",
   "theme.dark": "Dark",
   "theme.auto": "Auto",
-  "home.placeholder": "Home page under construction.",
   "home.see_more": "See more",
   "product.contact": "Contact us",
-  "product.price_contact": "Contact"
+  "product.price_contact": "Contact",
+  "nav.categories": "Categories",
+  "home.empty": "No products yet.",
+  "footer.tax_id": "Tax ID",
+  "footer.address": "Address",
+  "footer.phone": "Phone",
+  "product.call": "Call now",
+  "product.specs": "Specifications",
+  "product.desc": "Description",
+  "product.related": "Related products"
 }

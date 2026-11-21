@@ -4,8 +4,16 @@
   "theme.light": "浅色",
   "theme.dark": "深色",
   "theme.auto": "自动",
-  "home.placeholder": "首页正在建设中。",
   "home.see_more": "查看更多",
   "product.contact": "立即联系",
-  "product.price_contact": "电询"
+  "product.price_contact": "电询",
+  "nav.categories": "分类",
+  "home.empty": "暂无产品。",
+  "footer.tax_id": "税号",
+  "footer.address": "地址",
+  "footer.phone": "电话",
+  "product.call": "立即致电",
+  "product.specs": "配置",
+  "product.desc": "产品描述",
+  "product.related": "同类产品"
 }

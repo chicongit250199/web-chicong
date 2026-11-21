@@ -1,0 +1,14 @@
+<a href="/p/<%= p.id %>" class="group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+  <div class="relative aspect-square bg-slate-100 dark:bg-slate-800">
+    <% if (p.image_url) { %>
+      <img src="<%= p.image_url %>" alt="<%= field(p, 'name') %>" loading="lazy" class="h-full w-full object-cover">
+    <% } else { %>
+      <div class="grid h-full w-full place-items-center text-slate-300 dark:text-slate-600"><%- icon(catIcon || 'box', 'h-16 w-16') %></div>
+    <% } %>
+    <% if (p.is_featured) { %><span class="absolute left-2 top-2 rounded-md bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-950">Hot</span><% } %>
+  </div>
+  <div class="flex flex-1 flex-col p-3">
+    <h3 class="line-clamp-2 text-sm font-medium group-hover:text-brand-600"><%= field(p, 'name') %></h3>
+    <p class="mt-auto pt-2 text-base font-bold text-red-600 dark:text-red-400"><%= p.price ? fmt.money(p.price) : t('product.price_contact') %></p>
+  </div>
+</a>
