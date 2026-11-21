@@ -18,8 +18,21 @@ function ai() {
 
 function isEnabled() { return Boolean(config.geminiApiKey); }
 
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// Gói miễn phí giới hạn số lượt/phút: gặp 429/503 thì chờ rồi thử lại (tối đa 3 lần)
+async function withRetry(fn) {
+  for (let attempt = 1; ; attempt++) {
+    try { return await fn(); } catch (e) {
+      const code = e.status || e.code || (String(e.message).match(/\b(429|500|503)\b/) || [])[1];
+      if (attempt >= 4 || ![429, 500, 503, '429', '500', '503'].includes(code)) throw e;
+      await sleep(15000 * attempt);
+    }
+  }
+}
+
 async function generateJson(parts, schema, systemInstruction) {
-  const res = await ai().models.generateContent({
+  const res = await withRetry(() => ai().models.generateContent({
     model: config.geminiModel,
     contents: [{ role: 'user', parts }],
     config: {
@@ -28,7 +41,7 @@ async function generateJson(parts, schema, systemInstruction) {
       responseJsonSchema: schema,
       temperature: 0.2,
     },
-  });
+  }));
   const text = res.text || '';
   try {
     return JSON.parse(text);

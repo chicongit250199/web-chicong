@@ -8,7 +8,7 @@ const { parseInvoiceXml } = require('./vatXml');
 const aiService = require('./aiService');
 const { stripVi } = require('./inventory');
 
-const MAX_PER_RUN = 40; // giới hạn mỗi lần bấm "Cập nhật" để không treo request
+const MAX_PER_RUN = 15; // mỗi lần bấm "Cập nhật" xử lý tối đa 15 hóa đơn (PDF qua AI mất vài giây/file)
 
 const q = {
   known: db.prepare('SELECT drive_file_id FROM vat_drive_files WHERE status <> ?'),
