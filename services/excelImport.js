@@ -12,7 +12,7 @@ const COLUMNS = {
   condition: ['tinhtrang'],
   supplier: ['npp', 'nhaphanphoi', 'nhacungcap', 'ncc'],
   warranty_in_months: ['thbhnhap', 'baohanhnhap'],
-  sold_date: ['ngayban'],
+  sold_date: ['ngayban', 'ngayxuat', 'ngayxuatban', 'ngayxuathang'],
   customer_name: ['tenkh', 'tenkhachhang', 'khachhang'],
   sold_flag: ['daban'],
   customer_phone: ['sdtkh', 'sdt', 'sodienthoai', 'dienthoai'],
@@ -77,7 +77,12 @@ function parseWorkbook(buffer) {
       const soldCell = map.sold_flag !== undefined ? ws[XLSX.utils.encode_cell({ r: r + range.s.r, c: map.sold_flag + range.s.c })] : null;
       const soldDate = inv.parseDate(get('sold_date'));
       const customer = get('customer_name') == null ? '' : String(get('customer_name')).trim();
-      const sold = isSoldFlag(get('sold_flag')) || hasFill(soldCell) || Boolean(soldDate) || Boolean(customer);
+      // Hàng đã xuất = dòng có NGÀY XUẤT (Ngày bán). Đánh dấu / tên KH mà thiếu ngày -> vẫn tồn kho, nhắc kiểm tra.
+      const sold = Boolean(soldDate);
+      const rawSold = get('sold_date');
+      const marked = isSoldFlag(get('sold_flag')) || hasFill(soldCell) || Boolean(customer);
+      const hint = !sold && rawSold != null && String(rawSold).trim() !== '' ? `Ngày xuất "${String(rawSold).trim()}" không đọc được`
+        : !sold && marked ? 'Có đánh dấu đã bán / tên KH nhưng thiếu ngày xuất' : null;
       rows.push({
         sheet: sheetName, line: r + 1,
         item_code: get('item_code') == null || get('item_code') === '' ? inv.makeItemCode(name) : String(get('item_code')).trim(),
@@ -89,6 +94,7 @@ function parseWorkbook(buffer) {
         tech_price: inv.parseMoney(get('tech_price')),
         retail_price: inv.parseMoney(get('retail_price')),
         status: sold ? 'sold' : 'in_stock',
+        hint,
         sold_date: soldDate,
         customer_name: customer || null,
         customer_phone: get('customer_phone') == null ? null : String(get('customer_phone')).replace(/[^\d+]/g, '') || null,
@@ -107,6 +113,8 @@ function parseWorkbook(buffer) {
   }
   const existing = new Map(inv.existingSerials([...seen.keys()]).map(e => [e.serial, e]));
   for (const r of rows) if (r.serial && !r.duplicate && existing.has(r.serial)) r.duplicate = 'Serial đã có trong kho';
+  const hinted = rows.filter(r => r.hint && !r.duplicate).length;
+  if (hinted) warnings.push(`${hinted} dòng có đánh dấu đã bán / tên khách nhưng không có ngày xuất → đang để ở Tồn kho (tô vàng bên dưới, lọc "Cần kiểm tra"). Nếu đã bán, điền ngày xuất trong file rồi tải lại.`);
   return { rows, warnings };
 }
 

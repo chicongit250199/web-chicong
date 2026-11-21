@@ -15,10 +15,11 @@
     <h2 class="mb-2 font-semibold">Cấu trúc 15 cột được nhận diện</h2>
     <p class="mb-2 text-slate-500">Hệ thống tự tìm dòng tiêu đề (không phân biệt dấu/hoa thường), thứ tự cột tùy ý:</p>
     <div class="flex flex-wrap gap-1.5">
-      <% ['SKU → Mã hàng','Tên Linh Kiện','Số Serrial','Ngày nhập','Tình Trạng','NPP','THBH Nhập','Ngày bán','Tên KH','Đã Bán','SDT KH','THBH Xuất','Ghi chú','Giá KT','Giá bán lẻ'].forEach(c => { %><span class="badge-gray"><%= c %></span><% }) %>
+      <% ['SKU → Mã hàng','Tên Linh Kiện','Số Serrial','Ngày nhập','Tình Trạng','NPP','THBH Nhập','Ngày bán / Ngày xuất','Tên KH','Đã Bán','SDT KH','THBH Xuất','Ghi chú','Giá KT','Giá bán lẻ'].forEach(c => { %><span class="badge-gray"><%= c %></span><% }) %>
     </div>
     <ul class="mt-3 list-disc space-y-1 pl-5 text-slate-600 dark:text-slate-400">
-      <li>Vào nhóm <strong>Đã bán</strong> nếu cột <em>Đã Bán</em> có giá trị (x, 1, ✓...) hoặc ô được tô màu, hoặc có <em>Ngày bán</em> / <em>Tên KH</em>. Còn lại vào <strong>Tồn kho</strong>.</li>
+      <li>Vào nhóm <strong>Đã bán</strong> khi dòng có <strong>ngày xuất</strong> (cột <em>Ngày bán</em> / <em>Ngày xuất</em>). Không có ngày xuất → <strong>Tồn kho</strong>.</li>
+      <li>Dòng có đánh dấu đã bán (x, 1, tô màu) hoặc tên khách nhưng <strong>thiếu ngày xuất</strong> được tô vàng để kiểm tra lại.</li>
       <li>Dòng trùng Serial (trong file hoặc đã có trong kho) được đánh dấu và bỏ qua.</li>
       <li>SKU trống → tự sinh mã hàng từ tên. Ngày dạng dd/mm/yyyy hoặc ngày Excel; giá có thể ghi 1.500.000 / 1,5tr / 500k.</li>
     </ul>
@@ -41,19 +42,19 @@
     <a href="?show=sold" class="stat hover:border-brand-400 <%= filter === 'sold' ? 'ring-2 ring-brand-500' : '' %>"><p class="stat-label">Kho hàng đã bán</p><p class="stat-value text-violet-600"><%= summary.sold %></p></a>
     <a href="?show=duplicate" class="stat hover:border-brand-400 <%= filter === 'duplicate' ? 'ring-2 ring-brand-500' : '' %>"><p class="stat-label">Trùng Serial (bỏ qua)</p><p class="stat-value text-red-600"><%= summary.duplicate %></p></a>
   </div>
-  <p class="mb-2 text-sm text-slate-500">Đang xem: <a href="?show=all" class="text-brand-600 hover:underline <%= filter === 'all' ? 'font-semibold' : '' %>">tất cả</a> · <%= shown %> dòng<%= shown > rows.length ? ` (hiện ${rows.length} dòng đầu)` : '' %></p>
+  <p class="mb-2 text-sm text-slate-500">Đang xem: <a href="?show=all" class="text-brand-600 hover:underline <%= filter === 'all' ? 'font-semibold' : '' %>">tất cả</a> · <a href="?show=hint" class="text-amber-700 hover:underline <%= filter === 'hint' ? 'font-semibold' : '' %>">cần kiểm tra</a> · <%= shown %> dòng<%= shown > rows.length ? ` (hiện ${rows.length} dòng đầu)` : '' %></p>
   <div class="tbl-wrap max-h-[65vh] overflow-y-auto"><table class="tbl text-xs">
     <thead class="sticky top-0"><tr><th>Dòng</th><th>Nhóm</th><th>Mã hàng</th><th>Tên</th><th>Serial</th><th>Ngày nhập</th><th>Tình trạng</th><th>NPP</th><th>BH nhập</th><th class="text-right">Giá KT</th><th class="text-right">Giá bán lẻ</th><th>Ngày bán</th><th>Khách</th><th>BH xuất</th><th>Ghi chú</th></tr></thead>
     <tbody>
       <% rows.forEach(r => { %>
-        <tr class="<%= r.duplicate ? 'bg-red-50/60 dark:bg-red-950/30' : '' %>">
+        <tr class="<%= r.duplicate ? 'bg-red-50/60 dark:bg-red-950/30' : r.hint ? 'bg-amber-50/80 dark:bg-amber-950/30' : '' %>">
           <td class="whitespace-nowrap text-slate-500"><%= r.sheet %>:<%= r.line %></td>
           <td class="whitespace-nowrap"><% if (r.duplicate) { %><span class="badge-red" title="<%= r.duplicate %>">Trùng</span><% } else { %><span class="<%= r.status === 'sold' ? 'badge-violet' : 'badge-green' %>"><%= r.status === 'sold' ? 'Đã bán' : 'Tồn kho' %></span><% } %></td>
           <td class="whitespace-nowrap"><%= r.item_code %></td><td class="min-w-40 font-medium"><%= r.name %></td><td class="font-mono"><%= r.serial || '' %></td>
           <td class="whitespace-nowrap"><%= fmt.date(r.import_date) %></td><td><%= r.condition || '' %></td><td><%= r.supplier || '' %></td><td><%= r.warranty_in_months ?? '' %></td>
           <td class="text-right tabular-nums"><%= fmt.num(r.tech_price) %></td><td class="text-right tabular-nums"><%= fmt.num(r.retail_price) %></td>
           <td class="whitespace-nowrap"><%= fmt.date(r.sold_date) %></td><td><%= r.customer_name || '' %> <%= r.customer_phone || '' %></td><td><%= r.warranty_out_months ?? '' %></td>
-          <td class="max-w-48 text-slate-500"><%= r.duplicate ? r.duplicate + '. ' : '' %><%= r.note || '' %></td>
+          <td class="max-w-48 text-slate-500"><% if (r.hint) { %><span class="font-medium text-amber-700 dark:text-amber-400"><%= r.hint %>. </span><% } %><%= r.duplicate ? r.duplicate + '. ' : '' %><%= r.note || '' %></td>
         </tr>
       <% }) %>
     </tbody>

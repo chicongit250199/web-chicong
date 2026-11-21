@@ -24,7 +24,7 @@ function load(req) {
 router.get('/import', (req, res) => {
   res.locals.nav = 'm-import';
   const data = load(req);
-  const filter = ['in_stock', 'sold', 'duplicate'].includes(req.query.show) ? req.query.show : 'all';
+  const filter = ['in_stock', 'sold', 'duplicate', 'hint'].includes(req.query.show) ? req.query.show : 'all';
   let rows = data ? data.rows : [];
   const summary = data && {
     total: rows.length,
@@ -33,6 +33,7 @@ router.get('/import', (req, res) => {
     duplicate: rows.filter(r => r.duplicate).length,
   };
   if (filter === 'duplicate') rows = rows.filter(r => r.duplicate);
+  else if (filter === 'hint') rows = rows.filter(r => r.hint && !r.duplicate);
   else if (filter !== 'all') rows = rows.filter(r => r.status === filter && !r.duplicate);
   res.render('manager/import', { title: 'Import Excel kho', data, summary, rows: rows.slice(0, 500), shown: rows.length, filter });
 });
