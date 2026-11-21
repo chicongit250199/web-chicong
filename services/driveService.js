@@ -24,7 +24,8 @@ function client() {
     const e = new Error('Chưa có file Service Account (GOOGLE_SERVICE_ACCOUNT_PATH)'); e.status = 400; e.expose = true; throw e;
   }
   const { drive: makeDrive, auth } = require('@googleapis/drive');
-  const a = new auth.GoogleAuth({ keyFile: config.googleServiceAccountPath, scopes: ['https://www.googleapis.com/auth/drive.readonly'] });
+  const credentials = JSON.parse(fs.readFileSync(config.googleServiceAccountPath, 'utf8'));
+  const a = new auth.JWT({ email: credentials.client_email, key: credentials.private_key, scopes: ['https://www.googleapis.com/auth/drive.readonly'] });
   drive = makeDrive({ version: 'v3', auth: a });
   return drive;
 }
