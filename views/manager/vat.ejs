@@ -1,14 +1,15 @@
 <%- include('../app/_top') %>
 <% const ds = driveStatus; const ready = ds.credentials && aiEnabled; %>
 <div x-data="{
-    job: null, err: '', ex: null, inv: null, invItems: [], timer: null,
+    job: null, auto: null, err: '', ex: null, inv: null, invItems: [], timer: null,
     get running() { return this.job && this.job.running },
     get pct() { return this.job && this.job.total ? Math.round(this.job.processed / this.job.total * 100) : 0 },
     async init() { await this.poll(); },
     async poll() {
-      try { const d = await api('/manager/vat/sync/status'); this.job = d.job; } catch (e) {}
+      try { const d = await api('/manager/vat/sync/status'); this.job = d.job; this.auto = d.auto; } catch (e) {}
       clearTimeout(this.timer);
-      if (this.running) this.timer = setTimeout(() => this.poll(), 3000);
+      // Đang quét: hỏi mỗi 3s; không quét: hỏi mỗi 60s để thấy lượt tự động
+      this.timer = setTimeout(() => this.poll(), this.running ? 3000 : 60000);
     },
     async sync(dir) {
       this.err = '';
@@ -41,12 +42,14 @@
   <% } %>
 
   <div x-show="err" x-cloak class="mb-4 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-200 dark:bg-red-950 dark:text-red-200 dark:ring-red-900"><%- icon('alert', 'h-5 w-5') %><span x-text="err"></span></div>
+  <p x-show="auto && auto.enabled" x-cloak class="-mt-2 mb-3 flex items-center gap-1.5 text-xs text-slate-500"><%- icon('clock', 'h-3.5 w-3.5') %>
+    <span x-text="'Tự động quét Drive mỗi ' + auto.minutes + ' phút' + (auto.nextRunAt && !running ? ' · lần tới ' + new Date(auto.nextRunAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '') + ' · chỉ đọc file mới, bỏ qua file đã có'"></span></p>
   <%# Tiến độ quét chạy nền %>
   <template x-if="job">
     <div class="mb-4 rounded-lg px-4 py-3 text-sm ring-1"
          :class="job.error ? 'bg-red-50 text-red-900 ring-red-200 dark:bg-red-950 dark:text-red-100 dark:ring-red-900' : (job.running ? 'bg-blue-50 text-blue-900 ring-blue-200 dark:bg-blue-950 dark:text-blue-100 dark:ring-blue-900' : 'bg-emerald-50 text-emerald-900 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-100 dark:ring-emerald-900')">
       <p class="font-semibold">
-        <span x-text="(job.running ? 'Đang quét' : 'Đã quét xong') + ' hóa đơn ' + (job.direction === 'in' ? 'đầu vào' : 'bán ra')"></span>
+        <span x-text="(job.running ? 'Đang quét' : 'Đã quét xong') + ' hóa đơn ' + (job.direction === 'in' ? 'đầu vào' : 'bán ra') + (job.actor ? '' : ' (tự động)')"></span>
         <span x-show="job.total" x-text="': ' + job.processed + ' / ' + job.total + ' (' + pct + '%)'"></span>
         <span x-show="!job.running && !job.error" x-text="' · thêm ' + job.added + ' hóa đơn' + (job.duplicates ? ' · ' + job.duplicates + ' trùng' : '') + (job.usedAi ? ' · ' + job.usedAi + ' đọc bằng AI' : '')"></span>
         <span x-show="!job.running && !job.error && !job.found"> — không có file mới</span>
@@ -175,8 +178,10 @@
 
   <% if (errors.length) { %>
     <details class="card mt-4 text-sm">
-      <summary class="cursor-pointer font-semibold text-red-600"><%= errors.length %> file chưa đọc được (sẽ thử lại khi bấm Cập nhật)</summary>
-      <ul class="mt-2 space-y-1"><% errors.forEach(e => { %><li><span class="font-medium"><%= e.file_name %></span> — <span class="text-slate-500"><%= e.error %></span></li><% }) %></ul>
+      <summary class="cursor-pointer font-semibold text-red-600"><%= errors.length %> file chưa đọc được</summary>
+      <p class="mt-2 text-xs text-slate-500">Mỗi file lỗi được tự thử lại tối đa 3 lần, sau đó bỏ qua để tiết kiệm thời gian.</p>
+      <ul class="mt-2 space-y-1"><% errors.forEach(e => { %><li><span class="font-medium"><%= e.file_name %></span> <span class="badge-gray">thử <%= e.attempts %>/3</span> — <span class="text-slate-500"><%= e.error %></span></li><% }) %></ul>
+      <form method="post" action="/manager/vat/sync/reset-errors" class="mt-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn-secondary px-3 py-1.5 text-xs"><%- icon('refresh', 'h-3.5 w-3.5') %>Thử lại các file lỗi</button></form>
     </details>
   <% } %>
 

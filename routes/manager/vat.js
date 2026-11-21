@@ -62,7 +62,7 @@ router.get('/vat', (req, res) => {
     exported: db.prepare(`SELECT COUNT(*) c FROM vat_items x JOIN vat_invoices i ON i.id = x.invoice_id WHERE i.direction = 'in' AND x.status = 'depleted'`).get().c,
     exports: db.prepare('SELECT COUNT(*) c FROM vat_item_exports').get().c,
   };
-  const errors = db.prepare(`SELECT * FROM vat_drive_files WHERE status = 'error' ORDER BY processed_at DESC LIMIT 20`).all();
+  const errors = db.prepare(`SELECT * FROM vat_drive_files WHERE status = 'error' ORDER BY processed_at DESC LIMIT 50`).all();
   res.render('manager/vat', {
     title: 'Kho hóa đơn VAT', tab, rows, counts, search: s, errors, driveStatus: drive.status(), aiEnabled: ai.isEnabled(),
     page, pages, total: agg.c, sumAmount: agg.total, pageSize: PAGE_SIZE,
@@ -85,7 +85,13 @@ router.post('/vat/sync/:direction', (req, res) => {
   res.status(started ? 202 : 409).json({ started, job, error: started ? null : 'Đang quét, vui lòng chờ xong rồi bấm lại.' });
 });
 
-router.get('/vat/sync/status', (req, res) => res.json({ job: vatSync.status() }));
+router.get('/vat/sync/status', (req, res) => res.json(vatSync.status()));
+
+router.post('/vat/sync/reset-errors', (req, res) => {
+  const n = vatSync.resetErrors();
+  req.flash('success', n ? `Sẽ đọc lại ${n} file lỗi ở lần quét tiếp theo.` : 'Không có file lỗi.');
+  res.redirect('/manager/vat');
+});
 
 const exportSchema = v.z.object({
   quantity: v.z.coerce.number().positive('Số lượng phải > 0'),

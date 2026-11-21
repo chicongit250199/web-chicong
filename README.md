@@ -28,6 +28,8 @@ Tài khoản mặc định: `admin` / `123456` (Quản lý), `staff1` / `123456`
    - Dán link hoặc ID thư mục vào `DRIVE_VAT_INPUT_FOLDER_ID`, `DRIVE_VAT_OUTPUT_FOLDER_ID`.
 3. Khởi động lại server.
 
+**Tự động quét:** server tự quét 2 thư mục mỗi `VAT_AUTO_SYNC_MINUTES` phút (mặc định 60, đặt `0` để tắt) và 1 phút sau mỗi lần khởi động. Chỉ đọc file mới — file đã đọc được bỏ qua; file lỗi thử lại tối đa 3 lần (nút "Thử lại các file lỗi" để đọc lại). Có thể bấm "Cập nhật" để quét ngay.
+
 Hóa đơn **XML** (MISA, Viettel, FastCA, VNPT, BKAV… chuẩn Tổng cục Thuế) được đọc trực tiếp, chính xác và không tốn phí AI. File **PDF/ảnh** không kèm XML mới gửi qua Gemini. Để XML và PDF **cùng tên** trong thư mục thì hệ thống đọc XML và gắn link PDF để mở xem.
 
 ## Chạy nền 24/7 (PM2)

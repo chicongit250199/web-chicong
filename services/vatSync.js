@@ -8,12 +8,16 @@ const { parseInvoiceXml } = require('./vatXml');
 const aiService = require('./aiService');
 const { stripVi } = require('./inventory');
 
+const MAX_ATTEMPTS = 3; // file lỗi thử lại tối đa 3 lần rồi bỏ qua (bấm "Thử lại file lỗi" để đọc lại)
+
 
 const q = {
-  known: db.prepare('SELECT drive_file_id FROM vat_drive_files WHERE status <> ?'),
+  // Bỏ qua: file đã đọc xong / đã ghép, và file lỗi đã thử đủ MAX_ATTEMPTS lần
+  known: db.prepare('SELECT drive_file_id FROM vat_drive_files WHERE status <> ? OR attempts >= ?'),
   markFile: db.prepare(`INSERT INTO vat_drive_files (drive_file_id, direction, file_name, mime_type, invoice_id, status, error)
     VALUES (@id, @direction, @name, @mime, @invoice_id, @status, @error)
-    ON CONFLICT(drive_file_id) DO UPDATE SET invoice_id = excluded.invoice_id, status = excluded.status, error = excluded.error, processed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`),
+    ON CONFLICT(drive_file_id) DO UPDATE SET invoice_id = excluded.invoice_id, status = excluded.status, error = excluded.error,
+      attempts = CASE WHEN excluded.status = 'error' THEN attempts + 1 ELSE attempts END, processed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`),
   findDup: db.prepare(`SELECT id FROM vat_invoices WHERE direction = ? AND invoice_number = ? AND COALESCE(invoice_symbol,'') = ? AND COALESCE(partner_tax_id,'') = ?`),
   insInvoice: db.prepare(`INSERT INTO vat_invoices (direction, drive_file_id, file_name, drive_link, pdf_link, source_format, invoice_symbol, invoice_number,
       invoice_date, partner_name, partner_tax_id, seller_name, seller_tax_id, buyer_name, buyer_tax_id, subtotal, vat_amount, total_amount, raw_json)
@@ -70,7 +74,7 @@ async function sync(direction, { limit = Infinity, onProgress = () => {} } = {})
   // Không quét thư mục con thuộc chiều ngược lại (VD "HĐ Bán ra" nằm trong thư mục Đầu vào)
   const other = direction === 'in' ? /ban\s*ra|xuat/ : /dau\s*vao|mua\s*vao|nhap/;
   const files = (await drive.listFiles(folder, 1, name => other.test(stripVi(name).toLowerCase()))).filter(kind);
-  const known = new Set(q.known.all('error').map(r => r.drive_file_id));
+  const known = new Set(q.known.all('error', MAX_ATTEMPTS).map(r => r.drive_file_id));
   const fresh = files.filter(f => !known.has(f.id));
 
   // Ghép XML + PDF cùng tên: đọc XML (chính xác), PDF chỉ để gắn link xem
@@ -125,18 +129,23 @@ async function sync(direction, { limit = Infinity, onProgress = () => {} } = {})
 
 // ---- Chạy nền: bấm "Cập nhật" trả về ngay, trang hỏi tiến độ định kỳ ----
 let job = null;
+let auto = { enabled: false, minutes: 0, lastRunAt: null, nextRunAt: null };
 
-function status() { return job; }
+function status() { return { job, auto }; }
 
 function start(direction, actor) {
-  if (job && job.running) return { job, started: false };
-  job = { direction, running: true, startedAt: new Date().toISOString(), finishedAt: null, error: null,
+  if (job && job.running) return { job, started: false, promise: Promise.resolve(job) };
+  job = { direction, running: true, startedAt: new Date().toISOString(), finishedAt: null, error: null, actor: actor || null,
     found: 0, total: 0, processed: 0, added: 0, duplicates: 0, errors: [], usedAi: 0, current: 'Đang đọc danh sách file trên Drive...' };
-  sync(direction, { onProgress: r => Object.assign(job, r) })
+  const promise = sync(direction, { onProgress: r => Object.assign(job, r) })
     .then(r => {
       Object.assign(job, r, { running: false, finishedAt: new Date().toISOString() });
-      require('./events').notify('inventory', `Quét hóa đơn ${direction === 'in' ? 'đầu vào' : 'bán ra'} xong: thêm ${r.added} hóa đơn${r.errors.length ? `, ${r.errors.length} file lỗi` : ''}`,
-        `/manager/vat?tab=${direction}`, actor);
+      // Chỉ thông báo khi có hóa đơn mới hoặc lỗi (tự động quét mỗi giờ sẽ không làm ồn)
+      if (r.added || r.errors.length) {
+        require('./events').notify('inventory', `Quét hóa đơn ${direction === 'in' ? 'đầu vào' : 'bán ra'}: thêm ${r.added} hóa đơn${r.errors.length ? `, ${r.errors.length} file lỗi` : ''}`,
+          `/manager/vat?tab=${direction}`, actor || 'Tự động');
+      }
+      return job;
     })
     .catch(e => {
       console.error('[vat] sync', e.expose ? e.message : e);
@@ -145,8 +154,38 @@ function start(direction, actor) {
           : /permission|403|insufficient/i.test(e.message) ? 'Service Account chưa có quyền đọc thư mục này.'
             : `Lỗi: ${e.message}`;
       Object.assign(job, { running: false, finishedAt: new Date().toISOString(), error: msg, current: '' });
+      return job;
     });
-  return { job, started: true };
+  return { job, started: true, promise };
 }
 
-module.exports = { sync, start, status, kind };
+// Cho phép đọc lại các file đã lỗi quá số lần thử
+function resetErrors() {
+  return db.prepare(`DELETE FROM vat_drive_files WHERE status = 'error'`).run().changes;
+}
+
+// ---- Tự động quét: đầu vào rồi bán ra, mỗi VAT_AUTO_SYNC_MINUTES phút ----
+async function runAll() {
+  auto.lastRunAt = new Date().toISOString();
+  for (const dir of ['in', 'out']) {
+    const folder = dir === 'in' ? config.driveVatInputFolderId : config.driveVatOutputFolderId;
+    if (!folder) continue;
+    if (job && job.running) await new Promise(r => { const t = setInterval(() => { if (!job.running) { clearInterval(t); r(); } }, 5000); });
+    await start(dir, null).promise;
+  }
+}
+
+function scheduleAuto() {
+  const minutes = parseInt(process.env.VAT_AUTO_SYNC_MINUTES, 10);
+  const m = Number.isFinite(minutes) ? minutes : 60;
+  if (m <= 0 || !drive.status().credentials || !(config.driveVatInputFolderId || config.driveVatOutputFolderId)) return;
+  auto = { enabled: true, minutes: m, lastRunAt: null, nextRunAt: null };
+  const loop = delay => {
+    auto.nextRunAt = new Date(Date.now() + delay).toISOString();
+    setTimeout(() => runAll().catch(e => console.error('[vat] auto', e.message)).finally(() => loop(m * 60 * 1000)), delay).unref();
+  };
+  loop(60 * 1000); // khởi động xong 1 phút thì quét (nối tiếp lượt bị ngắt nếu có)
+  console.log(`[vat] tự động quét hóa đơn mỗi ${m} phút`);
+}
+
+module.exports = { sync, start, status, kind, resetErrors, scheduleAuto, MAX_ATTEMPTS };
