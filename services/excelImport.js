@@ -14,7 +14,6 @@ const COLUMNS = {
   warranty_in_months: ['thbhnhap', 'baohanhnhap'],
   sold_date: ['ngayban', 'ngayxuat', 'ngayxuatban', 'ngayxuathang'],
   customer_name: ['tenkh', 'tenkhachhang', 'khachhang'],
-  sold_flag: ['daban'],
   customer_phone: ['sdtkh', 'sdt', 'sodienthoai', 'dienthoai'],
   warranty_out_months: ['thbhxuat', 'baohanhxuat'],
   note: ['ghichu'],
@@ -35,24 +34,8 @@ function mapHeader(row) {
   return map;
 }
 
-// Ô được tô màu nền (không trắng/không trống) -> coi như đánh dấu
-function hasFill(cell) {
-  const s = cell && cell.s;
-  if (!s || s.patternType !== 'solid' || !s.fgColor) return false;
-  const rgb = String(s.fgColor.rgb || '').toUpperCase();
-  if (rgb) return rgb !== 'FFFFFF' && rgb !== 'FFFFFFFF';
-  return s.fgColor.theme !== undefined && s.fgColor.theme !== 0; // theme 0 = trắng
-}
-
-function isSoldFlag(v) {
-  if (v == null) return false;
-  const s = norm(v);
-  if (!s) return false;
-  return !['0', 'khong', 'no', 'false', 'chuaban', 'con', 'tonkho'].includes(s);
-}
-
 function parseWorkbook(buffer) {
-  const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true, cellStyles: true });
+  const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });
   const rows = [];
   const warnings = [];
   for (const sheetName of wb.SheetNames) {
@@ -66,7 +49,6 @@ function parseWorkbook(buffer) {
       if (m.name !== undefined && (m.serial !== undefined || m.item_code !== undefined)) { headerIdx = i; map = m; break; }
     }
     if (headerIdx < 0) { warnings.push(`Sheet "${sheetName}": không tìm thấy dòng tiêu đề (cần cột Tên Linh Kiện + Số Serial/SKU)`); continue; }
-    const range = XLSX.utils.decode_range(ws['!ref']);
 
     for (let r = headerIdx + 1; r < aoa.length; r++) {
       const row = aoa[r] || [];
@@ -74,15 +56,13 @@ function parseWorkbook(buffer) {
       const name = get('name') == null ? '' : String(get('name')).trim();
       if (!name) continue;
       const serial = get('serial') == null ? '' : String(get('serial')).trim();
-      const soldCell = map.sold_flag !== undefined ? ws[XLSX.utils.encode_cell({ r: r + range.s.r, c: map.sold_flag + range.s.c })] : null;
       const soldDate = inv.parseDate(get('sold_date'));
       const customer = get('customer_name') == null ? '' : String(get('customer_name')).trim();
-      // Hàng đã xuất = dòng có NGÀY XUẤT (Ngày bán). Đánh dấu / tên KH mà thiếu ngày -> vẫn tồn kho, nhắc kiểm tra.
-      const sold = Boolean(soldDate);
-      const rawSold = get('sold_date');
-      const marked = isSoldFlag(get('sold_flag')) || hasFill(soldCell) || Boolean(customer);
-      const hint = !sold && rawSold != null && String(rawSold).trim() !== '' ? `Ngày xuất "${String(rawSold).trim()}" không đọc được`
-        : !sold && marked ? 'Có đánh dấu đã bán / tên KH nhưng thiếu ngày xuất' : null;
+      // ĐÃ BÁN = ô "Ngày bán" KHÔNG TRỐNG. Cột "Đã Bán" (chỉ tô màu để nhận biết) được bỏ qua.
+      const rawSold = get('sold_date') == null ? '' : String(get('sold_date')).trim();
+      const sold = rawSold !== '';
+      // Ghi gì đó nhưng không phải ngày (VD "đã bán") -> vẫn là đã bán, ngày bán để trống
+      const hint = sold && !soldDate ? `Ngày bán "${rawSold}" không phải ngày — vẫn tính đã bán, ngày bán để trống` : null;
       rows.push({
         sheet: sheetName, line: r + 1,
         item_code: get('item_code') == null || get('item_code') === '' ? inv.makeItemCode(name) : String(get('item_code')).trim(),
@@ -114,7 +94,7 @@ function parseWorkbook(buffer) {
   const existing = new Map(inv.existingSerials([...seen.keys()]).map(e => [e.serial, e]));
   for (const r of rows) if (r.serial && !r.duplicate && existing.has(r.serial)) r.duplicate = 'Serial đã có trong kho';
   const hinted = rows.filter(r => r.hint && !r.duplicate).length;
-  if (hinted) warnings.push(`${hinted} dòng có đánh dấu đã bán / tên khách nhưng không có ngày xuất → đang để ở Tồn kho (tô vàng bên dưới, lọc "Cần kiểm tra"). Nếu đã bán, điền ngày xuất trong file rồi tải lại.`);
+  if (hinted) warnings.push(`${hinted} dòng có ô Ngày bán ghi chữ thay vì ngày → vẫn tính là đã bán nhưng không có ngày bán (tô vàng, lọc "cần kiểm tra"). Muốn có ngày bán / hạn bảo hành thì sửa ô đó thành ngày rồi tải lại.`);
   return { rows, warnings };
 }
 

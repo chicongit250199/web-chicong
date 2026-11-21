@@ -15,11 +15,11 @@
     <h2 class="mb-2 font-semibold">Cấu trúc 15 cột được nhận diện</h2>
     <p class="mb-2 text-slate-500">Hệ thống tự tìm dòng tiêu đề (không phân biệt dấu/hoa thường), thứ tự cột tùy ý:</p>
     <div class="flex flex-wrap gap-1.5">
-      <% ['SKU → Mã hàng','Tên Linh Kiện','Số Serrial','Ngày nhập','Tình Trạng','NPP','THBH Nhập','Ngày bán / Ngày xuất','Tên KH','Đã Bán','SDT KH','THBH Xuất','Ghi chú','Giá KT','Giá bán lẻ'].forEach(c => { %><span class="badge-gray"><%= c %></span><% }) %>
+      <% ['SKU → Mã hàng','Tên Linh Kiện','Số Serrial','Ngày nhập','Tình Trạng','NPP','THBH Nhập','Ngày bán / Ngày xuất','Tên KH','Đã Bán (bỏ qua)','SDT KH','THBH Xuất','Ghi chú','Giá KT','Giá bán lẻ'].forEach(c => { %><span class="badge-gray"><%= c %></span><% }) %>
     </div>
     <ul class="mt-3 list-disc space-y-1 pl-5 text-slate-600 dark:text-slate-400">
-      <li>Vào nhóm <strong>Đã bán</strong> khi dòng có <strong>ngày xuất</strong> (cột <em>Ngày bán</em> / <em>Ngày xuất</em>). Không có ngày xuất → <strong>Tồn kho</strong>.</li>
-      <li>Dòng có đánh dấu đã bán (x, 1, tô màu) hoặc tên khách nhưng <strong>thiếu ngày xuất</strong> được tô vàng để kiểm tra lại.</li>
+      <li>Ô <strong>Ngày bán</strong> (hoặc <em>Ngày xuất</em>) <strong>không trống</strong> → <strong>Đã bán</strong>. Ô trống → <strong>Tồn kho</strong>.</li>
+      <li>Cột <em>Đã Bán</em> (tô màu để nhận biết) <strong>được bỏ qua</strong>.</li>
       <li>Dòng trùng Serial (trong file hoặc đã có trong kho) được đánh dấu và bỏ qua.</li>
       <li>SKU trống → tự sinh mã hàng từ tên. Ngày dạng dd/mm/yyyy hoặc ngày Excel; giá có thể ghi 1.500.000 / 1,5tr / 500k.</li>
     </ul>
