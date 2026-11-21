@@ -52,6 +52,9 @@ window.systemPage = function () {
     get cpuTemps() { return this.d ? this.d.temps.filter(function (t) { return t.chip === 'coretemp'; }) : []; },
     get otherTemps() { return this.d ? this.d.temps.filter(function (t) { return t.chip !== 'coretemp'; }) : []; },
     get maxTemp() { var t = this.cpuTemps.length ? this.cpuTemps : (this.d ? this.d.temps : []); return t.length ? Math.max.apply(null, t.map(function (x) { return x.value; })) : null; },
+    get fans() { return this.d && this.d.fans ? this.d.fans : []; },
+    // quạt từng quay mà giờ đọc 0 vòng/phút = quạt dừng/hỏng
+    fanLevel: function (f) { return f.rpm > 0 ? 'ok' : 'bad'; },
     get memPct() { var m = this.d.memory; return Math.round((1 - m.available / m.total) * 100); },
     get swapPct() { var m = this.d.memory; return m.swapTotal ? Math.round((1 - m.swapFree / m.swapTotal) * 100) : 0; },
     diskPct: function (k) { return Math.round((1 - k.free / k.total) * 100); },
@@ -67,7 +70,7 @@ window.systemPage = function () {
     badge: function (l) { return { ok: 'badge-green', warn: 'badge-amber', bad: 'badge-red' }[l]; },
     get overall() {
       if (!this.d) return 'ok';
-      var ls = [this.tempLevel(this.maxTemp), this.pctLevel(this.d.cpu.usage), this.pctLevel(this.memPct)].concat(this.d.disks.map(function (k) { return this.pctLevel(this.diskPct(k)); }, this));
+      var ls = [this.tempLevel(this.maxTemp), this.pctLevel(this.d.cpu.usage), this.pctLevel(this.memPct)].concat(this.fans.map(this.fanLevel)).concat(this.d.disks.map(function (k) { return this.pctLevel(this.diskPct(k)); }, this));
       return ls.indexOf('bad') >= 0 ? 'bad' : ls.indexOf('warn') >= 0 ? 'warn' : 'ok';
     },
 

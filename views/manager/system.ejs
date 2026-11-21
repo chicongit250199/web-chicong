@@ -45,13 +45,20 @@
       <div class="grid gap-4 lg:grid-cols-2">
         <%# ---- Nhiệt độ chi tiết ---- %>
         <section class="card">
-          <h2 class="mb-3 flex items-center justify-between font-semibold">Nhiệt độ <span class="text-xs font-normal text-slate-500">10 phút gần nhất</span></h2>
+          <h2 class="mb-3 flex items-center justify-between font-semibold"><span x-text="fans.length ? 'Nhiệt độ & quạt' : 'Nhiệt độ'"></span> <span class="text-xs font-normal text-slate-500">10 phút gần nhất</span></h2>
           <div class="space-y-2.5">
             <template x-for="t in cpuTemps.concat(otherTemps)" :key="t.label">
               <div class="flex items-center gap-3 text-sm">
                 <span class="w-28 shrink-0 text-slate-600 dark:text-slate-300" x-text="t.label"></span>
                 <div class="h-2 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div class="h-full rounded-full transition-all" :class="bar(tempLevel(t.value))" :style="'width:' + Math.min(100, t.value / (t.crit || 100) * 100) + '%'"></div></div>
                 <span class="w-14 shrink-0 text-right font-semibold tabular-nums" :class="text(tempLevel(t.value))" x-text="t.value.toFixed(0) + '°C'"></span>
+              </div>
+            </template>
+            <template x-for="f in fans" :key="f.key">
+              <div class="flex items-center gap-3 border-t border-slate-100 pt-2.5 text-sm dark:border-slate-800">
+                <span class="w-28 shrink-0 text-slate-600 dark:text-slate-300" x-text="f.label"></span>
+                <span class="flex-1 text-xs text-slate-500" x-text="f.rpm > 0 ? (f.pwm != null ? 'Công suất ' + f.pwm + '%' : '') : 'Quạt đang dừng — kiểm tra quạt!'"></span>
+                <span class="shrink-0 text-right font-semibold tabular-nums" :class="text(fanLevel(f))" x-text="f.rpm.toLocaleString('vi-VN') + ' vòng/phút'"></span>
               </div>
             </template>
           </div>

@@ -38,6 +38,8 @@ function temperatures() {
   for (const d of dirs) {
     const base = path.join('/sys/class/hwmon', d);
     const chip = read(path.join(base, 'name'), d);
+    // Chip Super I/O (nct67xx, it87) trên BRIX báo nhiệt độ ảo (CPUTIN 123°C) → chỉ lấy tốc độ quạt, bỏ nhiệt độ
+    if (/^(nct|it87)/.test(chip)) continue;
     let files = [];
     try { files = fs.readdirSync(base).filter(f => /^temp\d+_input$/.test(f)); } catch { continue; }
     for (const f of files) {
@@ -50,6 +52,32 @@ function temperatures() {
     }
   }
   return out.sort((a, b) => (a.chip === 'coretemp' ? -1 : 1) - (b.chip === 'coretemp' ? -1 : 1) || a.label.localeCompare(b.label, 'vi', { numeric: true }));
+}
+
+// ---- Quạt: hwmon fan*_input (cần module nct6775). Cổng đọc 0 vòng/phút mà chưa từng quay = không cắm quạt → ẩn ----
+const seenFans = new Set();
+function fans() {
+  const out = [];
+  let dirs = [];
+  try { dirs = fs.readdirSync('/sys/class/hwmon'); } catch { return out; }
+  for (const d of dirs) {
+    const base = path.join('/sys/class/hwmon', d);
+    const chip = read(path.join(base, 'name'), d);
+    let files = [];
+    try { files = fs.readdirSync(base).filter(f => /^fan\d+_input$/.test(f)); } catch { continue; }
+    for (const f of files) {
+      const rpm = Number(read(path.join(base, f)));
+      if (!Number.isFinite(rpm)) continue;
+      const n = f.match(/\d+/)[0];
+      const key = `${chip}:${n}`;
+      if (rpm > 0) seenFans.add(key);
+      if (!seenFans.has(key)) continue;
+      const pwm = Number(read(path.join(base, `pwm${n}`)));
+      out.push({ key, label: read(path.join(base, `fan${n}_label`)) || `Quạt ${n}`, rpm, pwm: Number.isFinite(pwm) && read(path.join(base, `pwm${n}`)) != null ? Math.round(pwm / 255 * 100) : null });
+    }
+  }
+  if (out.length === 1 && /^Quạt \d+$/.test(out[0].label)) out[0].label = 'Quạt CPU';
+  return out;
 }
 
 function memory() {
@@ -176,22 +204,24 @@ async function runSpeedTest() {
 function sample(record = true) {
   const c = cpuUsage();
   const temps = temperatures();
+  const fanList = fans();
   const cpuTemp = Math.max(...temps.filter(t => t.chip === 'coretemp').map(t => t.value), ...(temps.length ? [] : [0]));
   const net = Object.values(netRates());
   if (record) {
     history.push({
       t: Date.now(), cpu: c.total, temp: Number.isFinite(cpuTemp) && cpuTemp > 0 ? cpuTemp : null,
+      fan: fanList.length ? Math.max(...fanList.map(f => f.rpm)) : null,
       rx: net.reduce((s, n) => s + n.rx, 0), tx: net.reduce((s, n) => s + n.tx, 0),
     });
     if (history.length > HISTORY) history.shift();
   }
-  return { c, temps };
+  return { c, temps, fans: fanList };
 }
 sample();
 setInterval(sample, 10000).unref();
 
 function snapshot() {
-  const { c, temps } = sample(false);
+  const { c, temps, fans: fanList } = sample(false);
   const cpus = os.cpus();
   const db = [config.dbPath, config.dbPath + '-wal', config.dbPath + '-shm'].reduce((s, f) => {
     try { return s + fs.statSync(f).size; } catch { return s; }
@@ -209,6 +239,7 @@ function snapshot() {
     host: { hostname: os.hostname(), os: osName(), kernel: os.release(), uptime: os.uptime(), ips },
     cpu: { model: (cpus[0] && cpus[0].model || '').replace(/\s+/g, ' ').replace(/\(R\)|\(TM\)|CPU /g, '').trim(), cores: cpus.length, usage: c.total, perCore: c.cores, load: os.loadavg() },
     temps,
+    fans: fanList,
     memory: memory(),
     disks: [disk('/')].filter(Boolean),
     network: network(netRates()),
