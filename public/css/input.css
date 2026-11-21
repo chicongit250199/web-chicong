@@ -56,7 +56,7 @@
 /* ===== Logo nền in chìm / trôi quanh ===== */
 .bg-logos { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
 .bg-logos img { position: absolute; height: auto; max-width: none; object-fit: contain; user-select: none; -webkit-user-drag: none; }
-.bg-logo-center { left: 50%; top: 52%; width: min(46vw, 460px); transform: translate(-50%, -50%); opacity: .08; }
+.bg-logo-center { left: 50%; top: 52%; width: min(60vw, 600px); transform: translate(-50%, -50%); opacity: .08; }
 .bg-logo-float { opacity: .13; transform: translate(-50%, -50%); animation: bg-drift 24s ease-in-out infinite; }
 .dark .bg-logo-center { opacity: .09; filter: brightness(1.5); }
 .dark .bg-logo-float { opacity: .12; filter: brightness(1.5); }
