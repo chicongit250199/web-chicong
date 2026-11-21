@@ -133,6 +133,46 @@ function network(rates) {
 // ---- Lịch sử 10 phút (lấy mẫu mỗi 10 giây, chạy nền, rất nhẹ) ----
 const HISTORY = 60;
 const history = [];
+function gateway() {
+  for (const line of (read('/proc/net/route', '') || '').split('\n').slice(1)) {
+    const f = line.trim().split(/\s+/);
+    if (f[1] === '00000000' && f[2] && f[2] !== '00000000') {
+      const h = f[2]; return { iface: f[0], ip: [6, 4, 2, 0].map(i => parseInt(h.substr(i, 2), 16)).join('.') };
+    }
+  }
+  return null;
+}
+// ---- Đo tốc độ Internet (chỉ chạy khi bấm nút): độ trễ, tải xuống, tải lên qua speed.cloudflare.com ----
+let speedState = { running: false, last: null, error: null };
+async function timed(fn) { const t = process.hrtime.bigint(); await fn(); return Number(process.hrtime.bigint() - t) / 1e6; }
+async function runSpeedTest() {
+  if (speedState.running) return speedState;
+  speedState = { ...speedState, running: true, error: null };
+  try {
+    const base = 'https://speed.cloudflare.com';
+    // Độ trễ: trung vị 5 lần tải 0 byte
+    const pings = [];
+    for (let i = 0; i < 5; i++) pings.push(await timed(async () => { await (await fetch(`${base}/__down?bytes=0`, { cache: 'no-store' })).arrayBuffer(); }));
+    pings.sort((a, b) => a - b);
+    // Thông tin IP public / máy chủ gần nhất
+    const trace = Object.fromEntries((await (await fetch(`${base}/cdn-cgi/trace`)).text()).trim().split('\n').map(l => l.split('=')));
+    // Tải xuống 25MB
+    const DOWN = 25e6; let got = 0;
+    const downMs = await timed(async () => { const r = await fetch(`${base}/__down?bytes=${DOWN}`, { cache: 'no-store' }); got = (await r.arrayBuffer()).byteLength; });
+    // Tải lên 10MB
+    const UP = 10e6;
+    const upMs = await timed(async () => { await (await fetch(`${base}/__up`, { method: 'POST', body: Buffer.alloc(UP), headers: { 'Content-Type': 'application/octet-stream' } })).text(); });
+    speedState.last = {
+      at: new Date().toISOString(), ping: Math.round(pings[2]),
+      down: +((got * 8) / (downMs / 1000) / 1e6).toFixed(1), up: +((UP * 8) / (upMs / 1000) / 1e6).toFixed(1),
+      ip: trace.ip || null, colo: trace.colo || null, loc: trace.loc || null,
+    };
+  } catch (e) {
+    speedState.error = 'Không đo được: ' + (e.cause && e.cause.code ? e.cause.code : e.message);
+  } finally { speedState.running = false; }
+  return speedState;
+}
+
 function sample(record = true) {
   const c = cpuUsage();
   const temps = temperatures();
@@ -172,6 +212,8 @@ function snapshot() {
     memory: memory(),
     disks: [disk('/')].filter(Boolean),
     network: network(netRates()),
+    gateway: gateway(),
+    speedTest: speedState,
     app: {
       node: process.version, pid: process.pid, uptime: process.uptime(), rss: process.memoryUsage().rss,
       manager: process.env.pm_id !== undefined ? 'PM2' : 'thủ công', env: config.isProd ? 'production' : 'development',
@@ -181,4 +223,4 @@ function snapshot() {
   };
 }
 
-module.exports = { snapshot };
+module.exports = { snapshot, runSpeedTest, speedStatus: () => speedState };

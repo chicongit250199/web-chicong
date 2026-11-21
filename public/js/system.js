@@ -4,6 +4,20 @@ window.systemPage = function () {
   return {
     d: null, err: '', timer: null, updated: '',
     init: function () { this.load(); },
+    // Bắt đầu đo tốc độ Internet rồi hỏi kết quả mỗi giây đến khi xong
+    speedTest: function () {
+      var self = this;
+      api('/manager/system/speedtest', { method: 'POST' }).then(function (st) {
+        self.d.speedTest = st;
+        var poll = function () {
+          api('/manager/system.json').then(function (d) {
+            self.d = d;
+            if (d.speedTest && d.speedTest.running) setTimeout(poll, 1000);
+          });
+        };
+        setTimeout(poll, 1000);
+      }).catch(function (e) { self.err = e.message; });
+    },
     load: function () {
       var self = this;
       api('/manager/system.json').then(function (d) { self.d = d; self.err = ''; self.updated = new Date().toLocaleTimeString('vi-VN'); })

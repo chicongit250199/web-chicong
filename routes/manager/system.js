@@ -17,4 +17,10 @@ router.get('/system.json', (req, res) => {
   res.set('Cache-Control', 'no-store').json(s);
 });
 
+// Đo tốc độ Internet (chạy nền ~5–20 giây, trang tự hỏi lại kết quả qua system.json)
+router.post('/system/speedtest', (req, res) => {
+  systemInfo.runSpeedTest(); // không chờ
+  res.json(systemInfo.speedStatus());
+});
+
 module.exports = router;

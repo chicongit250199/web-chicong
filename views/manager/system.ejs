@@ -108,6 +108,26 @@
                 <p class="text-xl font-bold tabular-nums" x-text="bps(netTx)"></p>
               </div>
             </div>
+            <%# Đo tốc độ Internet %>
+            <div class="rounded-lg border border-brand-200 bg-brand-50/50 p-3 text-sm dark:border-brand-900 dark:bg-brand-950/20">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="font-medium">Tốc độ Internet</p>
+                <button type="button" @click="speedTest()" :disabled="d.speedTest && d.speedTest.running" class="btn-primary px-3 py-1.5 text-xs">
+                  <span x-text="d.speedTest && d.speedTest.running ? 'Đang đo (5–20 giây)...' : 'Đo tốc độ Internet'"></span></button>
+              </div>
+              <template x-if="d.speedTest && d.speedTest.last">
+                <div class="mt-2 grid grid-cols-3 gap-2 text-center">
+                  <div><p class="text-xs text-slate-500">Ping</p><p class="text-lg font-bold tabular-nums" x-text="d.speedTest.last.ping + ' ms'"></p></div>
+                  <div><p class="text-xs text-slate-500">Tải xuống</p><p class="text-lg font-bold tabular-nums text-brand-600 dark:text-brand-400" x-text="d.speedTest.last.down + ' Mbps'"></p></div>
+                  <div><p class="text-xs text-slate-500">Tải lên</p><p class="text-lg font-bold tabular-nums text-emerald-600 dark:text-emerald-400" x-text="d.speedTest.last.up + ' Mbps'"></p></div>
+                </div>
+              </template>
+              <p x-show="d.speedTest && d.speedTest.last" class="mt-1 text-xs text-slate-500"
+                 x-text="d.speedTest.last ? 'Đo lúc ' + time(d.speedTest.last.at) + ' · máy chủ ' + (d.speedTest.last.colo || '?') + ' · IP public ' + (d.speedTest.last.ip || '?') : ''"></p>
+              <p x-show="d.speedTest && d.speedTest.error" class="mt-1 text-xs text-red-600" x-text="d.speedTest && d.speedTest.error"></p>
+              <p x-show="!d.speedTest || (!d.speedTest.last && !d.speedTest.running && !d.speedTest.error)" class="mt-1 text-xs text-slate-500">Đo qua speed.cloudflare.com — mỗi lần dùng khoảng 35MB dữ liệu.</p>
+            </div>
+            <p x-show="d.gateway" class="text-xs text-slate-500" x-text="d.gateway ? 'Gateway (router): ' + d.gateway.ip + ' qua ' + d.gateway.iface : ''"></p>
             <template x-for="n in d.network" :key="n.name">
               <div class="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700" :class="!n.up && 'opacity-60'">
                 <p class="flex items-center justify-between gap-2 font-medium">
