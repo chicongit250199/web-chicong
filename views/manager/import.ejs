@@ -1,5 +1,5 @@
 <%- include('../app/_top') %>
-<div class="page-title"><h1><%- icon('fileSheet', 'h-6 w-6 text-brand-600') %>Import kho hàng từ Excel</h1></div>
+<%- include('_import_tabs', { active: 'inventory' }) %>
 
 <% if (!data) { %>
   <form method="post" action="/manager/import?_csrf=<%= encodeURIComponent(csrfToken) %>" enctype="multipart/form-data" class="card space-y-4" x-data="{ busy: false, name: '' }" @submit="busy = true">

@@ -14,6 +14,7 @@ router.use(require('./assign'));
 router.use(require('./homepage'));
 router.use(require('./products'));
 router.use(require('./import'));
+router.use(require('./importRevenue'));
 router.use(require('./vat'));
 router.use(require('./system'));
 

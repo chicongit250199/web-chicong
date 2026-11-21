@@ -22,7 +22,7 @@ const manager = [
   { key: 'm-products', href: '/manager/products', icon: 'checkSquare', label: 'Duyệt sản phẩm', badge: 'productsPending' },
   { key: 'm-homepage', href: '/manager/homepage', icon: 'settings', label: 'Sửa trang chủ' },
   { key: 'm-users', href: '/manager/users', icon: 'users', label: 'Tài khoản nhân viên' },
-  { key: 'm-import', href: '/manager/import', icon: 'fileSheet', label: 'Import Excel kho' },
+  { key: 'm-import', href: '/manager/import', icon: 'fileSheet', label: 'Import Excel' },
   { key: 'm-vat', href: '/manager/vat', icon: 'receipt', label: 'Kho hóa đơn VAT' },
   { key: 'm-system', href: '/manager/system', icon: 'cpu', label: 'Hệ thống' },
 ];
