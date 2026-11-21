@@ -1,0 +1,115 @@
+<%- include('../app/_top') %>
+<% const qs = o => '?' + new URLSearchParams(Object.entries(Object.assign({ p: sel ? sel.id : '', s: sel ? filter : '', m: month }, o)).filter(([, v]) => v !== '' && v != null)).toString(); %>
+<div x-data="{ edit: null }">
+<div class="page-title">
+  <h1><%- icon('users', 'h-6 w-6 text-brand-600') %>Khách đối tác</h1>
+  <form method="get" class="flex items-center gap-2 text-sm">
+    <% if (sel) { %><input type="hidden" name="p" value="<%= sel.id %>"><input type="hidden" name="s" value="<%= filter %>"><% } %>
+    <span class="text-slate-500">Tháng</span><input type="month" name="m" value="<%= month %>" class="input w-auto py-1.5" x-on:change="$el.form.submit()">
+  </form>
+</div>
+
+<nav class="tabs sticky top-14 z-10 bg-paper pt-1 dark:bg-slate-950" aria-label="Đối tác">
+  <a href="<%= '?m=' + month %>" class="tab <%= !sel ? 'tab-active' : '' %>">Tất cả đối tác <span class="text-xs text-slate-400"><%= list.length %></span></a>
+  <% list.forEach(p => { %>
+    <a href="?p=<%= p.id %>&m=<%= month %>" class="tab flex items-center gap-1.5 <%= sel && sel.id === p.id ? 'tab-active' : '' %>"><%= p.name %>
+      <% if (p.open + p.ready) { %><span class="grid h-5 min-w-5 place-items-center rounded-full bg-amber-500 px-1 text-[11px] font-bold text-white" title="Máy đang sửa + chờ trả"><%= p.open + p.ready %></span><% } %></a>
+  <% }) %>
+</nav>
+
+<% if (!sel) { %>
+  <%# ---- Tổng hợp tất cả đối tác ---- %>
+  <% if (canEdit) { %>
+    <form method="post" action="/staff/partners" class="card mb-4 grid gap-3 md:grid-cols-4">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <label class="block"><span class="label req">Tên đối tác</span><input name="name" class="input" required maxlength="120" placeholder="VD: Cường Computer"></label>
+      <label class="block"><span class="label">Cách ghi khác <span class="font-normal text-slate-400">(phẩy)</span></span><input name="aliases" class="input" placeholder="Cường PC, Cuong comp"></label>
+      <label class="block"><span class="label">SĐT <span class="font-normal text-slate-400">(phẩy)</span></span><input name="phones" class="input" inputmode="tel"></label>
+      <div class="flex items-end"><button class="btn-primary w-full"><%- icon('plusSquare', 'h-4 w-4') %>Thêm đối tác</button></div>
+      <p class="text-xs text-slate-500 md:col-span-4">Task có <strong>tên khách chứa</strong> tên / cách ghi khác (không phân biệt dấu, hoa thường, dấu cách), hoặc <strong>trùng SĐT</strong>, sẽ tự xếp vào đối tác — cả task cũ lẫn task nhận sau này.</p>
+    </form>
+  <% } %>
+
+  <% if (suggestions.length) { %>
+    <section class="card mb-4">
+      <h2 class="mb-2 text-sm font-semibold">Gợi ý — tên khách giống cửa hàng, chưa là đối tác</h2>
+      <div class="flex flex-wrap gap-2">
+        <% suggestions.forEach(s => { %>
+          <form method="post" action="/staff/partners"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="name" value="<%= s.name.trim() %>"><input type="hidden" name="phones" value="<%= s.phone && s.phone.replace(/\D/g, '').length >= 8 ? s.phone : '' %>">
+            <button class="rounded-lg border border-dashed border-violet-300 px-3 py-1.5 text-sm hover:bg-violet-50 dark:border-violet-800 dark:hover:bg-violet-950/40">+ <%= s.name %> <span class="text-xs text-slate-500">(<%= s.n %> lần)</span></button></form>
+        <% }) %>
+      </div>
+    </section>
+  <% } %>
+
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Đối tác</th><th class="text-center">Đang sửa</th><th class="text-center">Chờ trả</th><th class="text-center">Đã trả T<%= month.slice(5) %></th><th class="text-right">Tiền T<%= month.slice(5) %></th><th class="text-center">Tổng task</th><% if (canEdit) { %><th></th><% } %></tr></thead>
+    <tbody>
+      <% list.forEach(p => { %>
+        <tr>
+          <td><a href="?p=<%= p.id %>&m=<%= month %>" class="font-medium text-brand-600 hover:underline"><%= p.name %></a>
+            <p class="text-xs text-slate-500"><%= [p.aliases && p.aliases.replace(/\n/g, ', '), p.phones].filter(Boolean).join(' · ') %></p></td>
+          <td class="text-center"><%= p.open ? p.open : '' %></td>
+          <td class="text-center"><% if (p.ready) { %><span class="badge-green"><%= p.ready %></span><% } %></td>
+          <td class="text-center"><%= p.done_month || '' %></td>
+          <td class="whitespace-nowrap text-right font-semibold tabular-nums"><%= p.money_month ? fmt.money(p.money_month) : '' %></td>
+          <td class="text-center text-slate-500"><%= p.total %></td>
+          <% if (canEdit) { %><td class="text-right"><button type="button" @click="edit = <%= JSON.stringify({ id: p.id, name: p.name, aliases: p.aliases || '', phones: p.phones || '', note: p.note || '' }) %>" class="inline-grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-slate-800" title="Sửa"><%- icon('edit', 'h-4 w-4') %></button></td><% } %>
+        </tr>
+      <% }) %>
+      <% if (!list.length) { %><tr><td colspan="7" class="py-8 text-center text-sm text-slate-500">Chưa có đối tác nào<%= canEdit ? ' — thêm ở trên' : '' %>.</td></tr><% } %>
+    </tbody>
+  </table></div>
+<% } else { %>
+  <%# ---- Một đối tác ---- %>
+  <div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+    <a href="<%= qs({ s: 'open' }) %>" class="stat hover:border-brand-400 <%= filter === 'open' ? 'ring-2 ring-brand-500' : '' %>"><p class="stat-label">Đang sửa</p><p class="stat-value text-blue-600"><%= sel.open %></p></a>
+    <a href="<%= qs({ s: 'ready' }) %>" class="stat hover:border-brand-400 <%= filter === 'ready' ? 'ring-2 ring-brand-500' : '' %>"><p class="stat-label">Chờ trả máy</p><p class="stat-value text-emerald-600"><%= sel.ready %></p></a>
+    <a href="<%= qs({ s: 'completed' }) %>" class="stat hover:border-brand-400 <%= filter === 'completed' ? 'ring-2 ring-brand-500' : '' %>"><p class="stat-label">Đã trả tháng <%= month.slice(5) %>/<%= month.slice(0, 4) %></p><p class="stat-value"><%= sel.done_month %></p></a>
+    <div class="stat"><p class="stat-label">Tiền tháng <%= month.slice(5) %></p><p class="stat-value text-red-600"><%= fmt.money(sel.money_month) %></p></div>
+  </div>
+  <div class="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+    <p class="text-slate-500"><%= tasks.length %> task · <a href="<%= qs({ s: 'all' }) %>" class="text-brand-600 hover:underline <%= filter === 'all' ? 'font-semibold' : '' %>">xem tất cả (<%= sel.total %>)</a>
+      <% if (sel.aliases || sel.phones) { %> · nhận diện: <%= [sel.name, sel.aliases && sel.aliases.replace(/\n/g, ', '), sel.phones].filter(Boolean).join(', ') %><% } %></p>
+    <% if (canEdit) { %><button type="button" @click="edit = <%= JSON.stringify({ id: sel.id, name: sel.name, aliases: sel.aliases || '', phones: sel.phones || '', note: sel.note || '' }) %>" class="btn-secondary px-3 py-1.5 text-sm"><%- icon('edit', 'h-4 w-4') %>Sửa đối tác</button><% } %>
+  </div>
+  <% if (sel.note) { %><p class="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-sm dark:bg-slate-800/60"><%= sel.note %></p><% } %>
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Phiếu</th><th>Máy / lỗi</th><th>Trạng thái</th><th>Kỹ thuật</th><th class="text-right">Giá</th><th>Ngày</th></tr></thead>
+    <tbody>
+      <% tasks.forEach(t => { const st = fmt.status(t.status); %>
+        <tr>
+          <td class="whitespace-nowrap"><a href="/staff/tasks/<%= t.id %>" class="font-mono font-semibold text-brand-600 hover:underline"><%= t.ticket_code %></a><p class="text-xs text-slate-500"><%= t.customer_name %></p></td>
+          <td class="min-w-48"><p class="font-medium"><%= t.device_model %></p><p class="line-clamp-2 text-xs text-slate-500"><%= t.issue_desc %></p></td>
+          <td class="whitespace-nowrap"><span class="<%= st.cls %>"><%= st.label %></span></td>
+          <td class="whitespace-nowrap text-sm"><%= t.assigned_name || t.technician_name || '' %></td>
+          <td class="whitespace-nowrap text-right tabular-nums"><%= t.paid ? fmt.money(t.paid) : t.final_price ? fmt.money(t.final_price) : t.estimated_price ? '~' + fmt.money(t.estimated_price) : '' %></td>
+          <td class="whitespace-nowrap text-xs text-slate-500">Nhận <%= fmt.datetime(t.created_at) %><% if (t.completed_at) { %><br>Trả <%= fmt.datetime(t.completed_at) %><% } %></td>
+        </tr>
+      <% }) %>
+      <% if (!tasks.length) { %><tr><td colspan="6" class="py-8 text-center text-sm text-slate-500">Không có task.</td></tr><% } %>
+    </tbody>
+  </table></div>
+<% } %>
+
+<% if (canEdit) { %>
+  <template x-if="edit">
+    <div class="modal-backdrop" @click.self="edit = null" @keydown.escape.window="edit = null">
+      <div class="modal space-y-3">
+        <form method="post" :action="'/staff/partners/' + edit.id" class="space-y-3">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <h3 class="text-lg font-semibold">Sửa đối tác</h3>
+          <label class="block"><span class="label req">Tên đối tác</span><input name="name" x-model="edit.name" class="input" required maxlength="120"></label>
+          <label class="block"><span class="label">Cách ghi khác <span class="font-normal text-slate-400">(mỗi dòng hoặc dấu phẩy 1 cách)</span></span><textarea name="aliases" x-model="edit.aliases" rows="2" class="input"></textarea></label>
+          <label class="block"><span class="label">SĐT</span><input name="phones" x-model="edit.phones" class="input" inputmode="tel"></label>
+          <label class="block"><span class="label">Ghi chú</span><textarea name="note" x-model="edit.note" rows="2" class="input" placeholder="VD: thanh toán cuối tháng, giá sỉ..."></textarea></label>
+          <div class="flex justify-end gap-2"><button type="button" @click="edit = null" class="btn-secondary">Hủy</button><button class="btn-primary">Lưu</button></div>
+        </form>
+        <form method="post" :action="'/staff/partners/' + edit.id + '/delete'" class="border-t border-slate-200 pt-2 text-right dark:border-slate-800" @submit="if (!confirm('Xóa đối tác này? Task vẫn giữ nguyên, chỉ bỏ phân loại.')) $event.preventDefault()">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="text-xs text-red-600 hover:underline">Xóa đối tác</button></form>
+      </div>
+    </div>
+  </template>
+<% } %>
+</div>
+<%- include('../app/_bottom') %>

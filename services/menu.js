@@ -21,6 +21,7 @@ const GROUPS = [
       { key: 'tasks-overdue', href: '/staff/tasks?view=overdue', icon: 'alert', label: 'Task quá hạn', badge: 'overdue', roles: ['staff', 'manager'] },
       { key: 'return', href: '/staff/return', icon: 'checkCircle', label: 'Trả máy', badge: 'ready', roles: ['staff', 'manager'] },
       { key: 'completed', href: '/staff/tasks?view=completed', icon: 'checkSquare', label: 'Máy đã trả', roles: ['staff', 'manager'] },
+      { key: 'partners', href: '/staff/partners', icon: 'users', label: 'Khách đối tác', roles: ['staff', 'manager'] },
       { key: 'm-assign', href: '/manager/assign', icon: 'users', label: 'Phân task', badge: 'unassigned', roles: ['manager'] },
     ],
   },

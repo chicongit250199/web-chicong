@@ -6,22 +6,23 @@ const fmt = require('../../services/format');
 const { nextTicketCode } = require('../../services/tickets');
 const { notify } = require('../../services/events');
 const taskAlerts = require('../../services/taskAlerts');
+const partners = require('../../services/partners');
 
 const router = express.Router();
 
 const q = {
-  get: db.prepare(`SELECT t.*, u.full_name AS assigned_name, r.full_name AS received_name FROM tasks t
-                   LEFT JOIN users u ON u.id = t.assigned_to LEFT JOIN users r ON r.id = t.received_by WHERE t.id = ?`),
+  get: db.prepare(`SELECT t.*, u.full_name AS assigned_name, r.full_name AS received_name, p.name AS partner_name FROM tasks t
+                   LEFT JOIN users u ON u.id = t.assigned_to LEFT JOIN users r ON r.id = t.received_by LEFT JOIN partners p ON p.id = t.partner_id WHERE t.id = ?`),
   histories: db.prepare('SELECT * FROM task_histories WHERE task_id = ? ORDER BY attempt_no DESC, id DESC'),
   insert: db.prepare(`INSERT INTO tasks (ticket_code, customer_name, customer_phone, device_model, specs, issue_desc, estimated_price,
-                      expected_return_date, accessories, note, status, received_by)
+                      expected_return_date, accessories, note, status, received_by, partner_id)
                       VALUES (@ticket_code, @customer_name, @customer_phone, @device_model, @specs, @issue_desc, @estimated_price,
-                      @expected_return_date, @accessories, @note, 'pending', @received_by)`),
+                      @expected_return_date, @accessories, @note, 'pending', @received_by, @partner_id)`),
   staff: db.prepare(`SELECT id, full_name FROM users WHERE is_active = 1 ORDER BY role DESC, full_name`),
   revenue: db.prepare(`SELECT * FROM revenues WHERE type = 'repair' AND ref_id = ? ORDER BY id DESC`),
 };
 
-const LIST_SQL = `SELECT t.*, u.full_name AS assigned_name FROM tasks t LEFT JOIN users u ON u.id = t.assigned_to`;
+const LIST_SQL = `SELECT t.*, u.full_name AS assigned_name, p.name AS partner_name FROM tasks t LEFT JOIN users u ON u.id = t.assigned_to LEFT JOIN partners p ON p.id = t.partner_id`;
 
 // Danh sách theo "view" của menu
 function listTasks(view, user, search) {
@@ -86,7 +87,7 @@ const createSchema = v.z.object({
 
 router.get('/tasks/new', (req, res) => {
   res.locals.nav = 'task-new';
-  res.render('staff/task_new', { title: 'Nhận máy', values: {}, error: null, now: new Date().toISOString() });
+  res.render('staff/task_new', { partnerNames: db.prepare('SELECT name FROM partners ORDER BY name COLLATE NOCASE').all().map(p => p.name), title: 'Nhận máy', values: {}, error: null, now: new Date().toISOString() });
 });
 
 router.post('/tasks', (req, res) => {
@@ -97,7 +98,7 @@ router.post('/tasks', (req, res) => {
   }
   const task = db.transaction(() => {
     const ticket_code = nextTicketCode();
-    const { lastInsertRowid } = q.insert.run({ ...data, ticket_code, received_by: req.user.id });
+    const { lastInsertRowid } = q.insert.run({ ...data, ticket_code, received_by: req.user.id, partner_id: partners.detect(data.customer_name, data.customer_phone) });
     return { id: lastInsertRowid, ticket_code };
   })();
   notify('task_new', `${req.user.full_name} nhận máy ${data.device_model} (${task.ticket_code}) — KH ${data.customer_name || data.customer_phone || 'khách lẻ'}`, `/staff/tasks/${task.id}`, req.user.full_name);

@@ -2,7 +2,7 @@
 <% const st = fmt.status(task.status); const nowStr = fmt.datetime(new Date().toISOString()); %>
 <div x-data="{ m: null }" @keydown.escape.window="m = null">
   <div class="page-title">
-    <h1><%- icon('wrench', 'h-6 w-6 text-brand-600') %><%= task.ticket_code %> <span class="<%= st.cls %> text-sm"><%= st.label %></span></h1>
+    <h1><%- icon('wrench', 'h-6 w-6 text-brand-600') %><%= task.ticket_code %> <span class="<%= st.cls %> text-sm"><%= st.label %></span><% if (task.partner_name) { %><a href="/staff/partners?p=<%= task.partner_id %>" class="badge-violet text-sm hover:underline">Đối tác: <%= task.partner_name %></a><% } %></h1>
     <div class="flex gap-2">
       <a href="/staff/tasks/<%= task.id %>/print" target="_blank" class="btn-secondary"><%- icon('receipt', 'h-4 w-4') %>In phiếu</a>
     </div>

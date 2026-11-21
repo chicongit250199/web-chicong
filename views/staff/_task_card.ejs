@@ -8,7 +8,7 @@
       <p class="truncate font-semibold"><%= t.device_model %></p>
       <p class="text-xs text-slate-500"><%= t.ticket_code %> · <%= fmt.datetime(t.created_at) %></p>
     </div>
-    <span class="<%= st.cls %> shrink-0"><%= st.label %></span>
+    <span class="flex shrink-0 flex-col items-end gap-1"><span class="<%= st.cls %>"><%= st.label %></span><% if (t.partner_name) { %><span class="badge-violet"><%= t.partner_name %></span><% } %></span>
   </div>
   <p class="mt-2 line-clamp-2 text-sm text-slate-600 dark:text-slate-300"><%= t.issue_desc %></p>
   <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
