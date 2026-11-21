@@ -16,6 +16,7 @@
     <div class="flex flex-wrap gap-1.5"><% ['THÁNG','NGÀY','NỘI DUNG','SDT KHÁCH','THU','CHI','GHI CHÚ'].forEach(c => { %><span class="badge-gray"><%= c %></span><% }) %></div>
     <ul class="mt-3 list-disc space-y-1 pl-5 text-slate-600 dark:text-slate-400">
       <li>Ô <strong>NGÀY</strong> gộp nhiều dòng được hiểu đúng (mỗi dòng lấy ngày gần nhất phía trên). Sheet không có các cột này (VD "Tổng hợp") được bỏ qua.</li>
+      <li>Chỉ lấy dòng <strong>có NỘI DUNG</strong>; dòng có số tiền nhưng trống nội dung được bỏ qua (hiện tổng để đối chiếu).</li>
       <li>Chỉ nhập cột <strong>THU</strong>. Dòng chỉ có <strong>CHI</strong> (mua máy, nhập hàng) không phải doanh thu → không nhập, chỉ hiện tổng để đối chiếu.</li>
       <li>Số tiền ghi theo <strong>nghìn đồng</strong> (900 = 900.000đ) được tự nhận diện; có thể đổi ở bước xem trước.</li>
       <li>Loại tự đoán theo nội dung: có "sửa, thay, vs, vệ sinh, cài win…" → <em>Sửa chữa</em>, còn lại → <em>Bán hàng</em>. Có "ck / chuyển khoản" → <em>Chuyển khoản</em>, còn lại → <em>Tiền mặt</em>.</li>
@@ -49,7 +50,9 @@
     <div class="stat col-span-2 lg:col-span-1"><p class="stat-label">Sẽ nhập</p><p class="stat-value text-brand-700 dark:text-brand-300"><%= fmt.money(v.sum) %></p><p class="text-xs text-slate-500"><%= fmt.num(v.good) %> giao dịch</p></div>
     <a href="?show=repair" class="stat hover:border-brand-400 <%= v.filter === 'repair' ? 'ring-2 ring-brand-500' : '' %>"><p class="stat-label">Sửa chữa / Bán hàng</p><p class="mt-1 text-lg font-bold tabular-nums"><%= fmt.num(v.repair) %> / <%= fmt.num(v.sale) %></p><p class="text-xs text-slate-500"><%= fmt.num(v.transfer) %> chuyển khoản</p></a>
     <a href="?show=duplicate" class="stat hover:border-brand-400 <%= v.filter === 'duplicate' ? 'ring-2 ring-brand-500' : '' %>"><p class="stat-label">Bỏ qua (trùng / thiếu ngày)</p><p class="mt-1 text-lg font-bold tabular-nums text-red-600"><%= fmt.num(v.duplicate) %> / <%= fmt.num(v.problem) %></p></a>
-    <div class="stat"><p class="stat-label">Cột CHI (không nhập)</p><p class="mt-1 text-lg font-bold tabular-nums"><%= fmt.money(v.expense.total) %></p><p class="text-xs text-slate-500"><%= fmt.num(v.expense.count) %> dòng</p></div>
+    <div class="stat"><p class="stat-label">Không nhập</p>
+      <p class="mt-1 text-sm"><span class="text-slate-500">Cột CHI:</span> <strong class="tabular-nums"><%= fmt.money(v.expense.total) %></strong> <span class="text-xs text-slate-500">(<%= fmt.num(v.expense.count) %> dòng)</span></p>
+      <p class="text-sm"><span class="text-slate-500">Trống nội dung:</span> <strong class="tabular-nums"><%= fmt.money(v.noContent.total) %></strong> <span class="text-xs text-slate-500">(<%= fmt.num(v.noContent.count) %> dòng)</span></p></div>
   </div>
 
   <div class="grid gap-4 xl:grid-cols-[22rem_1fr]">

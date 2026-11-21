@@ -62,6 +62,7 @@ router.get('/import/revenue', (req, res) => {
     else if (filter !== 'all') rows = rows.filter(r => ok(r) && r.type === filter);
     view = {
       fileName: data.fileName, unit: data.unit, factor: data.factor, warnings: data.warnings, expense: data.expense, sheets: data.sheetsUsed,
+      noContent: data.noContent || { count: 0, total: 0 },
       total: data.rows.length, good: good.length, sum: good.reduce((s, r) => s + r.amount, 0),
       repair: good.filter(r => r.type === 'repair').length, sale: good.filter(r => r.type === 'sale').length,
       transfer: good.filter(r => r.payment === 'transfer').length,
