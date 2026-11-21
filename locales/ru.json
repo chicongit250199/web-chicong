@@ -16,5 +16,19 @@
   "product.specs": "Характеристики",
   "product.desc": "Описание",
   "product.related": "Похожие товары",
-  "footer.directions": "Маршрут"
+  "footer.directions": "Маршрут",
+  "product.in_stock": "В наличии",
+  "product.out_of_stock": "Нет в наличии",
+  "product.left": "Осталось {n}",
+  "product.overview": "Описание товара",
+  "product.highlights": "Преимущества",
+  "product.trust_1": "Подробная консультация",
+  "product.trust_2": "Оригинальные комплектующие",
+  "product.trust_3": "Быстрое гарантийное обслуживание",
+  "product.visit": "Посмотрите в нашем магазине",
+  "cond.new": "Новый",
+  "cond.likenew": "Как новый",
+  "cond.used": "Б/у",
+  "product.no_desc": "Свяжитесь с нами для подробной консультации по этому товару.",
+  "product.ask": "Спросить о товаре"
 }

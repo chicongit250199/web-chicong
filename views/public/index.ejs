@@ -16,7 +16,7 @@
         <h2 class="flex items-center gap-2 text-lg font-bold md:text-xl"><%- icon(s.cat.icon, 'h-6 w-6 text-brand-600') %><%= field(s.cat, 'name') %></h2>
       </div>
       <div class="feat-grid grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5">
-        <% s.products.forEach(p => { %><%- partial('public/_card', { p, catIcon: s.cat.icon, field, fmt, icon, t }) %><% }) %>
+        <% s.products.forEach(p => { %><%- partial('public/_card', { p, catIcon: s.cat.icon, field, fmt, icon, t, stock: stockOf(p) }) %><% }) %>
       </div>
       <div class="mt-4 text-center">
         <a href="/c/<%= s.cat.id %>" class="btn-secondary"><%= t('home.see_more') %> (<%= s.total %>) <%- icon('arrowRight', 'h-4 w-4') %></a>

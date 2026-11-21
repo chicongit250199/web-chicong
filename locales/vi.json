@@ -16,5 +16,19 @@
   "product.specs": "Cấu hình",
   "product.desc": "Mô tả sản phẩm",
   "product.related": "Sản phẩm cùng danh mục",
-  "footer.directions": "Chỉ đường"
+  "footer.directions": "Chỉ đường",
+  "product.in_stock": "Còn hàng",
+  "product.out_of_stock": "Hết hàng",
+  "product.left": "Còn {n}",
+  "product.overview": "Giới thiệu sản phẩm",
+  "product.highlights": "Điểm nổi bật",
+  "product.trust_1": "Tư vấn tận tình",
+  "product.trust_2": "Linh kiện chính hãng",
+  "product.trust_3": "Bảo hành nhanh chóng",
+  "product.visit": "Ghé xem máy tại cửa hàng",
+  "cond.new": "Mới",
+  "cond.likenew": "Like new",
+  "cond.used": "Cũ",
+  "product.no_desc": "Liên hệ cửa hàng để được tư vấn chi tiết về sản phẩm này.",
+  "product.ask": "Hỏi về sản phẩm"
 }

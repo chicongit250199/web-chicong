@@ -16,5 +16,19 @@
   "product.specs": "配置",
   "product.desc": "产品描述",
   "product.related": "同类产品",
-  "footer.directions": "导航"
+  "footer.directions": "导航",
+  "product.in_stock": "有货",
+  "product.out_of_stock": "缺货",
+  "product.left": "剩余 {n}",
+  "product.overview": "产品介绍",
+  "product.highlights": "产品亮点",
+  "product.trust_1": "热情咨询",
+  "product.trust_2": "正品配件",
+  "product.trust_3": "快速保修",
+  "product.visit": "欢迎到店看机",
+  "cond.new": "全新",
+  "cond.likenew": "准新",
+  "cond.used": "二手",
+  "product.no_desc": "请联系我们获取该产品的详细咨询。",
+  "product.ask": "咨询该产品"
 }

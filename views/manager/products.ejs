@@ -1,7 +1,11 @@
 <%- include('../app/_top') %>
 <div class="page-title">
   <h1><%- icon('checkSquare', 'h-6 w-6 text-brand-600') %>Duyệt sản phẩm</h1>
-  <a href="/staff/products/new" class="btn-primary"><%- icon('upload', 'h-4 w-4') %>Đăng sản phẩm</a>
+  <div class="flex flex-wrap gap-2">
+    <form method="post" action="/manager/products/sync-inventory" @submit="confirm('Đưa các món đang tồn kho (chưa có trên web) lên trang chủ? Hàng cùng tên sẽ gộp thành 1 sản phẩm, tự xếp danh mục.') || $event.preventDefault()">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn-secondary"><%- icon('archive', 'h-4 w-4') %>Đưa hàng tồn kho lên web</button></form>
+    <a href="/staff/products/new" class="btn-primary"><%- icon('upload', 'h-4 w-4') %>Đăng sản phẩm</a>
+  </div>
 </div>
 <div class="tabs">
   <a href="?tab=pending" class="tab <%= tab === 'pending' ? 'tab-active' : '' %>">Chờ duyệt (<%= counts.pending || 0 %>)</a>
@@ -18,6 +22,7 @@
         <span class="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
           <strong class="text-red-600"><%= p.price ? fmt.money(p.price) : 'Liên hệ' %></strong>
           <% if (p.is_featured) { %><span class="badge-amber">★ Nổi bật</span><% } %>
+          <% if (p.source === 'inventory' || p.stock_key) { %><span class="badge-blue">Gắn kho</span><% } %>
           <span class="<%= p.name_en && p.name_ru && p.name_zh ? 'badge-green' : 'badge-gray' %>"><%= p.name_en && p.name_ru && p.name_zh ? 'Đủ 4 ngôn ngữ' : 'Chưa dịch' %></span>
         </span>
       </span>

@@ -1,14 +1,24 @@
-<a href="/p/<%= p.id %>" class="group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
-  <div class="relative aspect-square bg-slate-100 dark:bg-slate-800">
+<% const st = typeof stock === 'undefined' ? null : stock;
+   const c = String(p.condition || '').toLowerCase();
+   const ck = !c ? null : /like/.test(c) ? 'cond.likenew' : /mới|moi|new/.test(c) ? 'cond.new' : 'cond.used'; %>
+<a href="/p/<%= p.id %>" class="group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+  <div class="relative aspect-square bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
     <% if (p.image_url) { %>
-      <img src="<%= p.image_url %>" alt="<%= field(p, 'name') %>" loading="lazy" class="h-full w-full object-cover">
+      <img src="<%= p.image_url %>" alt="<%= field(p, 'name') %>" loading="lazy" class="h-full w-full object-contain p-2 transition group-hover:scale-105">
     <% } else { %>
       <div class="grid h-full w-full place-items-center text-slate-300 dark:text-slate-600"><%- icon(catIcon || 'box', 'h-16 w-16') %></div>
     <% } %>
-    <% if (p.is_featured) { %><span class="absolute left-2 top-2 rounded-md bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-950">Hot</span><% } %>
+    <div class="absolute left-2 top-2 flex flex-wrap gap-1">
+      <% if (p.is_featured) { %><span class="rounded-md bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-950">Hot</span><% } %>
+      <% if (ck) { %><span class="rounded-md bg-slate-900/75 px-1.5 py-0.5 text-[10px] font-semibold text-white"><%= t(ck) %></span><% } %>
+    </div>
+    <% if (st === 0) { %><span class="absolute inset-x-0 bottom-0 bg-slate-900/70 py-1 text-center text-[11px] font-semibold text-white"><%= t('product.out_of_stock') %></span><% } %>
   </div>
   <div class="flex flex-1 flex-col p-3">
     <h3 class="line-clamp-2 text-sm font-medium group-hover:text-brand-600"><%= field(p, 'name') %></h3>
-    <p class="mt-auto pt-2 text-base font-bold text-red-600 dark:text-red-400"><%= p.price ? fmt.money(p.price) : t('product.price_contact') %></p>
+    <div class="mt-auto flex items-end justify-between gap-1 pt-2">
+      <p class="text-base font-bold text-red-600 dark:text-red-400"><%= p.price ? fmt.money(p.price) : t('product.price_contact') %></p>
+      <% if (st > 0) { %><span class="whitespace-nowrap text-[11px] font-medium text-emerald-600 dark:text-emerald-400"><%= st > 1 ? t('product.left', { n: st }) : t('product.in_stock') %></span><% } %>
+    </div>
   </div>
 </a>

@@ -2,6 +2,8 @@
 const express = require('express');
 const db = require('../db');
 const { mapSrc } = require('../services/contact');
+const { stockCounts } = require('../services/productSync');
+const rich = require('../services/richText');
 
 const router = express.Router();
 
@@ -26,6 +28,9 @@ const q = {
 
 function common(res) {
   const s = res.locals.settings;
+  // Số lượng còn trong kho của sản phẩm gắn kho (null = sản phẩm không gắn kho)
+  const counts = stockCounts();
+  res.locals.stockOf = p => (p && p.stock_key ? counts.get(p.stock_key) || 0 : null);
   res.locals.categories = q.cats.all();
   res.locals.mapSrc = mapSrc(s.map_embed, s.address);
 }
@@ -58,7 +63,10 @@ router.get('/p/:id', (req, res, next) => {
   common(res);
   const cat = p.category_id ? q.cat.get(p.category_id) : null;
   const related = p.category_id ? q.related.all(p.category_id, p.id) : [];
-  res.render('public/product', { title: res.locals.field(p, 'name'), p, cat, related });
+  res.render('public/product', {
+    title: res.locals.field(p, 'name'), p, cat, related,
+    descBlocks: rich.parseDescription(res.locals.field(p, 'desc')), specRows: rich.parseSpecs(p.specs_vi), titleCase: rich.titleCase,
+  });
 });
 
 module.exports = router;

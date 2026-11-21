@@ -24,7 +24,9 @@
         </select></label>
       <label class="block" x-data="moneyInput('<%= p.price ?? '' %>')"><span class="label">Giá (₫)</span>
         <input class="input text-right tabular-nums" inputmode="numeric" :value="display" @input="onInput($event)"><input type="hidden" name="price" :value="raw"></label>
-      <label class="flex items-end gap-2 pb-2.5 text-sm"><input type="checkbox" name="is_featured" value="1" <%= p.is_featured ? 'checked' : '' %> class="h-4 w-4">★ Nổi bật trên trang chủ</label>
+      <label class="block"><span class="label">Tình trạng</span>
+        <select name="condition" class="input"><% ['', 'Mới', 'Like new', 'Cũ'].forEach(c => { %><option value="<%= c %>" <%= (p.condition || '') === c ? 'selected' : '' %>><%= c || '— Không ghi —' %></option><% }) %></select></label>
+      <label class="flex items-end gap-2 pb-2.5 text-sm sm:col-span-3"><input type="checkbox" name="is_featured" value="1" <%= p.is_featured ? 'checked' : '' %> class="h-4 w-4">★ Nổi bật trên trang chủ<% if (p.stock_key) { %><span class="badge-blue ml-2">Gắn kho — số lượng còn tự cập nhật</span><% } %></label>
       <label class="block sm:col-span-3"><span class="label">Cấu hình / thông số</span><textarea name="specs_vi" rows="4" class="input"><%= p.specs_vi || '' %></textarea></label>
     </div>
   </div>

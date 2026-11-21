@@ -16,5 +16,19 @@
   "product.specs": "Specifications",
   "product.desc": "Description",
   "product.related": "Related products",
-  "footer.directions": "Directions"
+  "footer.directions": "Directions",
+  "product.in_stock": "In stock",
+  "product.out_of_stock": "Out of stock",
+  "product.left": "{n} left",
+  "product.overview": "Product overview",
+  "product.highlights": "Highlights",
+  "product.trust_1": "Friendly advice",
+  "product.trust_2": "Genuine parts",
+  "product.trust_3": "Fast warranty service",
+  "product.visit": "See it in our store",
+  "cond.new": "New",
+  "cond.likenew": "Like new",
+  "cond.used": "Used",
+  "product.no_desc": "Contact us for detailed advice about this product.",
+  "product.ask": "Ask about this product"
 }

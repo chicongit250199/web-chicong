@@ -19,6 +19,13 @@ router.get('/products', (req, res) => {
   res.render('manager/products', { title: 'Duyệt sản phẩm', tab, products, counts, search: s });
 });
 
+// Đưa hàng tồn kho lên trang chủ (gộp theo tên, tự xếp danh mục, bỏ qua món đã có)
+router.post('/products/sync-inventory', (req, res) => {
+  const r = require('../../services/productSync').syncFromInventory(req.user.id);
+  req.flash('success', `Đã thêm ${r.added} sản phẩm từ kho lên web${r.linked ? `, gắn ${r.linked} sản phẩm đã đăng với kho` : ''}${r.skipped ? `, bỏ qua ${r.skipped} đã có` : ''}${r.categories.length ? `; tạo danh mục: ${r.categories.join(', ')}` : ''}.`);
+  res.redirect('/manager/products?tab=approved');
+});
+
 router.get('/products/:id', (req, res, next) => {
   const p = qGet.get(req.params.id);
   if (!p) return next();
@@ -33,6 +40,7 @@ const editSchema = v.z.object({
   desc_vi: v.text(8000), desc_en: v.text(8000), desc_ru: v.text(8000), desc_zh: v.text(8000),
   price: v.money,
   is_featured: v.z.preprocess(x => (x ? 1 : 0), v.z.number()),
+  condition: v.text(30),
 });
 
 async function translateInto(p) {
@@ -52,7 +60,7 @@ router.post('/products/:id', imageUpload.single('image'), async (req, res, next)
     if (req.file) { image_url = await saveImage(req.file, 'product'); removeImage(p.image_url); }
     if (req.body.remove_image) { removeImage(p.image_url); image_url = null; }
     db.prepare(`UPDATE products SET category_id=@category_id, name_vi=@name_vi, name_en=@name_en, name_ru=@name_ru, name_zh=@name_zh, specs_vi=@specs_vi,
-                desc_vi=@desc_vi, desc_en=@desc_en, desc_ru=@desc_ru, desc_zh=@desc_zh, price=@price, is_featured=@is_featured, image_url=@image_url WHERE id=@id`)
+                desc_vi=@desc_vi, desc_en=@desc_en, desc_ru=@desc_ru, desc_zh=@desc_zh, price=@price, is_featured=@is_featured, image_url=@image_url, condition=@condition WHERE id=@id`)
       .run({ ...data, image_url, id: p.id });
 
     const action = req.body.action;
