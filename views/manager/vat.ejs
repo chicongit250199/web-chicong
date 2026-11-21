@@ -69,63 +69,109 @@
     <input name="q" value="<%= search %>" class="input" placeholder="<%= ['in','out'].includes(tab) ? 'Tên đơn vị, MST, số hóa đơn, tên file...' : 'Tên mặt hàng, nhà cung cấp, số hóa đơn...' %>">
     <button class="btn-primary"><%- icon('search', 'h-4 w-4') %></button></form>
 
+  <% const link = p => `?tab=${tab}${search ? '&q=' + encodeURIComponent(search) : ''}${p > 1 ? '&page=' + p : ''}`; %>
   <% if (tab === 'in' || tab === 'out') { %>
-    <div class="tbl-wrap"><table class="tbl">
-      <thead><tr><th>Ngày HĐ</th><th>Ký hiệu / Số</th><th><%= tab === 'in' ? 'Nhà cung cấp' : 'Đơn vị mua' %></th><th>MST</th><th>Mặt hàng</th><th class="text-right">Tổng tiền</th><th>File</th></tr></thead>
-      <tbody>
-        <% rows.forEach(r => { %>
-          <tr>
-            <td class="whitespace-nowrap"><%= fmt.date(r.invoice_date) %></td>
-            <td class="whitespace-nowrap"><button type="button" @click="openInv(<%= r.id %>)" class="font-medium text-brand-600 hover:underline"><%= r.invoice_symbol || '' %> <%= r.invoice_number %></button></td>
-            <td class="min-w-48 font-medium"><%= r.partner_name || '' %></td>
-            <td class="font-mono text-xs"><%= r.partner_tax_id || '' %></td>
-            <td class="max-w-72 text-xs"><span class="line-clamp-2"><%= r.item_preview || '' %></span><span class="text-slate-500"><%= r.item_count %> dòng</span></td>
-            <td class="whitespace-nowrap text-right font-semibold tabular-nums"><%= fmt.num(r.total_amount) %></td>
-            <td class="max-w-56 text-xs">
-              <a href="<%= r.pdf_link || r.drive_link %>" target="_blank" rel="noopener" class="flex items-center gap-1 text-brand-600 hover:underline"><%- icon('external', 'h-3.5 w-3.5 shrink-0') %><span class="truncate"><%= r.file_name %></span></a>
-              <span class="badge-gray mt-0.5"><%= (r.source_format || '').toUpperCase() %></span>
-            </td>
-          </tr>
-        <% }) %>
-        <% if (!rows.length) { %><tr><td colspan="7" class="py-10 text-center text-slate-500">Chưa có hóa đơn. Bấm "Cập nhật" để quét Google Drive.</td></tr><% } %>
-      </tbody>
-    </table></div>
+    <div class="tbl-wrap">
+      <table class="tbl table-fixed">
+        <colgroup><col class="w-36"><col><col class="hidden w-[30%] lg:table-column"><col class="w-32"><col class="w-14"></colgroup>
+        <thead><tr>
+          <th>Hóa đơn</th><th><%= tab === 'in' ? 'Nhà cung cấp' : 'Đơn vị mua' %></th><th class="hidden lg:table-cell">Mặt hàng</th>
+          <th class="text-right">Tổng tiền</th><th class="text-center">File</th>
+        </tr></thead>
+        <tbody>
+          <% rows.forEach(r => { %>
+            <tr>
+              <td>
+                <button type="button" @click="openInv(<%= r.id %>)" class="font-semibold text-brand-600 hover:underline"><%= r.invoice_number %></button>
+                <span class="block text-xs text-slate-500"><%= r.invoice_symbol || '' %> · <%= fmt.date(r.invoice_date) %></span>
+              </td>
+              <td class="min-w-0">
+                <span class="block truncate font-medium" title="<%= r.partner_name || '' %>"><%= r.partner_name || (tab === 'out' ? 'Khách lẻ' : '—') %></span>
+                <span class="block font-mono text-xs text-slate-500"><%= r.partner_tax_id || '' %></span>
+              </td>
+              <td class="hidden min-w-0 text-xs text-slate-600 lg:table-cell dark:text-slate-400">
+                <span class="line-clamp-2" title="<%= r.item_preview || '' %>"><%= r.item_preview || '' %></span>
+                <% if (r.item_count > 3) { %><span class="text-slate-400">+<%= r.item_count - 3 %> mặt hàng</span><% } %>
+              </td>
+              <td class="whitespace-nowrap text-right">
+                <span class="font-semibold tabular-nums"><%= fmt.num(r.total_amount) %></span>
+                <span class="block text-xs tabular-nums text-slate-500">VAT <%= fmt.num(r.vat_amount) %></span>
+              </td>
+              <td class="text-center">
+                <a href="<%= r.pdf_link || r.drive_link %>" target="_blank" rel="noopener" title="<%= r.file_name %>" class="inline-grid h-8 w-8 place-items-center rounded-lg text-slate-500 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-slate-800"><%- icon('external', 'h-4 w-4') %></a>
+              </td>
+            </tr>
+          <% }) %>
+          <% if (!rows.length) { %><tr><td colspan="5" class="py-10 text-center text-slate-500"><%= search ? 'Không tìm thấy hóa đơn phù hợp.' : 'Chưa có hóa đơn. Bấm "Cập nhật" để quét Google Drive.' %></td></tr><% } %>
+        </tbody>
+        <% if (total) { %>
+          <tfoot><tr class="bg-slate-50 dark:bg-slate-800/50"><td colspan="2" class="px-3 py-2 text-sm font-medium"><%= total %> hóa đơn<%= search ? ' phù hợp' : '' %></td>
+            <td class="hidden lg:table-cell"></td><td class="whitespace-nowrap px-3 py-2 text-right font-bold tabular-nums"><%= fmt.num(sumAmount) %></td><td></td></tr></tfoot>
+        <% } %>
+      </table>
+    </div>
   <% } else if (tab === 'stock' || tab === 'exported') { %>
-    <div class="tbl-wrap"><table class="tbl">
-      <thead><tr><th>Mặt hàng</th><th>ĐVT</th><th class="text-right">SL nhập</th><th class="text-right">Còn lại</th><th class="text-right">Đơn giá</th><th>Thuế</th><th>Hóa đơn</th><th>Trạng thái</th><% if (tab === 'stock') { %><th></th><% } %></tr></thead>
-      <tbody>
-        <% rows.forEach(r => { %>
-          <tr>
-            <td class="min-w-56 font-medium"><%= r.item_name %></td><td><%= r.unit || '' %></td>
-            <td class="text-right tabular-nums"><%= fmt.num(r.quantity_in) %></td>
-            <td class="text-right font-semibold tabular-nums <%= r.quantity_remaining > 0 ? 'text-emerald-600' : 'text-slate-400' %>"><%= fmt.num(r.quantity_remaining) %></td>
-            <td class="whitespace-nowrap text-right tabular-nums"><%= fmt.num(r.unit_price) %></td><td class="text-xs"><%= r.vat_rate || '' %></td>
-            <td class="text-xs"><button type="button" @click="openInv(<%= r.invoice_id %>)" class="text-brand-600 hover:underline"><%= r.invoice_symbol || '' %> <%= r.invoice_number %></button><br><span class="text-slate-500"><%= fmt.date(r.invoice_date) %> · <%= r.partner_name || '' %></span></td>
-            <td><span class="<%= r.status === 'available' ? 'badge-green' : 'badge-gray' %>"><%= r.status === 'available' ? 'Còn' : 'Hết' %></span></td>
-            <% if (tab === 'stock') { %><td><button type="button" @click="ex = <%= JSON.stringify({ id: r.id, name: r.item_name, unit: r.unit || '', max: r.quantity_remaining }) %>" class="btn-secondary px-3 py-1 text-xs"><%- icon('upload', 'h-3.5 w-3.5') %>Xuất</button></td><% } %>
-          </tr>
-        <% }) %>
-        <% if (!rows.length) { %><tr><td colspan="9" class="py-10 text-center text-slate-500">Không có mặt hàng.</td></tr><% } %>
-      </tbody>
-    </table></div>
+    <div class="tbl-wrap">
+      <table class="tbl table-fixed">
+        <colgroup><col><col class="w-36"><col class="hidden w-28 sm:table-column"><col class="hidden w-44 md:table-column"><% if (tab === 'stock') { %><col class="w-20"><% } %></colgroup>
+        <thead><tr>
+          <th>Mặt hàng</th><th>Số lượng</th><th class="hidden text-right sm:table-cell">Đơn giá</th><th class="hidden md:table-cell">Hóa đơn nhập</th><% if (tab === 'stock') { %><th></th><% } %>
+        </tr></thead>
+        <tbody>
+          <% rows.forEach(r => { const pct = r.quantity_in ? Math.round(r.quantity_remaining / r.quantity_in * 100) : 0; %>
+            <tr>
+              <td class="min-w-0">
+                <span class="line-clamp-2 font-medium" title="<%= r.item_name %>"><%= r.item_name %></span>
+                <span class="text-xs text-slate-500"><%= r.unit || '' %><%= r.vat_rate ? ' · VAT ' + r.vat_rate : '' %></span>
+                <span class="block text-xs text-slate-500 md:hidden"><%= r.invoice_number %> · <%= fmt.date(r.invoice_date) %> · <%= fmt.num(r.unit_price) %> ₫</span>
+              </td>
+              <td>
+                <span class="font-semibold tabular-nums <%= r.quantity_remaining > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400' %>"><%= fmt.num(r.quantity_remaining) %></span>
+                <span class="text-xs text-slate-500">/ <%= fmt.num(r.quantity_in) %></span>
+                <span class="mt-1 block h-1.5 w-full max-w-24 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><span class="block h-full rounded-full bg-emerald-500" style="width: <%= pct %>%"></span></span>
+              </td>
+              <td class="hidden whitespace-nowrap text-right tabular-nums sm:table-cell"><%= fmt.num(r.unit_price) %></td>
+              <td class="hidden min-w-0 text-xs md:table-cell">
+                <button type="button" @click="openInv(<%= r.invoice_id %>)" class="font-medium text-brand-600 hover:underline"><%= r.invoice_number %></button>
+                <span class="text-slate-500">· <%= fmt.date(r.invoice_date) %></span>
+                <span class="block truncate text-slate-500" title="<%= r.partner_name || '' %>"><%= r.partner_name || '' %></span>
+              </td>
+              <% if (tab === 'stock') { %>
+                <td class="text-right"><button type="button" @click="ex = <%= JSON.stringify({ id: r.id, name: r.item_name, unit: r.unit || '', max: r.quantity_remaining }) %>" class="btn-secondary px-2.5 py-1 text-xs">Xuất</button></td>
+              <% } %>
+            </tr>
+          <% }) %>
+          <% if (!rows.length) { %><tr><td colspan="5" class="py-10 text-center text-slate-500">Không có mặt hàng.</td></tr><% } %>
+        </tbody>
+        <% if (total && tab === 'stock') { %>
+          <tfoot><tr class="bg-slate-50 dark:bg-slate-800/50"><td colspan="5" class="px-3 py-2 text-sm"><span class="font-medium"><%= total %> mặt hàng còn tồn</span> · giá trị tồn ước tính <strong class="tabular-nums"><%= fmt.money(sumAmount) %></strong></td></tr></tfoot>
+        <% } %>
+      </table>
+    </div>
   <% } else { %>
-    <div class="tbl-wrap"><table class="tbl">
-      <thead><tr><th>Thời gian</th><th>Mặt hàng</th><th class="text-right">SL xuất</th><th>Đơn vị mua</th><th>MST</th><th>Ghi chú</th><th>Người xuất</th><th></th></tr></thead>
-      <tbody>
-        <% rows.forEach(r => { %>
-          <tr>
-            <td class="whitespace-nowrap text-xs"><%= fmt.datetime(r.created_at) %></td>
-            <td class="min-w-56"><span class="font-medium"><%= r.item_name %></span><br><span class="text-xs text-slate-500">HĐ <%= r.invoice_number %> · <%= r.partner_name || '' %></span></td>
-            <td class="whitespace-nowrap text-right font-semibold tabular-nums"><%= fmt.num(r.quantity) %> <%= r.unit || '' %></td>
-            <td><%= r.buyer_name || '' %></td><td class="font-mono text-xs"><%= r.buyer_tax_id || '' %></td><td class="text-xs"><%= r.note || '' %></td><td class="text-xs"><%= r.user_name %></td>
-            <td><form method="post" action="/manager/vat/exports/<%= r.id %>/undo" @submit="confirm('Hoàn tác lần xuất này? Số lượng sẽ được cộng lại vào tồn kho VAT.') || $event.preventDefault()">
-              <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" title="Hoàn tác"><%- icon('refresh', 'h-4 w-4') %></button></form></td>
-          </tr>
-        <% }) %>
-        <% if (!rows.length) { %><tr><td colspan="8" class="py-10 text-center text-slate-500">Chưa xuất mặt hàng nào.</td></tr><% } %>
-      </tbody>
-    </table></div>
+    <div class="tbl-wrap">
+      <table class="tbl table-fixed">
+        <colgroup><col class="w-28"><col><col class="w-28"><col class="hidden w-56 md:table-column"><col class="w-12"></colgroup>
+        <thead><tr><th>Ngày xuất</th><th>Mặt hàng</th><th class="text-right">SL xuất</th><th class="hidden md:table-cell">Đơn vị mua</th><th></th></tr></thead>
+        <tbody>
+          <% rows.forEach(r => { %>
+            <tr>
+              <td class="whitespace-nowrap text-xs"><%= fmt.datetime(r.created_at) %><span class="block text-slate-500"><%= r.user_name %></span></td>
+              <td class="min-w-0"><span class="line-clamp-2 font-medium" title="<%= r.item_name %>"><%= r.item_name %></span>
+                <span class="block truncate text-xs text-slate-500">HĐ nhập <%= r.invoice_number %> · <%= r.partner_name || '' %></span>
+                <% if (r.note) { %><span class="block truncate text-xs italic text-slate-500"><%= r.note %></span><% } %></td>
+              <td class="whitespace-nowrap text-right"><span class="font-semibold tabular-nums"><%= fmt.num(r.quantity) %></span> <span class="text-xs text-slate-500"><%= r.unit || '' %></span></td>
+              <td class="hidden min-w-0 md:table-cell"><span class="block truncate"><%= r.buyer_name || '—' %></span><span class="font-mono text-xs text-slate-500"><%= r.buyer_tax_id || '' %></span></td>
+              <td class="text-right"><form method="post" action="/manager/vat/exports/<%= r.id %>/undo" @submit="confirm('Hoàn tác lần xuất này? Số lượng sẽ được cộng lại vào tồn kho VAT.') || $event.preventDefault()">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="inline-grid h-8 w-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" title="Hoàn tác"><%- icon('refresh', 'h-4 w-4') %></button></form></td>
+            </tr>
+          <% }) %>
+          <% if (!rows.length) { %><tr><td colspan="5" class="py-10 text-center text-slate-500">Chưa xuất mặt hàng nào.</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
   <% } %>
+  <%- include('../partials/pager', { page, pages, total, pageSize, link }) %>
 
   <% if (errors.length) { %>
     <details class="card mt-4 text-sm">
@@ -138,7 +184,7 @@
   <template x-if="ex">
     <div class="modal-backdrop" @click.self="ex = null">
       <form method="post" :action="'/manager/vat/items/' + ex.id + '/export'" class="modal space-y-3">
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="q" value="<%= search %>">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="q" value="<%= search %>"><input type="hidden" name="page" value="<%= page %>">
         <h3 class="text-lg font-semibold">Xuất mặt hàng VAT</h3>
         <p class="text-sm font-medium" x-text="ex.name"></p>
         <label class="block"><span class="label req">Số lượng xuất <span class="font-normal text-slate-400" x-text="'(còn ' + ex.max + ' ' + ex.unit + ')'"></span></span>

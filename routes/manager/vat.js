@@ -13,27 +13,48 @@ const router = express.Router();
 const TABS = ['in', 'stock', 'exported', 'exports', 'out'];
 
 
+const PAGE_SIZE = 10;
+
+// Mỗi tab: phần FROM/WHERE dùng chung cho đếm và lấy trang, cùng tham số tìm kiếm
+function tabQuery(tab, s) {
+  const like = `%${db.vn(s)}%`;
+  if (tab === 'in' || tab === 'out') {
+    return {
+      select: `i.*, (SELECT COUNT(*) FROM vat_items x WHERE x.invoice_id = i.id) AS item_count,
+        (SELECT group_concat(item_name, ' · ') FROM (SELECT item_name FROM vat_items x WHERE x.invoice_id = i.id LIMIT 3)) AS item_preview`,
+      from: `vat_invoices i WHERE i.direction = ?${s ? ' AND (vn(i.partner_name) LIKE ? OR i.partner_tax_id LIKE ? OR i.invoice_number LIKE ? OR vn(i.file_name) LIKE ?)' : ''}`,
+      params: [tab, ...(s ? [like, like, like, like] : [])],
+      order: 'i.invoice_date DESC, i.id DESC',
+      sum: 'COALESCE(SUM(i.total_amount), 0)',
+    };
+  }
+  if (tab === 'stock' || tab === 'exported') {
+    return {
+      select: 'x.*, i.invoice_number, i.invoice_symbol, i.invoice_date, i.partner_name, i.drive_link, i.pdf_link',
+      from: `vat_items x JOIN vat_invoices i ON i.id = x.invoice_id WHERE i.direction = 'in' AND x.status = ?${s ? ' AND (vn(x.item_name) LIKE ? OR vn(i.partner_name) LIKE ? OR i.invoice_number LIKE ?)' : ''}`,
+      params: [tab === 'stock' ? 'available' : 'depleted', ...(s ? [like, like, like] : [])],
+      order: 'i.invoice_date DESC, x.id',
+      sum: 'COALESCE(SUM(x.quantity_remaining * x.unit_price), 0)',
+    };
+  }
+  return {
+    select: 'e.*, x.item_name, x.unit, x.unit_price, i.invoice_number, i.invoice_symbol, i.partner_name',
+    from: `vat_item_exports e JOIN vat_items x ON x.id = e.vat_item_id JOIN vat_invoices i ON i.id = x.invoice_id${s ? ' WHERE vn(x.item_name) LIKE ? OR vn(e.buyer_name) LIKE ? OR e.buyer_tax_id LIKE ?' : ''}`,
+    params: s ? [like, like, like] : [],
+    order: 'e.id DESC',
+    sum: 'COALESCE(SUM(e.quantity * x.unit_price), 0)',
+  };
+}
+
 router.get('/vat', (req, res) => {
   res.locals.nav = 'm-vat';
   const tab = TABS.includes(req.query.tab) ? req.query.tab : 'stock';
   const s = String(req.query.q || '').trim();
-  const like = `%${s}%`;
-  let rows = [];
-  if (tab === 'in' || tab === 'out') {
-    rows = db.prepare(`SELECT i.*, (SELECT COUNT(*) FROM vat_items x WHERE x.invoice_id = i.id) AS item_count,
-        (SELECT group_concat(item_name, ' · ') FROM (SELECT item_name FROM vat_items x WHERE x.invoice_id = i.id LIMIT 4)) AS item_preview
-        FROM vat_invoices i WHERE i.direction = ? ${s ? 'AND (i.partner_name LIKE @l OR i.partner_tax_id LIKE @l OR i.invoice_number LIKE @l OR i.file_name LIKE @l)' : ''}
-        ORDER BY i.invoice_date DESC, i.id DESC LIMIT 500`.replace(/@l/g, '?')).all(tab, ...(s ? [like, like, like, like] : []));
-  } else if (tab === 'stock' || tab === 'exported') {
-    rows = db.prepare(`SELECT x.*, i.invoice_number, i.invoice_symbol, i.invoice_date, i.partner_name, i.drive_link, i.pdf_link
-        FROM vat_items x JOIN vat_invoices i ON i.id = x.invoice_id
-        WHERE i.direction = 'in' AND x.status = ? ${s ? 'AND (x.item_name LIKE ? OR i.partner_name LIKE ? OR i.invoice_number LIKE ?)' : ''}
-        ORDER BY i.invoice_date DESC, x.id LIMIT 1000`).all(tab === 'stock' ? 'available' : 'depleted', ...(s ? [like, like, like] : []));
-  } else {
-    rows = db.prepare(`SELECT e.*, x.item_name, x.unit, x.unit_price, i.invoice_number, i.partner_name FROM vat_item_exports e
-        JOIN vat_items x ON x.id = e.vat_item_id JOIN vat_invoices i ON i.id = x.invoice_id
-        ${s ? 'WHERE x.item_name LIKE ? OR e.buyer_name LIKE ? OR e.buyer_tax_id LIKE ?' : ''} ORDER BY e.id DESC LIMIT 500`).all(...(s ? [like, like, like] : []));
-  }
+  const tq = tabQuery(tab, s);
+  const agg = db.prepare(`SELECT COUNT(*) AS c, ${tq.sum} AS total FROM ${tq.from}`).get(...tq.params);
+  const pages = Math.max(1, Math.ceil(agg.c / PAGE_SIZE));
+  const page = Math.min(Math.max(parseInt(req.query.page, 10) || 1, 1), pages);
+  const rows = db.prepare(`SELECT ${tq.select} FROM ${tq.from} ORDER BY ${tq.order} LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}`).all(...tq.params);
   const counts = {
     in: db.prepare(`SELECT COUNT(*) c FROM vat_invoices WHERE direction = 'in'`).get().c,
     out: db.prepare(`SELECT COUNT(*) c FROM vat_invoices WHERE direction = 'out'`).get().c,
@@ -42,7 +63,10 @@ router.get('/vat', (req, res) => {
     exports: db.prepare('SELECT COUNT(*) c FROM vat_item_exports').get().c,
   };
   const errors = db.prepare(`SELECT * FROM vat_drive_files WHERE status = 'error' ORDER BY processed_at DESC LIMIT 20`).all();
-  res.render('manager/vat', { title: 'Kho hóa đơn VAT', tab, rows, counts, search: s, errors, driveStatus: drive.status(), aiEnabled: ai.isEnabled() });
+  res.render('manager/vat', {
+    title: 'Kho hóa đơn VAT', tab, rows, counts, search: s, errors, driveStatus: drive.status(), aiEnabled: ai.isEnabled(),
+    page, pages, total: agg.c, sumAmount: agg.total, pageSize: PAGE_SIZE,
+  });
 });
 
 router.get('/vat/invoices/:id', (req, res, next) => {
@@ -69,7 +93,7 @@ const exportSchema = v.z.object({
 });
 
 router.post('/vat/items/:id/export', (req, res) => {
-  const back = `/manager/vat?tab=stock${req.body.q ? '&q=' + encodeURIComponent(req.body.q) : ''}`;
+  const back = `/manager/vat?tab=stock${req.body.q ? '&q=' + encodeURIComponent(req.body.q) : ''}${Number(req.body.page) > 1 ? '&page=' + Number(req.body.page) : ''}`;
   const { data, error } = v.parse(exportSchema, req.body);
   if (error) { req.flash('error', error); return res.redirect(back); }
   const r = db.transaction(() => {
