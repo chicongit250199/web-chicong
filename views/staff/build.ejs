@@ -18,17 +18,23 @@
 
   <div class="grid gap-4 lg:grid-cols-5">
     <%# ---- Chọn linh kiện theo nhóm ---- %>
-    <div class="space-y-3 lg:col-span-3">
-      <template x-for="c in cats" :key="c.category">
-        <section class="card p-3" :class="pick === c.category && 'ring-2 ring-brand-500'">
-          <div class="flex items-center justify-between gap-2">
-            <h2 class="font-semibold" x-text="c.category"></h2>
-            <button type="button" @click="openPick(c.category)" class="text-sm font-medium text-brand-600 hover:underline"
-                    x-text="pick === c.category ? 'Đóng' : (linesOf(c.category).length && ['cpu','main','vga','psu','case','cooler'].includes(c.type) ? 'Đổi' : '+ Chọn')"></button>
-          </div>
+    <div class="lg:col-span-3">
+      <nav class="tabs sticky top-14 z-10 mb-3 bg-paper pt-1 dark:bg-slate-950" aria-label="Nhóm linh kiện">
+        <template x-for="c in cats" :key="c.category">
+          <button type="button" @click="setTab(c.category)" class="tab flex items-center gap-1.5" :class="tab === c.category && 'tab-active'">
+            <span x-text="c.category"></span>
+            <span x-show="countOf(c.category)" class="grid h-5 min-w-5 place-items-center rounded-full bg-emerald-500 px-1 text-[11px] font-bold text-white" x-text="countOf(c.category)"></span>
+          </button>
+        </template>
+        <button type="button" @click="setTab('Khác')" class="tab flex items-center gap-1.5" :class="tab === 'Khác' && 'tab-active'">Khác
+          <span x-show="countOf('Khác')" class="grid h-5 min-w-5 place-items-center rounded-full bg-emerald-500 px-1 text-[11px] font-bold text-white" x-text="countOf('Khác')"></span></button>
+      </nav>
 
+      <%# ---- Tab một nhóm linh kiện ---- %>
+      <template x-for="c in cats" :key="c.category">
+        <section x-show="tab === c.category" x-cloak class="card p-3">
           <template x-for="l in linesOf(c.category)" :key="l.uid">
-            <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-slate-100 pt-2 text-sm dark:border-slate-800">
+            <div class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg bg-emerald-50/70 px-2 py-2 text-sm ring-1 ring-emerald-200 dark:bg-emerald-950/30 dark:ring-emerald-900">
               <div class="min-w-0 flex-1 basis-56">
                 <p class="font-medium"><span x-text="l.name"></span> <span class="text-xs text-slate-500" x-show="l.condition" x-text="'(' + l.condition + ')'"></span></p>
                 <p class="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs">
@@ -45,32 +51,32 @@
               <button type="button" @click="remove(l)" class="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950" title="Bỏ"><%- icon('x', 'h-4 w-4') %></button>
             </div>
           </template>
+          <p x-show="linesOf(c.category).length && ['cpu','main','vga','psu','case','cooler'].includes(c.type)" class="mb-2 text-xs text-slate-500">Chọn món khác bên dưới để thay.</p>
 
-          <div x-show="pick === c.category" x-cloak class="mt-2">
-            <input id="pick-q" x-model="q" @input="hi = 0" @keydown="pickKey($event, c.category)" class="input py-1.5 text-sm" placeholder="Tìm trong nhóm..." autocomplete="off">
-            <div class="mt-1 max-h-72 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700">
-              <template x-for="(p, i) in options(c.category)" :key="p.id">
-                <button type="button" @click="choose(p)" @mouseenter="hi = i" class="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 text-left text-sm last:border-0 dark:border-slate-800"
-                        :class="[hi === i && 'bg-brand-50 dark:bg-slate-800', p.price == null && 'opacity-50']">
-                  <span class="min-w-0">
-                    <span class="block font-medium" x-text="p.name + (p.condition ? ' (' + p.condition + ')' : '')"></span>
-                    <span class="block truncate text-xs text-slate-500" x-text="Object.values(p.specs || {}).slice(0, 4).join(' · ') || p.summary || ''"></span>
-                  </span>
-                  <span class="shrink-0 text-right">
-                    <span class="block font-semibold tabular-nums" x-text="p.price != null ? formatVnd(p.price) + ' ₫' : 'Chưa có giá'"></span>
-                    <span :class="p.stock ? 'badge-green' : 'badge-amber'" x-text="p.stock ? 'Có sẵn ' + p.stock : 'Hàng đặt'"></span>
-                  </span>
-                </button>
-              </template>
-              <p x-show="!options(c.category).length" class="px-3 py-3 text-sm text-slate-500" x-text="onlyStock ? 'Không có món nào có sẵn trong kho.' : 'Không tìm thấy.'"></p>
-            </div>
+          <input x-model="q" @input="hi = 0" @keydown="pickKey($event, c.category)" class="input py-1.5 text-sm" :placeholder="'Tìm trong ' + c.category + '...'" autocomplete="off">
+          <div class="mt-2 max-h-[60vh] overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700">
+            <template x-for="(p, i) in options(c.category)" :key="p.id">
+              <button type="button" @click="choose(p)" @mouseenter="hi = i" class="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 text-left text-sm last:border-0 dark:border-slate-800"
+                      :class="[hi === i && 'bg-brand-50 dark:bg-slate-800', p.price == null && 'opacity-50', lines.some(function (l) { return l.part_id === p.id; }) && 'font-semibold']">
+                <span class="min-w-0">
+                  <span class="block"><span x-show="lines.some(function (l) { return l.part_id === p.id; })" class="text-emerald-600">✓ </span><span x-text="p.name + (p.condition ? ' (' + p.condition + ')' : '')"></span></span>
+                  <span class="block truncate text-xs font-normal text-slate-500" x-text="Object.values(p.specs || {}).slice(0, 4).join(' · ') || p.summary || ''"></span>
+                </span>
+                <span class="shrink-0 text-right">
+                  <span class="block font-semibold tabular-nums" x-text="p.price != null ? formatVnd(p.price) + ' ₫' : 'Chưa có giá'"></span>
+                  <span :class="p.stock ? 'badge-green' : 'badge-amber'" x-text="p.stock ? 'Có sẵn ' + p.stock : 'Hàng đặt'"></span>
+                </span>
+              </button>
+            </template>
+            <p x-show="!options(c.category).length" class="px-3 py-3 text-sm text-slate-500" x-text="onlyStock ? 'Không có món nào có sẵn trong kho.' : 'Không tìm thấy.'"></p>
           </div>
         </section>
       </template>
 
-      <section class="card p-3">
+      <%# ---- Tab Khác ---- %>
+      <section x-show="tab === 'Khác'" x-cloak class="card p-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <h2 class="font-semibold">Khác <span class="text-sm font-normal text-slate-500">(công lắp đặt, dịch vụ, hàng ngoài báo giá)</span></h2>
+          <p class="text-sm text-slate-500">Công lắp đặt, dịch vụ, hàng ngoài báo giá</p>
           <div class="flex gap-3 text-sm font-medium text-brand-600">
             <button type="button" @click="addCustom('Công lắp đặt + vệ sinh', 200000)" class="hover:underline">+ Công lắp đặt</button>
             <button type="button" @click="addCustom('', 0)" class="hover:underline">+ Dòng khác</button>
@@ -96,6 +102,19 @@
           <label class="block"><span class="label">Tên khách hàng</span><input x-model="customer_name" class="input" autocomplete="off"></label>
           <label class="block"><span class="label">SĐT</span><input x-model="customer_phone" class="input" inputmode="tel" autocomplete="off"></label>
           <label class="block sm:col-span-2"><span class="label">Địa chỉ</span><input x-model="customer_addr" class="input"></label>
+        </div>
+
+        <div>
+          <h2 class="mb-1 text-sm font-semibold">Cấu hình đang chọn</h2>
+          <p x-show="!lines.length" class="text-sm text-slate-500">Chưa chọn linh kiện — bấm các tab bên trái để chọn.</p>
+          <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+            <template x-for="l in lines" :key="l.uid">
+              <li><button type="button" @click="setTab(l.part_id ? l.category : 'Khác')" class="flex w-full items-start justify-between gap-2 py-1.5 text-left hover:text-brand-600">
+                <span class="min-w-0"><span class="mr-1 text-xs text-slate-400" x-text="l.part_id ? l.category : 'Khác'"></span><span x-text="(l.qty > 1 ? l.qty + '× ' : '') + (l.name || '(chưa đặt tên)')"></span>
+                  <span x-show="stockBadge(l) && !stockBadge(l).ok" class="ml-1 text-xs text-amber-600">• đặt</span></span>
+                <span class="shrink-0 tabular-nums" x-text="formatVnd(l.price * l.qty)"></span></button></li>
+            </template>
+          </ul>
         </div>
 
         <dl class="divide-y divide-slate-100 rounded-lg border border-slate-200 text-sm dark:divide-slate-800 dark:border-slate-800">

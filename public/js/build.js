@@ -27,7 +27,7 @@
       customer_addr: b.customer_addr || '', note: b.note || '', is_template: !!b.is_template, soldAt: b.sold_at || null,
       discount: String(b.discount || 0), deposit: String(b.deposit || 0),
       lines: (b.items || []).map(function (it) { return toLine(it, b.refreshPrices); }),
-      onlyStock: false, pick: null, q: '', hi: 0,
+      onlyStock: false, tab: (P.cats[0] && P.cats[0].category) || 'Khác', q: '', hi: 0,
       saving: false, msg: '', err: '', dirty: false,
 
       init: function () {
@@ -47,25 +47,33 @@
           return p.category === cat && (!only || p.stock > 0) && (!q || vn(p.name + ' ' + (p.condition || '')).indexOf(q) >= 0);
         });
       },
-      openPick: function (cat) { this.pick = this.pick === cat ? null : cat; this.q = ''; this.hi = 0; var self = this; this.$nextTick(function () { var i = document.getElementById('pick-q'); if (i) i.focus(); }); },
+      setTab: function (cat) { this.tab = cat; this.q = ''; this.hi = 0; },
+      // sang tab kế tiếp (sau khi chọn xong nhóm chỉ-1-món)
+      nextTab: function () {
+        var i = this.cats.findIndex(function (c) { return c.category === this.tab; }, this);
+        this.setTab(i >= 0 && i < this.cats.length - 1 ? this.cats[i + 1].category : 'Khác');
+      },
+      countOf: function (cat) { return this.lines.filter(function (l) { return (l.part_id ? l.category : 'Khác') === cat; }).reduce(function (s, l) { return s + Number(l.qty || 1); }, 0); },
+      get tabTypeSingle() { var t = this.cats.find(function (c) { return c.category === this.tab; }, this); return t && SINGLE[t.type]; },
       choose: function (p) {
         if (!p) return;
         if (p.price == null) { alert('Món này chưa có giá trong báo giá.'); return; }
         var line = toLine({ part_id: p.id, qty: 1 }, true);
         if (SINGLE[p.type]) {
           var i = this.lines.findIndex(function (l) { return l.part_id && l.category === p.category; });
-          if (i >= 0) { this.lines.splice(i, 1, line); this.pick = null; return; }
+          if (i >= 0) this.lines.splice(i, 1, line); else this.lines.push(line);
+          this.nextTab();
+          return;
         }
         var same = this.lines.find(function (l) { return l.part_id === p.id; });
         if (same) same.qty++; else this.lines.push(line);
-        this.pick = null;
       },
       pickKey: function (e, cat) {
         var list = this.options(cat);
         if (e.key === 'ArrowDown') { e.preventDefault(); this.hi = Math.min(this.hi + 1, list.length - 1); }
         else if (e.key === 'ArrowUp') { e.preventDefault(); this.hi = Math.max(this.hi - 1, 0); }
         else if (e.key === 'Enter') { e.preventDefault(); this.choose(list[this.hi]); }
-        else if (e.key === 'Escape') { this.pick = null; }
+        else if (e.key === 'Escape') { this.q = ''; }
       },
       remove: function (l) { this.lines = this.lines.filter(function (x) { return x !== l; }); },
       addCustom: function (name, price) { this.lines.push({ uid: ++uid, part_id: null, category: 'Khác', name: name || '', condition: '', price: String(price || 0), qty: 1, warranty_months: null, note: '' }); },

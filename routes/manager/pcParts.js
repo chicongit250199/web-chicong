@@ -25,6 +25,7 @@ router.get('/pc-parts', nav, (req, res) => {
   };
   const { byPart, unlinked } = pc.stockInfo();
   let parts = db.prepare('SELECT * FROM pc_parts ORDER BY sort, id').all().map(p => ({ ...p, stock: byPart.get(p.id)?.qty || 0, specsObj: parseJson(p.specs, {}) }));
+  const catCounts = parts.reduce((m, p) => { m[p.category] = (m[p.category] || 0) + 1; return m; }, {});
   const totals = { all: parts.length, in: parts.filter(p => p.stock).length, noInfo: parts.filter(p => !p.ai_at).length, noPrice: parts.filter(p => p.price == null).length };
   if (f.q) { const q = pc.vn(f.q); parts = parts.filter(p => pc.vn(`${p.name} ${p.category} ${p.condition || ''}`).includes(q)); }
   if (f.cat) parts = parts.filter(p => p.category === f.cat);
@@ -37,7 +38,7 @@ router.get('/pc-parts', nav, (req, res) => {
     g.items.push(p);
   }
   res.render('manager/pc_parts', {
-    title: 'Báo giá linh kiện', groups, f, totals, cats: categories(), unlinkedCount: unlinked.length,
+    title: 'Báo giá linh kiện', groups, f, totals, cats: categories(), catCounts, unlinkedCount: unlinked.length,
     aiEnabled: ai.isEnabled(), aiStatus: pcAi.status(), fieldsByType: pc.FIELDS, typeOf: pc.typeOf,
     printNote: { vi: settings.get('pc_print_note_vi') || DEFAULT_NOTE_VI, en: settings.get('pc_print_note_en') || DEFAULT_NOTE_EN },
     scripts: ['/js/pc-parts.js'],
