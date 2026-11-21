@@ -24,6 +24,7 @@ const manager = [
   { key: 'm-users', href: '/manager/users', icon: 'users', label: 'Tài khoản nhân viên' },
   { key: 'm-import', href: '/manager/import', icon: 'fileSheet', label: 'Import Excel kho' },
   { key: 'm-vat', href: '/manager/vat', icon: 'receipt', label: 'Kho hóa đơn VAT' },
+  { key: 'm-system', href: '/manager/system', icon: 'cpu', label: 'Hệ thống' },
 ];
 
 module.exports = { staff, manager };

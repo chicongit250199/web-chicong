@@ -1,0 +1,127 @@
+<%- include('../app/_top') %>
+<div x-data="systemPage()">
+  <div class="page-title">
+    <h1><%- icon('cpu', 'h-6 w-6 text-brand-600') %>Hệ thống</h1>
+    <div class="flex items-center gap-2 text-xs text-slate-500">
+      <template x-if="d"><span :class="badge(overall)" class="text-xs" x-text="overall === 'ok' ? 'Máy chủ hoạt động bình thường' : overall === 'warn' ? 'Có thông số cần chú ý' : 'Có thông số nguy hiểm'"></span></template>
+      <span x-show="updated" x-text="'Cập nhật ' + updated + ' · tự làm mới 5 giây'"></span>
+    </div>
+  </div>
+
+  <p x-show="err" x-cloak class="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200" x-text="'Không lấy được số liệu: ' + err"></p>
+  <p x-show="!d && !err" class="card py-10 text-center text-sm text-slate-500">Đang đọc số liệu...</p>
+
+  <template x-if="d">
+    <div class="space-y-4">
+      <%# ---- 4 chỉ số chính ---- %>
+      <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <div class="stat">
+          <p class="stat-label flex items-center justify-between">Nhiệt độ CPU <span :class="badge(tempLevel(maxTemp))" x-text="label(tempLevel(maxTemp))"></span></p>
+          <p class="stat-value" :class="text(tempLevel(maxTemp))" x-text="maxTemp != null ? Math.round(maxTemp) + '°C' : '—'"></p>
+          <p class="text-xs text-slate-500" x-text="cpuTemps.length && cpuTemps[0].crit ? 'Ngưỡng tới hạn ' + cpuTemps[0].crit + '°C' : ''"></p>
+        </div>
+        <div class="stat">
+          <p class="stat-label flex items-center justify-between">CPU <span :class="badge(pctLevel(d.cpu.usage))" x-text="label(pctLevel(d.cpu.usage))"></span></p>
+          <p class="stat-value" x-text="Math.round(d.cpu.usage) + '%'"></p>
+          <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div class="h-full rounded-full transition-all" :class="bar(pctLevel(d.cpu.usage))" :style="'width:' + d.cpu.usage + '%'"></div></div>
+          <p class="mt-1 text-xs text-slate-500" x-text="'Tải TB: ' + d.cpu.load.map(function (x) { return x.toFixed(2); }).join(' · ')"></p>
+        </div>
+        <div class="stat">
+          <p class="stat-label flex items-center justify-between">RAM <span :class="badge(pctLevel(memPct))" x-text="label(pctLevel(memPct))"></span></p>
+          <p class="stat-value" x-text="memPct + '%'"></p>
+          <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div class="h-full rounded-full transition-all" :class="bar(pctLevel(memPct))" :style="'width:' + memPct + '%'"></div></div>
+          <p class="mt-1 text-xs text-slate-500" x-text="gb(d.memory.total - d.memory.available) + ' / ' + gb(d.memory.total)"></p>
+        </div>
+        <template x-for="k in d.disks" :key="k.path">
+          <div class="stat">
+            <p class="stat-label flex items-center justify-between">Ổ đĩa <span :class="badge(pctLevel(diskPct(k)))" x-text="label(pctLevel(diskPct(k)))"></span></p>
+            <p class="stat-value" x-text="diskPct(k) + '%'"></p>
+            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div class="h-full rounded-full transition-all" :class="bar(pctLevel(diskPct(k)))" :style="'width:' + diskPct(k) + '%'"></div></div>
+            <p class="mt-1 text-xs text-slate-500" x-text="'Còn trống ' + gb(k.free) + ' / ' + gb(k.total)"></p>
+          </div>
+        </template>
+      </div>
+
+      <div class="grid gap-4 lg:grid-cols-2">
+        <%# ---- Nhiệt độ chi tiết ---- %>
+        <section class="card">
+          <h2 class="mb-3 flex items-center justify-between font-semibold">Nhiệt độ <span class="text-xs font-normal text-slate-500">10 phút gần nhất</span></h2>
+          <div class="space-y-2.5">
+            <template x-for="t in cpuTemps.concat(otherTemps)" :key="t.label">
+              <div class="flex items-center gap-3 text-sm">
+                <span class="w-28 shrink-0 text-slate-600 dark:text-slate-300" x-text="t.label"></span>
+                <div class="h-2 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div class="h-full rounded-full transition-all" :class="bar(tempLevel(t.value))" :style="'width:' + Math.min(100, t.value / (t.crit || 100) * 100) + '%'"></div></div>
+                <span class="w-14 shrink-0 text-right font-semibold tabular-nums" :class="text(tempLevel(t.value))" x-text="t.value.toFixed(0) + '°C'"></span>
+              </div>
+            </template>
+          </div>
+          <figure class="mt-4">
+            <svg viewBox="0 0 300 60" preserveAspectRatio="none" class="h-16 w-full" role="img" :aria-label="'Nhiệt độ CPU 10 phút'">
+              <line x1="0" x2="300" :y1="60 - 75 / 100 * 56 - 2" :y2="60 - 75 / 100 * 56 - 2" class="stroke-amber-400/60" stroke-dasharray="3 3" stroke-width="1" vector-effect="non-scaling-stroke"/>
+              <polygon :points="spark('temp', 100).area" class="fill-rose-500/10"/>
+              <polyline :points="spark('temp', 100).line" fill="none" class="stroke-rose-500" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+            </svg>
+            <figcaption class="mt-1 flex justify-between text-xs text-slate-500">
+              <span>CPU nóng nhất (thang 0–100°C, vạch: 75°C)</span>
+              <span x-show="histRange('temp')" x-text="histRange('temp') ? 'thấp ' + histRange('temp').min.toFixed(0) + '° · cao ' + histRange('temp').max.toFixed(0) + '°' : ''"></span>
+            </figcaption>
+          </figure>
+        </section>
+
+        <%# ---- CPU chi tiết ---- %>
+        <section class="card">
+          <h2 class="mb-3 flex items-center justify-between font-semibold">CPU <span class="text-xs font-normal text-slate-500" x-text="d.cpu.model + ' · ' + d.cpu.cores + ' nhân'"></span></h2>
+          <div class="space-y-2.5">
+            <template x-for="(p, i) in d.cpu.perCore" :key="i">
+              <div class="flex items-center gap-3 text-sm">
+                <span class="w-28 shrink-0 text-slate-600 dark:text-slate-300" x-text="'Nhân ' + i"></span>
+                <div class="h-2 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div class="h-full rounded-full bg-brand-500 transition-all" :style="'width:' + p + '%'"></div></div>
+                <span class="w-14 shrink-0 text-right font-semibold tabular-nums" x-text="Math.round(p) + '%'"></span>
+              </div>
+            </template>
+          </div>
+          <figure class="mt-4">
+            <svg viewBox="0 0 300 60" preserveAspectRatio="none" class="h-16 w-full" role="img" aria-label="CPU 10 phút">
+              <polygon :points="spark('cpu', 100).area" class="fill-brand-500/10"/>
+              <polyline :points="spark('cpu', 100).line" fill="none" class="stroke-brand-500" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+            </svg>
+            <figcaption class="mt-1 flex justify-between text-xs text-slate-500">
+              <span>% sử dụng CPU (thang 0–100%)</span>
+              <span x-show="histRange('cpu')" x-text="histRange('cpu') ? 'thấp ' + Math.round(histRange('cpu').min) + '% · cao ' + Math.round(histRange('cpu').max) + '%' : ''"></span>
+            </figcaption>
+          </figure>
+        </section>
+      </div>
+
+      <div class="grid gap-4 lg:grid-cols-2">
+        <%# ---- Máy chủ ---- %>
+        <section class="card">
+          <h2 class="mb-3 font-semibold">Máy chủ</h2>
+          <dl class="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2 text-sm">
+            <dt class="text-slate-500">Tên máy</dt><dd class="font-medium" x-text="d.host.hostname"></dd>
+            <dt class="text-slate-500">Địa chỉ LAN</dt><dd class="font-mono" x-text="d.host.ips.map(function (ip) { return ip + ':3000'; }).join(', ')"></dd>
+            <dt class="text-slate-500">Hệ điều hành</dt><dd x-text="d.host.os + ' · kernel ' + d.host.kernel"></dd>
+            <dt class="text-slate-500">Đã chạy</dt><dd x-text="dur(d.host.uptime)"></dd>
+            <dt class="text-slate-500">Swap</dt><dd x-text="d.memory.swapTotal ? swapPct + '% · ' + gb(d.memory.swapTotal - d.memory.swapFree) + ' / ' + gb(d.memory.swapTotal) : 'Không dùng'"></dd>
+          </dl>
+        </section>
+
+        <%# ---- Ứng dụng web ---- %>
+        <section class="card">
+          <h2 class="mb-3 font-semibold">Ứng dụng web</h2>
+          <dl class="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2 text-sm">
+            <dt class="text-slate-500">Chạy bằng</dt><dd><span :class="d.app.manager === 'PM2' ? 'badge-green' : 'badge-amber'" x-text="d.app.manager"></span> <span class="text-slate-500" x-text="'· ' + d.app.env + ' · Node ' + d.app.node"></span></dd>
+            <dt class="text-slate-500">Đã chạy</dt><dd x-text="dur(d.app.uptime)"></dd>
+            <dt class="text-slate-500">RAM ứng dụng</dt><dd x-text="size(d.app.rss)"></dd>
+            <dt class="text-slate-500">Cơ sở dữ liệu</dt><dd x-text="size(d.app.db)"></dd>
+            <dt class="text-slate-500">Ảnh upload</dt><dd x-text="size(d.app.uploads.total) + ' · ' + d.app.uploads.count + ' file'"></dd>
+            <dt class="text-slate-500">Sao lưu</dt><dd x-text="d.app.backups.count ? d.app.backups.count + ' bản · gần nhất ' + time(d.app.backups.last) : 'Chưa có (tự chạy lúc 2h sáng)'"></dd>
+            <dt class="text-slate-500">Quét hóa đơn</dt>
+            <dd x-text="d.vat.running ? 'Đang quét ' + (d.vat.job.direction === 'in' ? 'đầu vào' : 'bán ra') + ' ' + d.vat.job.processed + '/' + d.vat.job.total : (d.vat.auto && d.vat.auto.enabled ? 'Tự động mỗi ' + d.vat.auto.minutes + ' phút · lần tới ' + time(d.vat.auto.nextRunAt) : 'Tắt')"></dd>
+          </dl>
+        </section>
+      </div>
+    </div>
+  </template>
+</div>
+<%- include('../app/_bottom') %>
