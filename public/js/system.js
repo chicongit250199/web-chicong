@@ -89,3 +89,44 @@ window.systemPage = function () {
     },
   };
 };
+
+// Sao lưu lên Google Drive: kết nối bằng mã thiết bị, sao lưu ngay, trạng thái
+window.offsiteBackup = function () {
+  return {
+    s: {}, code: null, busy: false, err: '', msg: '', timer: null,
+    init: function () { this.load(); },
+    load: function () { var self = this; return api('/manager/system/offsite').then(function (d) { self.s = d; if (d.pending) { self.code = d.pending; self.poll(); } }).catch(function (e) { self.err = e.message; }); },
+    connect: function () {
+      var self = this; this.busy = true; this.err = '';
+      api('/manager/system/offsite/connect', { method: 'POST' }).then(function (d) { self.code = d; self.poll(); })
+        .catch(function (e) { self.err = e.message; }).finally(function () { self.busy = false; });
+    },
+    poll: function () {
+      var self = this;
+      clearTimeout(this.timer);
+      this.timer = setTimeout(function () {
+        api('/manager/system/offsite/poll').then(function (d) {
+          if (d.status === 'waiting') return self.poll();
+          self.code = null;
+          if (d.status === 'connected') { self.msg = 'Đã kết nối Google Drive' + (d.account ? ' (' + d.account + ')' : '') + '. Bấm “Sao lưu ngay” để thử.'; }
+          else if (d.status === 'expired') self.err = 'Mã đã hết hạn, bấm kết nối lại.';
+          else if (d.status === 'error') self.err = d.error;
+          self.load();
+        }).catch(function (e) { self.err = e.message; self.poll(); });
+      }, 5000);
+    },
+    runNow: function () {
+      var self = this; this.busy = true; this.err = ''; this.msg = '';
+      api('/manager/system/offsite/run', { method: 'POST' }).then(function (d) {
+        self.s = d;
+        var r = d.result || {};
+        self.msg = r.skipped ? r.skipped : 'Đã sao lưu lên Drive: ' + (r.db ? r.db.name : '') + (r.images ? ' + ' + r.images + ' ảnh' : '') + '.';
+      }).catch(function (e) { self.err = e.message; self.load(); }).finally(function () { self.busy = false; });
+    },
+    disconnect: function () {
+      if (!confirm('Ngắt kết nối Google Drive? Bản sao lưu đã có trên Drive vẫn giữ nguyên.')) return;
+      var self = this;
+      api('/manager/system/offsite/disconnect', { method: 'POST' }).then(function (d) { self.s = d; self.msg = 'Đã ngắt kết nối.'; });
+    },
+  };
+};

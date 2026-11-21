@@ -28,7 +28,11 @@ function schedule(db) {
     return target - now;
   };
   const run = () => {
-    backup(db).then(f => console.log(`[backup] ${f}`)).catch(e => console.error('[backup] lỗi', e.message));
+    backup(db).then(f => {
+      console.log(`[backup] ${f}`);
+      // xong bản trên máy -> đẩy lên Google Drive (nếu đã kết nối)
+      return require('./offsiteBackup').run('auto').catch(() => {});
+    }).catch(e => console.error('[backup] lỗi', e.message));
     setTimeout(run, next()).unref();
   };
   setTimeout(run, next()).unref();

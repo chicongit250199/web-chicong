@@ -2,6 +2,9 @@
 const express = require('express');
 const systemInfo = require('../../services/systemInfo');
 const vatSync = require('../../services/vatSync');
+const offsite = require('../../services/offsiteBackup');
+const db = require('../../db');
+const { backup } = require('../../services/backup');
 
 const router = express.Router();
 
@@ -21,6 +24,24 @@ router.get('/system.json', (req, res) => {
 router.post('/system/speedtest', (req, res) => {
   systemInfo.runSpeedTest(); // không chờ
   res.json(systemInfo.speedStatus());
+});
+
+// ---------- Sao lưu lên Google Drive ----------
+router.get('/system/offsite', (req, res) => res.set('Cache-Control', 'no-store').json(offsite.status()));
+router.post('/system/offsite/connect', async (req, res, next) => {
+  try { res.json(await offsite.startConnect()); } catch (e) { next(e); }
+});
+router.get('/system/offsite/poll', async (req, res, next) => {
+  try { res.set('Cache-Control', 'no-store').json(await offsite.pollConnect()); } catch (e) { next(e); }
+});
+router.post('/system/offsite/disconnect', (req, res) => { offsite.disconnect(); res.json(offsite.status()); });
+// Sao lưu ngay: tạo bản mới trên máy rồi đẩy lên Drive
+router.post('/system/offsite/run', async (req, res, next) => {
+  try {
+    await backup(db);
+    const r = await offsite.run('manual');
+    res.json({ ...offsite.status(), result: r });
+  } catch (e) { next(e); }
 });
 
 module.exports = router;

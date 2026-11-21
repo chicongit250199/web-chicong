@@ -203,5 +203,49 @@
       </div>
     </div>
   </template>
+
+  <%# ---- Sao lưu lên Google Drive (ngoài máy) ---- %>
+  <section class="card mt-4" x-data="offsiteBackup()">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h2 class="flex items-center gap-2 font-semibold"><%- icon('upload', 'h-5 w-5 text-brand-600') %>Sao lưu lên Google Drive</h2>
+        <p class="mt-0.5 text-sm text-slate-500">Mỗi ngày lúc 2h sáng: đẩy bản sao lưu CSDL (nén) + ảnh mới lên Drive của bạn. Giữ <span x-text="s.keep || 30"></span> bản CSDL gần nhất. Phòng khi máy NUC hỏng ổ.</p>
+      </div>
+      <template x-if="s.connected">
+        <div class="flex gap-2">
+          <button type="button" @click="runNow()" :disabled="busy || s.running" class="btn-primary px-3 py-1.5 text-sm"><%- icon('refresh', 'h-4 w-4') %><span x-text="busy || s.running ? 'Đang sao lưu...' : 'Sao lưu ngay'"></span></button>
+          <button type="button" @click="disconnect()" class="btn-secondary px-3 py-1.5 text-sm">Ngắt kết nối</button>
+        </div>
+      </template>
+    </div>
+
+    <div class="mt-3 text-sm">
+      <template x-if="!s.configured">
+        <p class="rounded-lg bg-amber-50 px-3 py-2 text-amber-800 dark:bg-amber-950 dark:text-amber-200">Chưa cấu hình: cần thêm <code>GDRIVE_BACKUP_CLIENT_ID</code> và <code>GDRIVE_BACKUP_CLIENT_SECRET</code> vào file <code>.env</code> (mã OAuth loại “TV và thiết bị đầu vào hạn chế”).</p>
+      </template>
+      <template x-if="s.configured && !s.connected && !code">
+        <button type="button" @click="connect()" :disabled="busy" class="btn-primary"><%- icon('key', 'h-4 w-4') %>Kết nối Google Drive</button>
+      </template>
+      <template x-if="code">
+        <div class="rounded-lg bg-blue-50 px-4 py-3 text-blue-900 ring-1 ring-blue-200 dark:bg-blue-950 dark:text-blue-100 dark:ring-blue-900">
+          <p>1. Mở <a :href="code.url" target="_blank" rel="noopener" class="font-semibold underline" x-text="code.url"></a> (trên máy đang đăng nhập Google của cửa hàng)</p>
+          <p class="mt-1">2. Nhập mã: <strong class="select-all rounded bg-white px-2 py-0.5 font-mono text-lg tracking-widest dark:bg-slate-900" x-text="code.user_code"></strong></p>
+          <p class="mt-1">3. Chọn tài khoản → <em>Cho phép</em>. Trang này tự cập nhật khi xong.</p>
+          <p class="mt-2 text-xs opacity-75">Web chỉ được thấy các file do chính nó tạo trên Drive, không đọc được file khác của bạn.</p>
+        </div>
+      </template>
+      <template x-if="s.connected">
+        <dl class="grid grid-cols-[9rem_1fr] gap-x-4 gap-y-1.5">
+          <dt class="text-slate-500">Tài khoản</dt><dd><span class="badge-green">Đã kết nối</span> <span x-text="s.account || ''"></span></dd>
+          <dt class="text-slate-500">Lần gần nhất</dt>
+          <dd x-text="s.last ? new Date(s.last.at).toLocaleString('vi-VN') + ' — ' + (s.last.db ? s.last.db.name : 'không có CSDL') + (s.last.images ? ' + ' + s.last.images + ' ảnh mới' : '') + ' (' + s.last.seconds + 's)' : 'Chưa chạy — bấm “Sao lưu ngay” để thử'"></dd>
+          <dt class="text-slate-500">Thư mục trên Drive</dt><dd>Chi Cong Computer - Sao luu / CSDL, Anh-upload</dd>
+        </dl>
+      </template>
+      <p x-show="s.lastError" x-cloak class="mt-2 text-red-600" x-text="s.lastError ? 'Lỗi lần trước (' + new Date(s.lastError.at).toLocaleString('vi-VN') + '): ' + s.lastError.message : ''"></p>
+      <p x-show="err" x-cloak class="mt-2 text-red-600" x-text="err"></p>
+      <p x-show="msg" x-cloak class="mt-2 text-emerald-700 dark:text-emerald-400" x-text="msg"></p>
+    </div>
+  </section>
 </div>
 <%- include('../app/_bottom') %>
