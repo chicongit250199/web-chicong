@@ -26,6 +26,7 @@ const settingsSchema = v.z.object({
   featured_rows: v.z.coerce.number().int().min(1, 'Số hàng 1-10').max(10, 'Số hàng 1-10'),
   map_embed: v.text(3000),
   map_link: v.text(500),
+  bg_logo: v.oneOf(['float', 'static', 'off']),
 });
 
 router.post('/homepage/settings', imageUpload.fields([{ name: 'logo', maxCount: 1 }, { name: 'banner', maxCount: 1 }]), async (req, res, next) => {

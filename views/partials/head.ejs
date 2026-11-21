@@ -22,3 +22,12 @@
   <script defer src="/vendor/alpine.js"></script>
 </head>
 <body class="min-h-screen bg-paper text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-100">
+<% const bgMode = settings.bg_logo || 'float'; if (settings.logo_url && bgMode !== 'off') { %>
+  <%# Logo nền: in chìm ở giữa + vài logo nhỏ trôi quanh (nằm sau mọi nội dung, không bắt chuột) %>
+  <div class="bg-logos" aria-hidden="true">
+    <img src="<%= settings.logo_url %>" alt="" class="bg-logo-center">
+    <% if (bgMode === 'float') { [[6,12,72,0],[86,18,56,1],[14,78,64,2],[78,72,88,3],[48,92,48,4],[94,48,44,5]].forEach(([x, y, size, k]) => { %>
+      <img src="<%= settings.logo_url %>" alt="" class="bg-logo-float bg-float-<%= k %>" style="left:<%= x %>%;top:<%= y %>%;width:<%= size %>px">
+    <% }) } %>
+  </div>
+<% } %>

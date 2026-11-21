@@ -40,6 +40,8 @@
     <label class="block"><span class="label">Mã số thuế</span><input name="tax_id" value="<%= settings.tax_id %>" class="input"></label>
     <label class="block"><span class="label">Số điện thoại (Zalo / WhatsApp)</span><input name="phone" value="<%= settings.phone %>" class="input"></label>
     <label class="block"><span class="label">Số hàng sản phẩm mỗi danh mục</span><input type="number" min="1" max="10" name="featured_rows" value="<%= settings.featured_rows %>" class="input"></label>
+    <label class="block"><span class="label">Logo trên nền các trang</span>
+      <select name="bg_logo" class="input"><% [['float','Logo trôi quanh + in chìm'],['static','Chỉ in chìm ở giữa'],['off','Tắt']].forEach(([k, l]) => { %><option value="<%= k %>" <%= (settings.bg_logo || 'float') === k ? 'selected' : '' %>><%= l %></option><% }) %></select></label>
     <label class="block md:col-span-3"><span class="label">Địa chỉ</span><input name="address" value="<%= settings.address %>" class="input"></label>
     <label class="block md:col-span-2"><span class="label">Bản đồ nhúng <span class="font-normal text-slate-400">(dán link hoặc mã &lt;iframe&gt; từ Google Maps → Chia sẻ → Nhúng bản đồ)</span></span>
       <input name="map_embed" value="<%= settings.map_embed %>" class="input font-mono text-xs"></label>
