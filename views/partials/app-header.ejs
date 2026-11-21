@@ -10,12 +10,6 @@
   </a>
   <div class="flex items-center gap-2">
     <%- include('theme-icons') %>
-    <% if (user.role === 'manager') { %>
-      <button type="button" @click="$dispatch('open-notifs')" class="relative rounded-lg p-2 hover:bg-slate-100 xl:hidden dark:hover:bg-slate-800" aria-label="Thông báo">
-        <%- icon('bell', 'h-5 w-5') %>
-        <% if (typeof unreadCount !== 'undefined' && unreadCount) { %><span class="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500"></span><% } %>
-      </button>
-    <% } %>
     <span class="hidden text-sm font-medium md:inline"><%= user.full_name %></span>
     <form method="post" action="/logout">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">

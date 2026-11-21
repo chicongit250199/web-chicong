@@ -50,7 +50,7 @@
   };
   window.notifPanel = function () {
     return {
-      items: [], unread: 0, live: false, toasts: [],
+      items: [], unread: 0, live: false, toasts: [], open: false, ring: false, pop: false,
       init: function () {
         var self = this;
         try { var d = JSON.parse(document.getElementById('notif-data').textContent); self.items = d.items; self.unread = d.unread; } catch (e) {}
@@ -69,8 +69,11 @@
             self.items.unshift(n);
             if (self.items.length > 60) self.items.pop();
             self.unread++;
-            self.toasts.push(n);
-            setTimeout(function () { self.toasts = self.toasts.filter(function (t) { return t.id !== n.id; }); }, 5000);
+            self.alert();
+            if (self.open) return; // đang mở khung thì không cần banner
+            var t = Object.assign({ leaving: false }, n);
+            self.toasts.push(t);
+            setTimeout(function () { self.dismiss(t); }, 5000);
           });
         };
         var disconnect = function () { if (self.es) { self.es.close(); self.es = null; self.live = false; } };
@@ -83,6 +86,26 @@
         window.addEventListener('pagehide', disconnect);
         if (!document.hidden) connect();
         setInterval(function () { self.items = self.items.slice(); }, 60000); // cập nhật "x phút trước"
+      },
+      // chuông lắc + số chưa đọc nảy lên
+      alert: function () {
+        var self = this;
+        this.ring = false; this.pop = false;
+        requestAnimationFrame(function () { self.ring = true; self.pop = true; });
+        clearTimeout(this._ringT);
+        this._ringT = setTimeout(function () { self.ring = false; self.pop = false; }, 1200);
+      },
+      // banner thu nhỏ bay vào nút chuông rồi biến mất
+      dismiss: function (t) {
+        var self = this;
+        var cur = this.toasts.find(function (x) { return x.id === t.id; });
+        if (!cur || cur.leaving) return;
+        cur.leaving = true;
+        setTimeout(function () { self.toasts = self.toasts.filter(function (x) { return x.id !== t.id; }); }, 450);
+      },
+      toggle: function () {
+        this.open = !this.open;
+        if (this.open) this.toasts.forEach(this.dismiss.bind(this));
       },
       markRead: function () {
         var self = this;

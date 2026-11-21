@@ -4,41 +4,63 @@
 <% if (isManager) { %>
   <%# Cột phải: thông báo real-time (SSE) %>
   <script type="application/json" id="notif-data"><%- JSON.stringify({ items: notifications, unread: unreadCount }).replace(/</g, '\\u003c') %></script>
-  <div x-data="notifPanel()" x-init="init()">
-    <div x-show="notifs" x-cloak x-transition.opacity class="fixed inset-0 z-50 bg-slate-950/50 xl:hidden" @click="notifs = false"></div>
-    <aside :class="notifs ? 'translate-x-0' : 'translate-x-full xl:translate-x-0'"
-           class="fixed bottom-0 right-0 top-14 z-50 flex w-80 max-w-[90vw] flex-col border-l border-slate-200 bg-white transition-transform xl:z-30 dark:border-slate-800 dark:bg-slate-900">
-      <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-        <h2 class="flex items-center gap-2 font-semibold"><%- icon('bell', 'h-5 w-5 text-brand-600') %>Thông báo
-          <span class="flex items-center gap-1 text-[11px] font-normal" :class="live ? 'text-emerald-600' : 'text-slate-400'">
-            <span class="h-2 w-2 rounded-full" :class="live ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'"></span><span x-text="live ? 'Trực tiếp' : 'Mất kết nối'"></span>
+  <div x-data="notifPanel()" x-init="init()" @keydown.escape.window="open = false">
+    <%# Banner thông báo mới kiểu iPhone: trượt lên từ góc dưới phải, 5 giây sau thu vào nút chuông %>
+    <div class="pointer-events-none fixed bottom-[9.5rem] right-4 z-[60] flex w-[22rem] max-w-[calc(100vw-2rem)] flex-col gap-2 lg:bottom-24" aria-live="polite">
+      <template x-for="t in toasts.slice(-3)" :key="t.id">
+        <a :href="t.link || '#'" @click="dismiss(t)" class="notif-banner pointer-events-auto flex gap-3 rounded-2xl border border-white/40 bg-white/80 p-3 text-slate-800 shadow-2xl ring-1 ring-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-slate-800/80 dark:text-slate-100"
+           :class="t.leaving ? 'notif-out' : 'notif-in'">
+          <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white shadow" :class="typeColor(t.type)" x-html="typeIcon(t.type)"></span>
+          <span class="min-w-0 flex-1">
+            <span class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400"><span class="font-semibold uppercase tracking-wide"><%= settings.company_name || 'Thông báo' %></span><span>bây giờ</span></span>
+            <span class="line-clamp-3 block text-sm leading-snug" x-text="t.message"></span>
           </span>
-        </h2>
-        <div class="flex items-center gap-1">
-          <button type="button" x-show="unread > 0" @click="markRead()" class="rounded-md px-2 py-1 text-xs text-brand-600 hover:bg-brand-50 dark:hover:bg-slate-800">Đã đọc hết</button>
-          <button type="button" @click="notifs = false" class="rounded-md p-1 hover:bg-slate-100 xl:hidden dark:hover:bg-slate-800" aria-label="Đóng"><%- icon('x', 'h-5 w-5') %></button>
-        </div>
-      </div>
-      <ul class="flex-1 divide-y divide-slate-100 overflow-y-auto dark:divide-slate-800">
-        <template x-for="n in items" :key="n.id">
-          <li>
-            <a :href="n.link || '#'" class="flex gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/60" :class="!n.is_read && 'bg-brand-50/60 dark:bg-brand-900/20'">
-              <span class="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full text-white" :class="typeColor(n.type)" x-html="typeIcon(n.type)"></span>
-              <span class="min-w-0 flex-1">
-                <span class="block text-sm leading-snug" x-text="n.message"></span>
-                <span class="mt-0.5 block text-xs text-slate-500" x-text="timeAgo(n.created_at)"></span>
-              </span>
-            </a>
-          </li>
-        </template>
-        <li x-show="!items.length" class="px-4 py-10 text-center text-sm text-slate-500">Chưa có thông báo</li>
-      </ul>
-    </aside>
-    <%# Toast khi có thông báo mới %>
-    <div class="pointer-events-none fixed right-4 top-16 z-[60] w-80 max-w-[90vw] space-y-2 xl:right-[21rem]">
-      <template x-for="t in toasts" :key="t.id">
-        <div x-transition class="pointer-events-auto rounded-lg bg-slate-900 px-4 py-3 text-sm text-white shadow-lg dark:bg-white dark:text-slate-900" x-text="t.message"></div>
+        </a>
       </template>
+    </div>
+
+    <div @click.outside="open = false">
+      <%# Khung danh sách thông báo: bung ra từ nút chuông %>
+      <section x-show="open" x-cloak
+               x-transition:enter="transition duration-300 ease-[cubic-bezier(.2,1.15,.35,1)]" x-transition:enter-start="opacity-0 scale-50 translate-y-6" x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+               x-transition:leave="transition duration-200 ease-in" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-50 translate-y-6"
+               class="fixed bottom-[9.5rem] right-4 z-[55] flex max-h-[70vh] w-96 max-w-[calc(100vw-2rem)] origin-bottom-right flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white/95 shadow-2xl backdrop-blur-xl lg:bottom-24 dark:border-slate-700 dark:bg-slate-900/95">
+        <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+          <h2 class="flex items-center gap-2 font-semibold"><%- icon('bell', 'h-5 w-5 text-brand-600') %>Thông báo
+            <span class="flex items-center gap-1 text-[11px] font-normal" :class="live ? 'text-emerald-600' : 'text-slate-400'">
+              <span class="h-2 w-2 rounded-full" :class="live ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'"></span><span x-text="live ? 'Trực tiếp' : 'Mất kết nối'"></span>
+            </span>
+          </h2>
+          <div class="flex items-center gap-1">
+            <button type="button" x-show="unread > 0" @click="markRead()" class="rounded-md px-2 py-1 text-xs text-brand-600 hover:bg-brand-50 dark:hover:bg-slate-800">Đã đọc hết</button>
+            <button type="button" @click="open = false" class="rounded-md p-1 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Thu nhỏ"><%- icon('x', 'h-5 w-5') %></button>
+          </div>
+        </div>
+        <ul class="flex-1 divide-y divide-slate-100 overflow-y-auto dark:divide-slate-800">
+          <template x-for="n in items" :key="n.id">
+            <li>
+              <a :href="n.link || '#'" class="flex gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/60" :class="!n.is_read && 'bg-brand-50/60 dark:bg-brand-900/20'">
+                <span class="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full text-white" :class="typeColor(n.type)" x-html="typeIcon(n.type)"></span>
+                <span class="min-w-0 flex-1">
+                  <span class="block text-sm leading-snug" x-text="n.message"></span>
+                  <span class="mt-0.5 block text-xs text-slate-500" x-text="timeAgo(n.created_at)"></span>
+                </span>
+              </a>
+            </li>
+          </template>
+          <li x-show="!items.length" class="px-4 py-10 text-center text-sm text-slate-500">Chưa có thông báo</li>
+        </ul>
+      </section>
+
+      <%# Nút chuông nổi %>
+      <button type="button" @click="toggle()" :aria-label="'Thông báo' + (unread ? ' (' + unread + ' chưa đọc)' : '')"
+              class="fixed bottom-[5.5rem] right-4 z-[56] grid h-14 w-14 place-items-center rounded-full bg-brand-600 text-white shadow-xl shadow-brand-600/30 transition hover:scale-105 active:scale-95 lg:bottom-6"
+              :class="open && 'bg-slate-700 shadow-slate-700/30'">
+        <span :class="ring && 'bell-ring'" class="block"><%- icon('bell', 'h-6 w-6') %></span>
+        <span x-show="unread > 0" x-cloak :class="pop && 'badge-pop'"
+              class="absolute -right-1 -top-1 grid h-6 min-w-6 place-items-center rounded-full bg-red-500 px-1.5 text-xs font-bold ring-2 ring-white dark:ring-slate-950" x-text="unread > 99 ? '99+' : unread"></span>
+        <span x-show="ring" class="absolute inset-0 animate-ping rounded-full bg-brand-500/40"></span>
+      </button>
     </div>
   </div>
 <% } %>

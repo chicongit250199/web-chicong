@@ -72,5 +72,14 @@
   75%  { transform: translate(-50%, -50%) translate(-26px, -12px) rotate(5deg); }
   100% { transform: translate(-50%, -50%) translate(0, 0) rotate(0deg); }
 }
-@media (prefers-reduced-motion: reduce) { .bg-logo-float { animation: none; } }
+/* Thông báo kiểu iPhone */
+.notif-in { animation: notif-in .55s cubic-bezier(.2, 1.25, .35, 1) both; }
+.notif-out { animation: notif-out .45s cubic-bezier(.55, 0, .8, .2) both; transform-origin: 100% 100%; }
+@keyframes notif-in { from { opacity: 0; transform: translateY(28px) scale(.9); } to { opacity: 1; transform: none; } }
+@keyframes notif-out { to { opacity: 0; transform: translate(30%, 140%) scale(.12); } }
+.bell-ring { animation: bell-ring 1s ease-in-out; transform-origin: 50% 3px; }
+@keyframes bell-ring { 0%, 100% { transform: rotate(0); } 10% { transform: rotate(18deg); } 25% { transform: rotate(-16deg); } 40% { transform: rotate(12deg); } 55% { transform: rotate(-8deg); } 70% { transform: rotate(4deg); } 85% { transform: rotate(-2deg); } }
+.badge-pop { animation: badge-pop .45s cubic-bezier(.2, 1.8, .4, 1); }
+@keyframes badge-pop { 0% { transform: scale(.3); } 60% { transform: scale(1.3); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .bg-logo-float, .notif-in, .notif-out, .bell-ring, .badge-pop { animation: none; } }
 @media print { .bg-logos { display: none; } }

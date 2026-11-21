@@ -42,7 +42,7 @@
   <% }) %>
 </aside>
 
-<div class="pb-20 <%= isManager ? 'lg:pb-6 lg:pl-60 xl:pr-80' : 'md:pb-6 md:pl-16' %>">
+<div class="pb-20 <%= isManager ? 'lg:pb-6 lg:pl-60' : 'md:pb-6 md:pl-16' %>">
   <main class="mx-auto <%= typeof wide !== 'undefined' && wide ? 'max-w-[1600px]' : 'max-w-6xl' %> p-4 md:p-6">
     <% if (taskAlerts.length && !(typeof hideTaskAlerts !== 'undefined' && hideTaskAlerts)) { const pend = taskAlerts.filter(x => x.alert && x.alert.kind === 'pending').length; %>
       <div x-data="{ open: <%= taskAlerts.length <= 3 ? 'true' : 'false' %> }" class="mb-4 overflow-hidden rounded-xl border border-orange-300 bg-orange-50 text-sm text-orange-900 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-100">
