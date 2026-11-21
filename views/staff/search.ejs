@@ -54,10 +54,10 @@
     <section>
       <h2 class="mb-2 font-semibold">Giao dịch của khách <span class="badge-gray"><%= sales.length %></span></h2>
       <div class="tbl-wrap"><table class="tbl">
-        <thead><tr><th>Thời gian</th><th>Loại</th><th>Nội dung</th><th class="text-right">Số tiền</th><th>Thanh toán</th><th>BH</th><th>NV</th></tr></thead>
+        <thead><tr><th>Thời gian</th><th>Loại</th><th>Nội dung</th><th class="text-right">Số tiền</th><th>Thanh toán</th><th>BH</th><th>NV</th><th></th></tr></thead>
         <tbody><% sales.forEach(r => { %>
           <tr><td class="whitespace-nowrap"><%= fmt.datetime(r.created_at) %></td><td><%= fmt.REVENUE_TYPE[r.type] %></td><td><%= r.content %></td>
-            <td class="whitespace-nowrap text-right tabular-nums"><%= fmt.money(r.amount) %></td><td><%= fmt.payment(r.payment_method) %></td><td><%= r.warranty_months || 0 %> th</td><td><%= r.staff_name %></td></tr>
+            <td class="whitespace-nowrap text-right tabular-nums"><%= fmt.money(r.amount) %></td><td><%= fmt.payment(r.payment_method) %></td><td><%= r.warranty_months || 0 %> th</td><td><%= r.staff_name %></td><td><a href="/staff/sell/receipt/<%= r.order_code || r.id %>" target="_blank" class="inline-grid h-7 w-7 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-slate-800 " title="In phiếu"><%- icon('printer', 'h-4 w-4') %></a></td></tr>
         <% }) %></tbody>
       </table></div>
     </section>

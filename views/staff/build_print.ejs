@@ -1,11 +1,11 @@
 <% const T = en ? {
   title: doc === 'receipt' ? 'PAYMENT AND WARRANTY RECEIPT' : 'PC COMPONENTS QUOTATION', name: 'Name', phone: 'Phone', addr: 'Address', greet: 'Dear valued company and customers,',
   no: 'No', comp: 'Component name', qty: 'QTY', unit: 'Unit price', amount: 'Total amount', war: 'Warranty', note: 'Note', months: 'Months',
-  sub: 'Subtotal', disc: 'Discount', total: 'Total', vat: '(VAT included)', dep: 'Deposit', rem: 'Remaining', words: 'In words', notes: 'Note', by: 'Prepared by', cust: 'Customer', sign: '(Sign and full name)', tax: 'Tax code', tel: 'Phone',
+  code: 'No.', pay: 'Payment', sub: 'Subtotal', disc: 'Discount', total: 'Total', vat: '(VAT included)', dep: 'Deposit', rem: 'Remaining', words: 'In words', notes: 'Note', by: 'Prepared by', cust: 'Customer', sign: '(Sign and full name)', tax: 'Tax code', tel: 'Phone',
 } : {
   title: doc === 'receipt' ? 'PHIẾU THANH TOÁN - BẢO HÀNH' : 'BÁO GIÁ LINH KIỆN PC', name: 'Tên KH', phone: 'SĐT', addr: 'Địa chỉ', greet: 'Kính gửi quý công ty, khách hàng.',
   no: 'STT', comp: 'Tên linh kiện', qty: 'SL', unit: 'Đơn giá', amount: 'Thành tiền', war: 'Bảo hành', note: 'Ghi chú', months: 'Tháng',
-  sub: 'Tổng', disc: 'Giảm giá', total: 'Tổng cộng', vat: '(Đã bao gồm VAT)', dep: 'Đặt cọc', rem: 'Còn lại', words: 'Bằng chữ', notes: 'Lưu ý', by: 'Người lập phiếu', cust: 'Khách hàng', sign: '(ký, ghi rõ họ tên)', tax: 'MST', tel: 'Điện thoại',
+  code: 'Số phiếu', pay: 'Thanh toán', sub: 'Tổng', disc: 'Giảm giá', total: 'Tổng cộng', vat: '(Đã bao gồm VAT)', dep: 'Đặt cọc', rem: 'Còn lại', words: 'Bằng chữ', notes: 'Lưu ý', by: 'Người lập phiếu', cust: 'Khách hàng', sign: '(ký, ghi rõ họ tên)', tax: 'MST', tel: 'Điện thoại',
 }; const n = x => fmt.num(x); %><!doctype html>
 <html lang="<%= en ? 'en' : 'vi' %>">
 <head>
@@ -20,7 +20,8 @@
     .brand { font-size: 22px; font-weight: 700; color: #c00; letter-spacing: .5px; }
     .muted { color: #333; font-size: 12px; }
     h1 { text-align: center; font-size: 19px; margin: 14px 0 2px; }
-    .date { text-align: center; font-style: italic; margin-bottom: 10px; }
+    .date { text-align: center; font-style: italic; }
+    .code { text-align: center; font-size: 14px; margin: 2px 0 10px; }
     .info { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 20px; margin-bottom: 6px; }
     table { width: 100%; border-collapse: collapse; margin-top: 6px; }
     th, td { border: 1px solid #555; padding: 4px 5px; vertical-align: top; }
@@ -39,7 +40,7 @@
 <body>
   <div class="actions">
     <button type="button" id="print-btn"><%= en ? 'Print' : 'In phiếu' %></button>
-    <a href="?lang=<%= en ? 'en' : 'vi' %>&doc=<%= doc === 'receipt' ? 'quote' : 'receipt' %>"><%= doc === 'receipt' ? (en ? 'Quotation' : 'Báo giá') : (en ? 'Receipt' : 'Phiếu thanh toán - bảo hành') %></a>
+    <% if (typeof docToggle === 'undefined' || docToggle) { %><a href="?lang=<%= en ? 'en' : 'vi' %>&doc=<%= doc === 'receipt' ? 'quote' : 'receipt' %>"><%= doc === 'receipt' ? (en ? 'Quotation' : 'Báo giá') : (en ? 'Receipt' : 'Phiếu thanh toán - bảo hành') %></a><% } %>
     <a href="?lang=<%= en ? 'vi' : 'en' %>&doc=<%= doc %>"><%= en ? 'Tiếng Việt' : 'English' %></a>
   </div>
   <div class="sheet">
@@ -52,11 +53,13 @@
     </div>
 
     <h1><%= T.title %></h1>
-    <div class="date"><%= dateText %> · <%= b.code %><%= b.name ? ' · ' + b.name : '' %></div>
+    <div class="date"><%= dateText %></div>
+    <div class="code"><%= T.code %>: <strong><%= b.code %></strong><%= b.name ? ' · ' + b.name : '' %></div>
     <div class="info">
       <div><%= T.name %>: <strong><%= b.customer_name || '' %></strong></div>
       <div><%= T.phone %>: <%= b.customer_phone || '' %></div>
-      <div style="grid-column: span 2"><%= T.addr %>: <%= b.customer_addr || '' %></div>
+      <div style="grid-column: span <%= b.payment ? 1 : 2 %>"><%= T.addr %>: <%= b.customer_addr || '' %></div>
+      <% if (b.payment) { %><div><%= T.pay %>: <%= b.payment %></div><% } %>
     </div>
     <div><%= T.greet %></div>
 

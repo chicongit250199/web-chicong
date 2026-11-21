@@ -127,7 +127,7 @@ router.post('/sell', (req, res) => {
   // Ngày khác hôm nay: giữ giờ hiện tại (giờ VN) trên ngày đã chọn
   const now = saleDay === today ? new Date().toISOString()
     : new Date(`${saleDay}T${new Date(Date.now() + 7 * 3600e3).toISOString().slice(11, 23)}+07:00`).toISOString();
-  const orderCode = data.items.length > 1 ? newOrderCode() : null;
+  const orderCode = newOrderCode(); // mọi đơn đều có số phiếu (để in lại)
   const insRevenue = db.prepare(`INSERT INTO revenues (type, ref_id, customer_name, customer_phone, delivery_address, content, amount, payment_method, warranty_months, staff_name, created_at, order_code)
                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const getItem = db.prepare(`SELECT * FROM inventory_items WHERE id = ? AND status = 'in_stock'`);
@@ -163,7 +163,53 @@ router.post('/sell', (req, res) => {
   const serial = lines.find(l => l.serial)?.serial;
   notify('sale', `${req.user.full_name} ${verb} ${what} — ${fmt.money(total)} (${fmt.payment(data.payment_method)})`,
     `/staff/search?q=${encodeURIComponent(data.customer_phone || serial || '')}`, req.user.full_name);
-  res.json({ ok: true, message: `${saleDay !== today ? '[Ngày ' + saleDay.split('-').reverse().join('/') + '] ' : ''}Đã ghi ${lines.length > 1 ? 'đơn ' + lines.length + ' món' : '"' + lines[0].content + '"'} — tổng ${fmt.money(total)}` });
+  res.json({ ok: true, receipt: `/staff/sell/receipt/${orderCode}`, message: `${saleDay !== today ? '[Ngày ' + saleDay.split('-').reverse().join('/') + '] ' : ''}Đã ghi ${lines.length > 1 ? 'đơn ' + lines.length + ' món' : '"' + lines[0].content + '"'} — tổng ${fmt.money(total)}` });
+});
+
+// ---------- In phiếu thanh toán - bảo hành cho đơn bán (mẫu giống báo giá Build PC, khổ A4) ----------
+// key = số phiếu (BH-...) hoặc id dòng doanh thu (đơn cũ chưa có số phiếu)
+const COND_EN_SALE = { new: 'New', '2nd': 'Used', 'like new': 'Like New', 'tray new': 'Tray New' };
+router.get('/sell/receipt/:key', (req, res, next) => {
+  const key = String(req.params.key);
+  let rows = [];
+  if (/^\d+$/.test(key)) {
+    const r = db.prepare('SELECT * FROM revenues WHERE id = ?').get(key);
+    if (r) rows = r.order_code ? db.prepare('SELECT * FROM revenues WHERE order_code = ? ORDER BY id').all(r.order_code) : [r];
+  } else {
+    rows = db.prepare('SELECT * FROM revenues WHERE order_code = ? ORDER BY id').all(key);
+  }
+  if (!rows.length) return next();
+  const en = req.query.lang === 'en';
+  const first = rows[0];
+  const items = rows.map(r => {
+    // "Tên hàng — SN: 123" -> tên + ghi chú serial; "Tên x2" -> số lượng 2
+    let [name, sn] = String(r.content || '').split(/\s+—\s+SN:\s+/);
+    let qty = 1;
+    const m = name.match(/^(.*\S)\s+x(\d{1,2})$/);
+    if (m) { name = m[1]; qty = Number(m[2]); }
+    if (en) name = name.replace(/\((New|2nd|Like New|Tray New)\)$/i, (x, c) => `(${COND_EN_SALE[c.toLowerCase()] || c})`);
+    return { label: name, qty, price: Math.round(r.amount / qty), amount: r.amount, warranty_months: r.warranty_months || null, note: sn ? `SN: ${sn}` : '' };
+  });
+  const total = items.reduce((s, l) => s + l.amount, 0);
+  const build = first.order_code ? db.prepare('SELECT code, name FROM pc_builds WHERE order_code = ?').get(first.order_code) : null;
+  const d = new Date(new Date(first.created_at).getTime() + 7 * 3600e3);
+  const dateText = en
+    ? `Da Nang, ${d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}`
+    : `Đà Nẵng, Ngày ${d.getUTCDate()} Tháng ${d.getUTCMonth() + 1} Năm ${d.getUTCFullYear()}`;
+  const settings = require('../../services/settings');
+  const DEF = require('../manager/pcParts');
+  res.render('staff/build_print', {
+    b: {
+      code: first.order_code || `BH-${first.id}`, name: build ? `Cấu hình ${build.code}${build.name ? ' — ' + build.name : ''}` : '',
+      customer_name: first.customer_name, customer_phone: first.customer_phone, customer_addr: first.delivery_address,
+      payment: en ? { cash: 'Cash', transfer: 'Bank transfer' }[first.payment_method] : fmt.payment(first.payment_method),
+      discount: 0, deposit: 0, total, note: null,
+    },
+    items, subtotal: total, en, doc: 'receipt', dateText, docToggle: false,
+    words: en ? pc.enWords(total) : pc.vnWords(total), remainingWords: '',
+    printNote: en ? settings.get('pc_print_note_en') || DEF.DEFAULT_NOTE_EN : settings.get('pc_print_note_vi') || DEF.DEFAULT_NOTE_VI,
+    staffName: first.staff_name || '',
+  });
 });
 
 // ---------- Tìm kiếm lịch sử Task + Serial bảo hành ----------

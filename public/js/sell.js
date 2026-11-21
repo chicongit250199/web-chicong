@@ -15,7 +15,7 @@ window.sellForm = function (staffName, preset, build) {
     q: '', results: [], open: false, loading: false, hi: -1, timer: null,
     group: null, unitId: '', price: '', payment: 'cash',
     customer_name: '', customer_phone: '', delivery_address: '', warranty: '', kind: 'repair',
-    confirm: false, sending: false, error: '', success: '', confirmTime: '',
+    confirm: false, sending: false, error: '', success: '', receipt: '', confirmTime: '',
     buildId: null, buildCode: '',
     cart: [], sale_date: '', today: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10), // các món đã thêm vào đơn: { item_id, name, serial, kind, price, warranty, label }
 
@@ -107,7 +107,7 @@ window.sellForm = function (staffName, preset, build) {
     },
 
     openConfirm: function () {
-      this.error = ''; this.success = '';
+      this.error = ''; this.success = ''; this.receipt = '';
       // Đang nhập dở 1 món -> tự thêm vào đơn
       if (this.draft || this.group) { var line = this.currentLine(); if (!line) return; this.cart.push(line); this.clearLine(); }
       if (!this.cart.length) { this.error = 'Chưa có món nào trong đơn.'; return; }
@@ -122,7 +122,7 @@ window.sellForm = function (staffName, preset, build) {
         items: this.cart.map(function (l) { return { item_id: l.item_id, name: l.item_id ? '' : l.name, kind: l.kind, price: l.price, warranty_months: l.warranty }; }),
         payment_method: this.payment, sale_date: this.sale_date, build_id: this.buildId, customer_name: this.customer_name, customer_phone: this.customer_phone, delivery_address: this.delivery_address,
       } }).then(function (d) {
-        self.success = d.message; self.confirm = false; self.reset();
+        self.success = d.message; self.receipt = d.receipt || ''; self.confirm = false; self.reset();
       }).catch(function (e) { self.error = e.message; self.confirm = false; })
         .finally(function () { self.sending = false; });
     },

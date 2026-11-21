@@ -56,7 +56,7 @@
         <% details.forEach(r => { %>
           <tr><td class="whitespace-nowrap text-xs"><%= fmt.datetime(r.created_at) %></td>
             <td class="text-xs"><span class="<%= r.type === 'sale' ? 'badge-violet' : 'badge-blue' %> mr-1"><%= fmt.REVENUE_TYPE[r.type] %></span><%= r.content %></td>
-            <td class="whitespace-nowrap text-right font-semibold tabular-nums"><%= fmt.num(r.amount) %></td><td class="text-xs"><%= r.payment_method === 'cash' ? 'TM' : 'CK' %></td><td class="text-xs"><%= r.staff_name %></td><td><%- include('_rev_delete', { r, back: '/manager/revenue?' + qs }) %></td></tr>
+            <td class="whitespace-nowrap text-right font-semibold tabular-nums"><%= fmt.num(r.amount) %></td><td class="text-xs"><%= r.payment_method === 'cash' ? 'TM' : 'CK' %></td><td class="text-xs"><%= r.staff_name %></td><td class="whitespace-nowrap"><a href="/staff/sell/receipt/<%= r.order_code || r.id %>" target="_blank" class="inline-grid h-7 w-7 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-slate-800 " title="In phiếu"><%- icon('printer', 'h-4 w-4') %></a><%- include('_rev_delete', { r, back: '/manager/revenue?' + qs }) %></td></tr>
         <% }) %>
       </tbody>
     </table></div>
