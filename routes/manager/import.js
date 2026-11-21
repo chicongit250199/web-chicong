@@ -35,7 +35,9 @@ router.get('/import', (req, res) => {
   if (filter === 'duplicate') rows = rows.filter(r => r.duplicate);
   else if (filter === 'hint') rows = rows.filter(r => r.hint && !r.duplicate);
   else if (filter !== 'all') rows = rows.filter(r => r.status === filter && !r.duplicate);
-  res.render('manager/import', { title: 'Import Excel kho', data, summary, rows: rows.slice(0, 500), shown: rows.length, filter });
+  const batches = db.prepare(`SELECT b.*, (SELECT COUNT(*) FROM inventory_items i WHERE i.import_batch = b.id) AS remaining
+                              FROM import_batches b WHERE kind = 'inventory' ORDER BY created_at DESC`).all();
+  res.render('manager/import', { title: 'Import Excel kho', data, summary, rows: rows.slice(0, 500), shown: rows.length, filter, batches });
 });
 
 router.post('/import', fileUpload(15).single('file'), (req, res) => {
@@ -48,7 +50,7 @@ router.post('/import', fileUpload(15).single('file'), (req, res) => {
   if (!parsed.rows.length) { req.flash('error', ['Không tìm thấy dòng dữ liệu nào.', ...parsed.warnings].join(' ')); return res.redirect('/manager/import'); }
   if (req.session.importToken) fs.rmSync(tmpFile(req.session.importToken), { force: true });
   const token = crypto.randomBytes(12).toString('hex');
-  fs.writeFileSync(tmpFile(token), JSON.stringify({ fileName: req.file.originalname, warnings: parsed.warnings, rows: parsed.rows }));
+  fs.writeFileSync(tmpFile(token), JSON.stringify({ fileName: Buffer.from(req.file.originalname, 'latin1').toString('utf8'), warnings: parsed.warnings, rows: parsed.rows }));
   req.session.importToken = token;
   res.redirect('/manager/import');
 });
@@ -57,23 +59,42 @@ router.post('/import/confirm', (req, res) => {
   const data = load(req);
   if (!data) { req.flash('error', 'Phiên xem trước đã hết, hãy tải file lên lại.'); return res.redirect('/manager/import'); }
   const ins = db.prepare(`INSERT OR IGNORE INTO inventory_items (item_code, name, serial, import_date, condition, supplier, warranty_in_months, tech_price, retail_price,
-      status, sold_date, customer_name, customer_phone, warranty_out_months, note)
+      status, sold_date, customer_name, customer_phone, warranty_out_months, note, import_batch)
       VALUES (@item_code, @name, @serial, @import_date, @condition, @supplier, @warranty_in_months, @tech_price, @retail_price,
-      @status, @sold_date, @customer_name, @customer_phone, @warranty_out_months, @note)`);
+      @status, @sold_date, @customer_name, @customer_phone, @warranty_out_months, @note, @import_batch)`);
+  const batch = 'KHO' + new Date().toISOString().slice(0, 10).replaceAll('-', '') + '-' + crypto.randomBytes(3).toString('hex');
   const counts = db.transaction(() => {
     const c = { in_stock: 0, sold: 0, skipped: 0 };
+    const dates = [];
     for (const r of data.rows) {
       if (r.duplicate) { c.skipped++; continue; }
-      const { changes } = ins.run(r);
-      if (changes) c[r.status]++; else c.skipped++;
+      const { changes } = ins.run({ ...r, import_batch: batch });
+      if (changes) { c[r.status]++; if (r.import_date) dates.push(r.import_date); } else c.skipped++;
     }
+    dates.sort();
+    db.prepare(`INSERT INTO import_batches (id, kind, file_name, row_count, total, date_from, date_to, user_name) VALUES (?, 'inventory', ?, ?, ?, ?, ?, ?)`)
+      .run(batch, data.fileName, c.in_stock + c.sold, c.sold, dates[0] || null, dates[dates.length - 1] || null, req.user.full_name);
     return c;
   })();
   fs.rmSync(tmpFile(req.session.importToken), { force: true });
   delete req.session.importToken;
   notify('inventory', `${req.user.full_name} import Excel "${data.fileName}": ${counts.in_stock} tồn kho, ${counts.sold} đã bán`, '/staff/inventory', req.user.full_name);
-  req.flash('success', `Đã import: ${counts.in_stock} món tồn kho, ${counts.sold} món đã bán${counts.skipped ? `, bỏ qua ${counts.skipped} dòng trùng Serial` : ''}.`);
+  req.flash('success', `Đã import (đợt ${batch}): ${counts.in_stock} món tồn kho, ${counts.sold} món đã bán${counts.skipped ? `, bỏ qua ${counts.skipped} dòng trùng Serial` : ''}.`);
   res.redirect('/staff/inventory');
+});
+
+// Xóa cả một đợt import kho (để import lại)
+router.post('/import/batches/:id/delete', (req, res) => {
+  const b = db.prepare(`SELECT * FROM import_batches WHERE id = ? AND kind = 'inventory'`).get(req.params.id);
+  if (!b) { req.flash('error', 'Không tìm thấy đợt import.'); return res.redirect('/manager/import'); }
+  const n = db.transaction(() => {
+    const r = db.prepare('DELETE FROM inventory_items WHERE import_batch = ?').run(b.id);
+    db.prepare('DELETE FROM import_batches WHERE id = ?').run(b.id);
+    return r.changes;
+  })();
+  notify('revenue_deleted', `${req.user.full_name} xóa đợt import kho ${b.id} (${n} món)`, '/staff/inventory', req.user.full_name);
+  req.flash('success', `Đã xóa đợt ${b.id}: ${n} món khỏi kho. Có thể import lại.`);
+  res.redirect('/manager/import');
 });
 
 router.post('/import/cancel', (req, res) => {
