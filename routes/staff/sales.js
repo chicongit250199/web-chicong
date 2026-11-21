@@ -70,6 +70,7 @@ const sellSchema = v.z.object({
   customer_name: v.text(120),
   customer_phone: v.phone(false),
   delivery_address: v.text(500),
+  sale_date: v.date, // để trống = hôm nay; cho phép ghi lùi ngày bán
 }).refine(d => new Set(d.items.filter(i => i.item_id).map(i => i.item_id)).size === d.items.filter(i => i.item_id).length,
   { message: 'Một món (serial) bị chọn 2 lần trong đơn' });
 
@@ -84,7 +85,12 @@ router.post('/sell', (req, res) => {
   const body = Array.isArray(req.body?.items) ? req.body : { ...req.body, items: [req.body || {}] };
   const { data, error } = v.parse(sellSchema, body);
   if (error) return res.status(422).json({ error });
-  const now = new Date().toISOString();
+  const today = fmt.todayYmd();
+  if (data.sale_date && data.sale_date.slice(0, 10) > today) return res.status(422).json({ error: 'Ngày bán không được sau hôm nay' });
+  const saleDay = data.sale_date ? data.sale_date.slice(0, 10) : today;
+  // Ngày khác hôm nay: giữ giờ hiện tại (giờ VN) trên ngày đã chọn
+  const now = saleDay === today ? new Date().toISOString()
+    : new Date(`${saleDay}T${new Date(Date.now() + 7 * 3600e3).toISOString().slice(11, 23)}+07:00`).toISOString();
   const orderCode = data.items.length > 1 ? newOrderCode() : null;
   const insRevenue = db.prepare(`INSERT INTO revenues (type, ref_id, customer_name, customer_phone, delivery_address, content, amount, payment_method, warranty_months, staff_name, created_at, order_code)
                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
@@ -104,7 +110,7 @@ router.post('/sell', (req, res) => {
       const item = getItem.get(line.item_id);
       if (!item) { const e = new Error('gone'); e.gone = true; throw e; }
       const warranty = line.warranty_months ?? item.warranty_out_months ?? 0;
-      markSold.run(fmt.todayYmd(), data.customer_name, data.customer_phone, warranty, item.id);
+      markSold.run(saleDay, data.customer_name, data.customer_phone, warranty, item.id);
       const content = `${item.name}${item.serial ? ' — SN: ' + item.serial : ''}`;
       insRevenue.run('sale', item.id, data.customer_name, data.customer_phone, data.delivery_address, content, line.price, data.payment_method, warranty, req.user.full_name, now, orderCode);
       return { content, price: line.price, kind: 'sale', serial: item.serial };
@@ -120,7 +126,7 @@ router.post('/sell', (req, res) => {
   const serial = lines.find(l => l.serial)?.serial;
   notify('sale', `${req.user.full_name} ${verb} ${what} — ${fmt.money(total)} (${fmt.payment(data.payment_method)})`,
     `/staff/search?q=${encodeURIComponent(data.customer_phone || serial || '')}`, req.user.full_name);
-  res.json({ ok: true, message: `Đã ghi ${lines.length > 1 ? 'đơn ' + lines.length + ' món' : '"' + lines[0].content + '"'} — tổng ${fmt.money(total)}` });
+  res.json({ ok: true, message: `${saleDay !== today ? '[Ngày ' + saleDay.split('-').reverse().join('/') + '] ' : ''}Đã ghi ${lines.length > 1 ? 'đơn ' + lines.length + ' món' : '"' + lines[0].content + '"'} — tổng ${fmt.money(total)}` });
 });
 
 // ---------- Tìm kiếm lịch sử Task + Serial bảo hành ----------

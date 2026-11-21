@@ -12,7 +12,7 @@ window.sellForm = function (staffName, preset) {
     group: null, unitId: '', price: '', payment: 'cash',
     customer_name: '', customer_phone: '', delivery_address: '', warranty: '', kind: 'repair',
     confirm: false, sending: false, error: '', success: '', confirmTime: '',
-    cart: [], // các món đã thêm vào đơn: { item_id, name, serial, kind, price, warranty, label }
+    cart: [], sale_date: '', today: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10), // các món đã thêm vào đơn: { item_id, name, serial, kind, price, warranty, label }
 
     get total() { return this.cart.reduce(function (s, l) { return s + Number(l.price || 0); }, 0); },
     get inCart() { return this.cart.filter(function (l) { return l.item_id; }).map(function (l) { return l.item_id; }); },
@@ -106,7 +106,7 @@ window.sellForm = function (staffName, preset) {
       this.sending = true;
       api('/staff/sell', { method: 'POST', body: {
         items: this.cart.map(function (l) { return { item_id: l.item_id, name: l.item_id ? '' : l.name, kind: l.kind, price: l.price, warranty_months: l.warranty }; }),
-        payment_method: this.payment, customer_name: this.customer_name, customer_phone: this.customer_phone, delivery_address: this.delivery_address,
+        payment_method: this.payment, sale_date: this.sale_date, customer_name: this.customer_name, customer_phone: this.customer_phone, delivery_address: this.delivery_address,
       } }).then(function (d) {
         self.success = d.message; self.confirm = false; self.reset();
       }).catch(function (e) { self.error = e.message; self.confirm = false; })
@@ -115,7 +115,7 @@ window.sellForm = function (staffName, preset) {
     reset: function () {
       this.q = ''; this.results = []; this.group = null; this.unitId = ''; this.price = ''; this.payment = 'cash';
       this.customer_name = ''; this.customer_phone = ''; this.delivery_address = ''; this.warranty = ''; this.kind = 'repair';
-      this.cart = [];
+      this.cart = []; this.sale_date = '';
     },
   };
 };

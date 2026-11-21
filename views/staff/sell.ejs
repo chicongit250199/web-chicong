@@ -69,6 +69,8 @@
         <label class="block"><span class="label">Tên khách hàng</span><input x-model="customer_name" class="input" autocomplete="off"></label>
         <label class="block"><span class="label">SĐT khách hàng</span><input x-model="customer_phone" class="input" inputmode="tel" autocomplete="off"></label>
       </div>
+      <label class="block sm:w-1/2"><span class="label">Ngày bán <span class="font-normal text-slate-400">(để trống = hôm nay)</span></span>
+        <input type="date" x-model="sale_date" :max="today" class="input"></label>
       <label class="block"><span class="label">Địa chỉ <span class="font-normal text-slate-400">(Giao hàng)</span></span>
         <input x-model="delivery_address" class="input" placeholder="Chỉ nhập khi cần giao hàng"></label>
       <div class="flex justify-end gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
@@ -104,7 +106,7 @@
                     <div class="flex justify-between gap-3 px-3 py-2"><dt class="text-slate-500">Khách hàng</dt><dd class="text-right" x-text="(customer_name || '—') + (customer_phone ? ' · ' + customer_phone : '')"></dd></div>
           <div class="flex justify-between gap-3 px-3 py-2" x-show="delivery_address"><dt class="text-slate-500">Giao hàng</dt><dd class="text-right" x-text="delivery_address"></dd></div>
           <div class="flex justify-between gap-3 px-3 py-2"><dt class="text-slate-500">Nhân viên</dt><dd class="font-medium" x-text="staffName"></dd></div>
-          <div class="flex justify-between gap-3 px-3 py-2"><dt class="text-slate-500">Thời gian</dt><dd x-text="confirmTime"></dd></div>
+          <div class="flex justify-between gap-3 px-3 py-2"><dt class="text-slate-500">Thời gian</dt><dd :class="sale_date && sale_date !== today && 'font-semibold text-amber-600'" x-text="sale_date && sale_date !== today ? 'Ngày ' + sale_date.split('-').reverse().join('/') + ' (ghi lùi)' : confirmTime"></dd></div>
         </dl>
         <div class="flex justify-end gap-2 pt-1">
           <button type="button" @click="confirm = false" class="btn-secondary">Quay lại sửa</button>
