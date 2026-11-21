@@ -29,7 +29,7 @@
 <section>
   <h2 class="mb-2 font-semibold">Giao dịch hôm nay</h2>
   <div class="tbl-wrap"><table class="tbl">
-    <thead><tr><th>Giờ</th><th>Loại</th><th>Nội dung</th><th>Khách hàng</th><th class="text-right">Số tiền</th><th>Thanh toán</th><th>NV</th></tr></thead>
+    <thead><tr><th>Giờ</th><th>Loại</th><th>Nội dung</th><th>Khách hàng</th><th class="text-right">Số tiền</th><th>Thanh toán</th><th>NV</th><th></th></tr></thead>
     <tbody>
       <% todayList.forEach(r => { %>
         <tr><td class="whitespace-nowrap"><%= fmt.datetime(r.created_at).slice(-5) %></td>
@@ -37,9 +37,9 @@
           <td class="min-w-56"><%= r.content %><% if (r.delivery_address) { %><br><span class="text-xs text-slate-500">Giao: <%= r.delivery_address %></span><% } %></td>
           <td><%= r.customer_name || '' %><br><span class="text-xs text-slate-500"><%= r.customer_phone || '' %></span></td>
           <td class="whitespace-nowrap text-right font-semibold tabular-nums"><%= fmt.money(r.amount) %></td>
-          <td><%= fmt.payment(r.payment_method) %></td><td><%= r.staff_name %></td></tr>
+          <td><%= fmt.payment(r.payment_method) %></td><td><%= r.staff_name %></td><td><%- include('_rev_delete', { r, back: '/manager' }) %></td></tr>
       <% }) %>
-      <% if (!todayList.length) { %><tr><td colspan="7" class="py-8 text-center text-slate-500">Chưa có giao dịch hôm nay</td></tr><% } %>
+      <% if (!todayList.length) { %><tr><td colspan="8" class="py-8 text-center text-slate-500">Chưa có giao dịch hôm nay</td></tr><% } %>
     </tbody>
   </table></div>
 </section>

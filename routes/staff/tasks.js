@@ -46,7 +46,7 @@ function listTasks(view, user, search) {
 
 const VIEW_TITLES = {
   pending: ['Task chưa làm', 'tasks-pending'], assigned: ['Task được giao', 'tasks-assigned'],
-  processing: ['Task đang làm', 'tasks-processing'], ready: ['Chờ trả máy', 'return'], completed: ['Đã trả máy', 'tasks-pending'],
+  processing: ['Task đang làm', 'tasks-processing'], ready: ['Chờ trả máy', 'return'], completed: ['Máy đã trả', 'completed'],
   all: ['Tất cả Task', 'tasks-pending'],
 };
 
@@ -124,7 +124,7 @@ router.get('/tasks/:id', (req, res, next) => {
   res.locals.nav = { pending: 'tasks-pending', processing: 'tasks-processing', done: 'return', unrepairable: 'return' }[task.status] || '';
   res.render('staff/task_detail', {
     title: task.ticket_code, task, histories: q.histories.all(task.id), staffList: q.staff.all(),
-    revenues: q.revenue.all(task.id), canWork: canWork(task, req.user), warrantyOptions: v.WARRANTY_OPTIONS,
+    revenues: q.revenue.all(task.id), canWork: canWork(task, req.user), canDelete: canDelete(task, req.user), warrantyOptions: v.WARRANTY_OPTIONS,
   });
 });
 
@@ -229,6 +229,32 @@ router.post('/tasks/:id/redo', (req, res, next) => {
   if (!ok) return back(req, res, task.id, 'error', 'Task không ở trạng thái chờ trả máy.');
   notify('task_redo', `${req.user.full_name} mở lại sửa ${task.device_model} (${task.ticket_code})${note ? ' — ' + note : ''}`, `/staff/tasks/${task.id}`, req.user.full_name);
   back(req, res, task.id, 'success', 'Đã lưu lịch sử lần sửa trước và chuyển task về Đang sửa.');
+});
+
+// ---------- Xóa task ----------
+// Nhân viên: chỉ task do mình nhận máy và chưa trả máy. Quản lý: mọi task; máy đã trả thì xóa kèm doanh thu.
+function canDelete(task, user) {
+  if (user.role === 'manager') return true;
+  return task.received_by === user.id && task.status !== 'completed';
+}
+
+router.post('/tasks/:id/delete', (req, res, next) => {
+  const task = q.get.get(req.params.id);
+  if (!task) return next();
+  if (!canDelete(task, req.user)) {
+    return back(req, res, task.id, 'error', task.status === 'completed'
+      ? 'Máy đã trả có doanh thu — chỉ Quản lý được xóa.' : 'Bạn chỉ được xóa task do chính mình nhận máy.');
+  }
+  const removed = db.transaction(() => {
+    const rev = db.prepare(`DELETE FROM revenues WHERE type = 'repair' AND ref_id = ? RETURNING amount`).all(task.id);
+    db.prepare('DELETE FROM tasks WHERE id = ?').run(task.id); // task_histories xóa theo (ON DELETE CASCADE)
+    return rev.reduce((s, r) => s + (r.amount || 0), 0);
+  })();
+  notify('task_deleted', `${req.user.full_name} xóa ${task.status === 'completed' ? 'máy đã trả' : 'task'} ${task.ticket_code} (${task.device_model})${removed ? ' — kèm doanh thu ' + fmt.money(removed) : ''}`,
+    null, req.user.full_name);
+  req.flash('success', `Đã xóa ${task.ticket_code}${removed ? `, trừ doanh thu ${fmt.money(removed)}` : ''}.`);
+  const backTo = typeof req.body.back === 'string' && /^\/(?!\/)/.test(req.body.back) ? req.body.back : (task.status === 'completed' ? '/staff/tasks?view=completed' : '/staff');
+  res.redirect(backTo);
 });
 
 module.exports = router;

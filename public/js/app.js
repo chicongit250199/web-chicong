@@ -39,13 +39,14 @@
     task_new: ['bg-blue-500', 'inbox'], task_processing: ['bg-amber-500', 'wrench'], task_done: ['bg-emerald-500', 'check'],
     task_unrepairable: ['bg-red-500', 'alert'], task_completed: ['bg-violet-500', 'checkCircle'], task_redo: ['bg-orange-500', 'refresh'],
     sale: ['bg-pink-500', 'cart'], product: ['bg-sky-500', 'upload'], inventory: ['bg-teal-500', 'archive'],
+    task_deleted: ['bg-red-600', 'trash'], revenue_deleted: ['bg-red-600', 'trash'],
   };
   var ICONS = {
     inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/>', wrench: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',
     check: '<path d="M20 6L9 17l-5-5"/>', alert: '<path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/>',
     checkCircle: '<path d="M22 4L12 14l-3-3"/><circle cx="12" cy="12" r="9"/>', refresh: '<path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.8-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/>',
     cart: '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/>',
-    upload: '<path d="M17 8l-5-5-5 5M12 3v12"/>', archive: '<rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11h16V8"/>',
+    upload: '<path d="M17 8l-5-5-5 5M12 3v12"/>', trash: '<path d="M3 6h18M19 6l-1 14H6L5 6M9 6V4h6v2"/>', archive: '<rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11h16V8"/>',
   };
   window.notifPanel = function () {
     return {

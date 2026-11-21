@@ -107,6 +107,32 @@ router.get('/revenue.csv', (req, res) => {
   res.send('﻿' + lines.join('\r\n'));
 });
 
+// ---------- Xóa doanh thu ----------
+// Sửa chữa: xóa luôn máy đã trả (task + lịch sử). Bán hàng: trả món hàng về tồn kho.
+router.post('/revenues/:id/delete', (req, res) => {
+  const backTo = typeof req.body.back === 'string' && /^\/manager(\/|$|\?)/.test(req.body.back) ? req.body.back : '/manager/revenue';
+  const r = db.prepare('SELECT * FROM revenues WHERE id = ?').get(req.params.id);
+  if (!r) { req.flash('error', 'Không tìm thấy giao dịch.'); return res.redirect(backTo); }
+  const result = db.transaction(() => {
+    db.prepare('DELETE FROM revenues WHERE id = ?').run(r.id);
+    if (r.type === 'repair' && r.ref_id) {
+      const t = db.prepare('SELECT ticket_code FROM tasks WHERE id = ?').get(r.ref_id);
+      db.prepare(`DELETE FROM revenues WHERE type = 'repair' AND ref_id = ?`).run(r.ref_id);
+      db.prepare('DELETE FROM tasks WHERE id = ?').run(r.ref_id);
+      return t ? `và máy đã trả ${t.ticket_code}` : '';
+    }
+    if (r.type === 'sale' && r.ref_id) {
+      const u = db.prepare(`UPDATE inventory_items SET status = 'in_stock', sold_date = NULL, customer_name = NULL, customer_phone = NULL
+                            WHERE id = ? AND status = 'sold'`).run(r.ref_id);
+      return u.changes ? '— món hàng đã quay lại tồn kho' : '';
+    }
+    return '';
+  })();
+  events.notify('revenue_deleted', `${req.user.full_name} xóa doanh thu ${fmt.money(r.amount)}: ${r.content || ''}`.slice(0, 300), null, req.user.full_name);
+  req.flash('success', `Đã xóa doanh thu ${fmt.money(r.amount)} ${result}`.trim() + '.');
+  res.redirect(backTo);
+});
+
 // ---------- Thông báo real-time ----------
 router.get('/events', events.stream);
 router.post('/notifications/read', (req, res) => {

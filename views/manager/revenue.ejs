@@ -48,12 +48,12 @@
   <section>
     <h2 class="mb-2 font-semibold">Chi tiết giao dịch <span class="text-xs font-normal text-slate-500">(300 gần nhất)</span></h2>
     <div class="tbl-wrap max-h-[480px] overflow-y-auto"><table class="tbl">
-      <thead class="sticky top-0"><tr><th>Thời gian</th><th>Nội dung</th><th class="text-right">Số tiền</th><th>TT</th><th>NV</th></tr></thead>
+      <thead class="sticky top-0"><tr><th>Thời gian</th><th>Nội dung</th><th class="text-right">Số tiền</th><th>TT</th><th>NV</th><th></th></tr></thead>
       <tbody>
         <% details.forEach(r => { %>
           <tr><td class="whitespace-nowrap text-xs"><%= fmt.datetime(r.created_at) %></td>
             <td class="text-xs"><span class="<%= r.type === 'sale' ? 'badge-violet' : 'badge-blue' %> mr-1"><%= fmt.REVENUE_TYPE[r.type] %></span><%= r.content %></td>
-            <td class="whitespace-nowrap text-right font-semibold tabular-nums"><%= fmt.num(r.amount) %></td><td class="text-xs"><%= r.payment_method === 'cash' ? 'TM' : 'CK' %></td><td class="text-xs"><%= r.staff_name %></td></tr>
+            <td class="whitespace-nowrap text-right font-semibold tabular-nums"><%= fmt.num(r.amount) %></td><td class="text-xs"><%= r.payment_method === 'cash' ? 'TM' : 'CK' %></td><td class="text-xs"><%= r.staff_name %></td><td><%- include('_rev_delete', { r, back: '/manager/revenue?' + qs }) %></td></tr>
         <% }) %>
       </tbody>
     </table></div>

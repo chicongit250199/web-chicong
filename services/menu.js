@@ -7,6 +7,7 @@ const staff = [
   { key: 'tasks-assigned', href: '/staff/tasks?view=assigned', icon: 'userCheck', label: 'Task được giao', badge: 'assigned' },
   { key: 'tasks-processing', href: '/staff/tasks?view=processing', icon: 'wrench', label: 'Task đang làm', badge: 'processing' },
   { key: 'return', href: '/staff/return', icon: 'checkCircle', label: 'Trả máy', badge: 'ready' },
+  { key: 'completed', href: '/staff/tasks?view=completed', icon: 'checkSquare', label: 'Máy đã trả' },
   { key: 'sell', href: '/staff/sell', icon: 'cart', label: 'Bán hàng' },
   { key: 'search', href: '/staff/search', icon: 'search', label: 'Tìm kiếm' },
   { key: 'inventory', href: '/staff/inventory', icon: 'archive', label: 'Xem kho' },
