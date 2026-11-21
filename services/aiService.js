@@ -122,6 +122,46 @@ async function researchProduct({ name, specs, category, price, condition }) {
   return { specs: clean(out.specs), description: clean(out.description), sources };
 }
 
+// Build PC: tra thông số chính thức của 1 linh kiện theo bộ trường của nhóm (fields: [[key, nhãn, gợi ý]])
+async function researchPcPart({ name, category, condition, fields }) {
+  const prompt = [
+    `Linh kiện máy tính: ${name}`,
+    `Nhóm: ${category}`,
+    condition ? `Tình trạng: ${condition}` : '',
+    '',
+    'Hãy TÌM TRÊN GOOGLE thông số chính thức của đúng model này (ưu tiên trang của hãng sản xuất), rồi trả về DUY NHẤT một khối JSON:',
+    '{"specs": {' + fields.map(([k]) => `"${k}": "..."`).join(', ') + '}, "summary": "...", "maker_url": "..."}',
+    'Ý nghĩa các trường specs:',
+    ...fields.map(([k, label, hint]) => `- ${k}: ${label}${hint ? ' (' + hint + ')' : ''}`),
+    '- Giá trị ngắn gọn (VD "LGA1700", "DDR4", "650"). Trường chỉ số W/mm chỉ ghi số. Không chắc hoặc không áp dụng thì để chuỗi rỗng "", KHÔNG bịa.',
+    '- Tên chung chung không rõ model (VD "RAM DDR4 8G 3200", "Main H310") thì điền thông số chung của loại đó, bỏ trống phần phụ thuộc hãng.',
+    '- summary: 1-2 câu tiếng Việt giới thiệu điểm nổi bật và phù hợp nhu cầu gì (văn bản thuần, không markdown).',
+    '- maker_url: link trang sản phẩm trên web hãng nếu tìm thấy, không có thì "".',
+  ].filter(Boolean).join('\n');
+  const res = await withFallback(model => ai().models.generateContent({
+    model,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    config: { tools: [{ googleSearch: {} }], temperature: 0.1, systemInstruction: 'Bạn là kỹ thuật viên phần cứng máy tính. Chỉ dùng thông tin tìm được từ nguồn đáng tin; không chắc thì để trống.' },
+  }));
+  const text = (res.text || '').trim();
+  const m = text.match(/\{[\s\S]*\}/);
+  if (!m) throw Object.assign(new Error('AI không trả về đúng định dạng, thử lại.'), { status: 502, expose: true });
+  let out;
+  try { out = JSON.parse(m[0]); } catch {
+    out = JSON.parse(m[0].replace(/"((?:[^"\\]|\\.)*)"/gs, (x, inner) => '"' + inner.replace(/\r?\n/g, ' ') + '"'));
+  }
+  const specs = {};
+  for (const [k] of fields) {
+    const v = out.specs && out.specs[k];
+    if (v != null && String(v).trim() && !/^(n\/a|không rõ|unknown|-)$/i.test(String(v).trim())) specs[k] = String(v).replace(/\*\*/g, '').trim().slice(0, 200);
+  }
+  const chunks = (res.candidates && res.candidates[0] && res.candidates[0].groundingMetadata && res.candidates[0].groundingMetadata.groundingChunks) || [];
+  const sources = [...new Map(chunks.filter(c => c.web && c.web.uri).map(c => [c.web.title || c.web.uri, { title: c.web.title || c.web.uri, uri: c.web.uri }])).values()].slice(0, 6);
+  const maker = /^https?:\/\//.test(String(out.maker_url || '')) ? String(out.maker_url) : '';
+  if (maker) sources.unshift({ title: 'Trang hãng', uri: maker });
+  return { specs, summary: String(out.summary || '').replace(/\*\*/g, '').trim().slice(0, 600), sources };
+}
+
 async function translateProduct({ name, desc }) {
   const lang = { type: 'object', properties: { name: { type: 'string' }, desc: { type: 'string' } }, required: ['name', 'desc'] };
   return generateJson(
@@ -171,4 +211,4 @@ async function extractInvoice(buffer, mimeType) {
     'Chỉ liệt kê dòng hàng hóa/dịch vụ thật, bỏ dòng chiết khấu/ghi chú. Không đoán nếu không có, để trống.');
 }
 
-module.exports = { isEnabled, writeProductDescription, researchProduct, translateProduct, extractInvoice };
+module.exports = { isEnabled, writeProductDescription, researchProduct, researchPcPart, translateProduct, extractInvoice };

@@ -5,6 +5,7 @@ const v = require('../../services/validate');
 const fmt = require('../../services/format');
 const inv = require('../../services/inventory');
 const { notify } = require('../../services/events');
+const pc = require('../../services/pcParts');
 
 const router = express.Router();
 
@@ -24,6 +25,38 @@ function groupOf(itemId) {
   return { ...g, units, selected: it.id };
 }
 
+// Chốt bán từ Build PC: món có trong kho -> chọn sẵn serial (nhập sớm nhất); thiếu -> ghi "hàng ngoài kho"; giảm giá chia theo tỉ lệ tiền từng món
+function buildPreset(buildId) {
+  const b = db.prepare('SELECT * FROM pc_builds WHERE id = ? AND is_template = 0').get(buildId);
+  if (!b) return null;
+  const items = JSON.parse(b.items || '[]');
+  const lines = [];
+  for (const it of items) {
+    const label = `${it.name}${it.condition ? ` (${it.condition})` : ''}`;
+    const units = it.part_id ? pc.stockUnits(it.part_id).filter(u => !lines.some(l => l.item_id === u.id)) : [];
+    const take = Math.min(units.length, it.qty);
+    for (let i = 0; i < take; i++) {
+      lines.push({ item_id: units[i].id, name: label, serial: units[i].serial, kind: 'sale', price: it.price, warranty: it.warranty_months ?? '', warrantyShow: it.warranty_months ?? 0,
+        choices: units.map(u => ({ id: u.id, serial: u.serial })) });
+    }
+    const rest = it.qty - take;
+    if (rest > 0) {
+      lines.push({ item_id: null, name: rest > 1 ? `${label} x${rest}` : label, serial: null, kind: it.part_id ? 'sale' : 'repair', price: it.price * rest,
+        warranty: it.warranty_months ?? '', warrantyShow: it.warranty_months ?? 0, external: Boolean(it.part_id) });
+    }
+  }
+  // chia giảm giá theo tỉ lệ, làm tròn nghìn, phần lẻ trừ vào dòng đắt nhất
+  const sum = lines.reduce((s, l) => s + l.price, 0);
+  if (b.discount > 0 && sum > 0) {
+    let left = b.discount;
+    lines.forEach(l => { const d = Math.min(l.price, Math.floor(b.discount * l.price / sum / 1000) * 1000); l.price -= d; left -= d; });
+    const top = lines.reduce((a, l) => (l.price > a.price ? l : a), lines[0]);
+    top.price = Math.max(0, top.price - left);
+  }
+  lines.forEach(l => { l.price = String(l.price); });
+  return { id: b.id, code: b.code, discount: b.discount, total: b.total, customer_name: b.customer_name || '', customer_phone: b.customer_phone || '', delivery_address: b.customer_addr || '', lines };
+}
+
 router.get('/sell', (req, res) => {
   res.locals.nav = 'sell';
   // Gom các dòng cùng đơn (order_code) thành 1 giao dịch
@@ -40,7 +73,9 @@ router.get('/sell', (req, res) => {
     preset = groupOf(Number(req.query.item));
     if (!preset) res.locals.flash = [...(res.locals.flash || []), { type: 'error', message: 'Món hàng này không còn trong kho (đã bán hoặc đã xóa).' }];
   }
-  res.render('staff/sell', { title: 'Bán hàng / Dịch vụ', recent, preset, scripts: ['/js/sell.js'] });
+  const build = req.query.build ? buildPreset(Number(req.query.build)) : null;
+  if (req.query.build && !build) res.locals.flash = [...(res.locals.flash || []), { type: 'error', message: 'Không tìm thấy cấu hình Build PC này.' }];
+  res.render('staff/sell', { title: 'Bán hàng / Dịch vụ', recent, preset, build, scripts: ['/js/sell.js'] });
 });
 
 // Gợi ý hàng còn tồn: gom theo mã hàng + tên, kèm số lượng và danh sách serial
@@ -71,6 +106,7 @@ const sellSchema = v.z.object({
   customer_phone: v.phone(false),
   delivery_address: v.text(500),
   sale_date: v.date, // để trống = hôm nay; cho phép ghi lùi ngày bán
+  build_id: v.z.preprocess(x => (x === '' || x == null ? null : Number(x)), v.z.number().int().positive().nullable()),
 }).refine(d => new Set(d.items.filter(i => i.item_id).map(i => i.item_id)).size === d.items.filter(i => i.item_id).length,
   { message: 'Một món (serial) bị chọn 2 lần trong đơn' });
 
@@ -121,6 +157,7 @@ router.post('/sell', (req, res) => {
   }
 
   const total = lines.reduce((s, l) => s + l.price, 0);
+  if (data.build_id) db.prepare(`UPDATE pc_builds SET sold_at = ?, order_code = ? WHERE id = ?`).run(now, orderCode, data.build_id);
   const what = lines.length === 1 ? lines[0].content : `${lines.length} món (${lines.map(l => l.content).join('; ')})`;
   const verb = lines.every(l => l.kind === 'repair') ? 'thu dịch vụ' : 'bán';
   const serial = lines.find(l => l.serial)?.serial;

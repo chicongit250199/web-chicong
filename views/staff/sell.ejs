@@ -1,10 +1,14 @@
 <%- include('../app/_top') %>
 <div class="page-title"><h1><%- icon('cart', 'h-6 w-6 text-brand-600') %>Bán hàng / Dịch vụ</h1></div>
-<div class="grid gap-4 lg:grid-cols-5" x-data="sellForm(<%= JSON.stringify(user.full_name) %>, <%= JSON.stringify(preset || null) %>)">
+<div class="grid gap-4 lg:grid-cols-5" x-data="sellForm(<%= JSON.stringify(user.full_name) %>, <%= JSON.stringify(preset || null) %>, <%= JSON.stringify(build || null) %>)">
   <div class="space-y-4 lg:col-span-3">
     <div x-show="success" x-cloak class="flex items-center gap-2 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-200 dark:ring-emerald-900"><%- icon('checkCircle', 'h-5 w-5') %><span x-text="success"></span></div>
     <div x-show="error" x-cloak class="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-200 dark:bg-red-950 dark:text-red-200 dark:ring-red-900"><%- icon('alert', 'h-5 w-5') %><span x-text="error"></span></div>
 
+    <div x-show="buildId" x-cloak class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-800 ring-1 ring-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:ring-blue-900">
+      <span><%- icon('desktop', 'mr-1 inline h-4 w-4') %>Chốt bán cấu hình <strong x-text="buildCode"></strong>: món có trong kho đã chọn sẵn serial (đổi được), món chưa có ghi là hàng ngoài kho<% if (build && build.discount) { %>, giảm giá <%= fmt.money(build.discount) %> đã chia vào đơn giá từng món<% } %>.</span>
+      <a :href="'/staff/build/' + buildId" class="font-semibold underline">Quay lại cấu hình</a>
+    </div>
     <form class="card space-y-4" @submit.prevent="openConfirm()">
       <div class="relative" @click.outside="open = false">
         <label class="block"><span class="label req">Tên hàng hóa / dịch vụ</span>
@@ -53,7 +57,10 @@
           <template x-for="(l, i) in cart" :key="i">
             <li class="flex items-center justify-between gap-3 px-3 py-2 text-sm">
               <span class="min-w-0"><span class="block truncate font-medium" x-text="l.name"></span>
-                <span class="block text-xs text-slate-500" x-text="(l.item_id ? 'Trong kho' : (l.kind === 'repair' ? 'Dịch vụ' : 'Ngoài kho')) + (l.serial ? ' · SN: ' + l.serial : '') + ' · BH ' + l.warrantyShow + ' th'"></span></span>
+                <span class="block text-xs text-slate-500" x-text="(l.item_id ? 'Trong kho' : (l.kind === 'repair' ? 'Dịch vụ' : 'Ngoài kho')) + (l.serial ? ' · SN: ' + l.serial : '') + ' · BH ' + l.warrantyShow + ' th'"></span>
+                <select x-show="unitChoices(l).length > 1" x-cloak class="input mt-1 w-auto py-0.5 text-xs" :value="l.item_id" @change="changeUnit(l, $event.target.value)">
+                  <template x-for="u in unitChoices(l)" :key="u.id"><option :value="u.id" :selected="u.id === l.item_id" x-text="u.serial || ('Món #' + u.id)"></option></template>
+                </select></span>
               <span class="flex shrink-0 items-center gap-2"><span class="font-semibold tabular-nums" x-text="formatVnd(l.price) + ' ₫'"></span>
                 <button type="button" @click="removeLine(i)" class="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950" title="Bỏ món"><%- icon('x', 'h-4 w-4') %></button></span>
             </li>

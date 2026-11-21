@@ -16,6 +16,8 @@ router.use(require('./homepage'));
 router.use(require('./products'));
 router.use(require('./import'));
 router.use(require('./importRevenue'));
+router.use(require('./importPcParts'));
+router.use(require('./pcParts'));
 router.use(require('./vat'));
 router.use(require('./system'));
 

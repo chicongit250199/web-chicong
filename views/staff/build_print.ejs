@@ -1,0 +1,96 @@
+<% const T = en ? {
+  title: doc === 'receipt' ? 'PAYMENT AND WARRANTY RECEIPT' : 'PC COMPONENTS QUOTATION', name: 'Name', phone: 'Phone', addr: 'Address', greet: 'Dear valued company and customers,',
+  no: 'No', comp: 'Component name', qty: 'QTY', unit: 'Unit price', amount: 'Total amount', war: 'Warranty', note: 'Note', months: 'Months',
+  sub: 'Subtotal', disc: 'Discount', total: 'Total', vat: '(VAT included)', dep: 'Deposit', rem: 'Remaining', words: 'In words', notes: 'Note', by: 'Prepared by', cust: 'Customer', sign: '(Sign and full name)', tax: 'Tax code', tel: 'Phone',
+} : {
+  title: doc === 'receipt' ? 'PHIẾU THANH TOÁN - BẢO HÀNH' : 'BÁO GIÁ LINH KIỆN PC', name: 'Tên KH', phone: 'SĐT', addr: 'Địa chỉ', greet: 'Kính gửi quý công ty, khách hàng.',
+  no: 'STT', comp: 'Tên linh kiện', qty: 'SL', unit: 'Đơn giá', amount: 'Thành tiền', war: 'Bảo hành', note: 'Ghi chú', months: 'Tháng',
+  sub: 'Tổng', disc: 'Giảm giá', total: 'Tổng cộng', vat: '(Đã bao gồm VAT)', dep: 'Đặt cọc', rem: 'Còn lại', words: 'Bằng chữ', notes: 'Lưu ý', by: 'Người lập phiếu', cust: 'Khách hàng', sign: '(ký, ghi rõ họ tên)', tax: 'MST', tel: 'Điện thoại',
+}; const n = x => fmt.num(x); %><!doctype html>
+<html lang="<%= en ? 'en' : 'vi' %>">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= b.code %><%= b.customer_name ? ' - ' + b.customer_name : '' %></title>
+  <style>
+    @page { size: A4; margin: 12mm; }
+    body { font: 13px/1.45 "Times New Roman", Times, serif; color: #111; background: #fff; margin: 0; }
+    .sheet { max-width: 190mm; margin: 0 auto; padding: 8mm 0; }
+    .head { display: flex; align-items: center; gap: 14px; border-bottom: 2px solid #c00; padding-bottom: 8px; }
+    .head img { height: 64px; width: auto; }
+    .brand { font-size: 22px; font-weight: 700; color: #c00; letter-spacing: .5px; }
+    .muted { color: #333; font-size: 12px; }
+    h1 { text-align: center; font-size: 19px; margin: 14px 0 2px; }
+    .date { text-align: center; font-style: italic; margin-bottom: 10px; }
+    .info { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 20px; margin-bottom: 6px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    th, td { border: 1px solid #555; padding: 4px 5px; vertical-align: top; }
+    th { background: #f1f1f1; font-weight: 700; text-align: center; }
+    td.r { text-align: right; white-space: nowrap; } td.c { text-align: center; white-space: nowrap; }
+    .sum td { border: none; padding: 2px 5px; } .sum td:first-child { text-align: right; width: 70%; }
+    .sum .big { font-size: 15px; font-weight: 700; }
+    .words { margin: 6px 0; font-style: italic; }
+    .note { white-space: pre-line; font-size: 12px; margin-top: 8px; }
+    .sign { display: flex; justify-content: space-around; margin-top: 18px; text-align: center; }
+    .sign p { margin: 0; } .sign .space { height: 64px; }
+    .actions { text-align: center; margin: 14px; } .actions a, .actions button { margin: 0 4px; padding: 7px 14px; font-size: 14px; cursor: pointer; }
+    @media print { .actions { display: none; } .sheet { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="actions">
+    <button type="button" id="print-btn"><%= en ? 'Print' : 'In phiếu' %></button>
+    <a href="?lang=<%= en ? 'en' : 'vi' %>&doc=<%= doc === 'receipt' ? 'quote' : 'receipt' %>"><%= doc === 'receipt' ? (en ? 'Quotation' : 'Báo giá') : (en ? 'Receipt' : 'Phiếu thanh toán - bảo hành') %></a>
+    <a href="?lang=<%= en ? 'vi' : 'en' %>&doc=<%= doc %>"><%= en ? 'Tiếng Việt' : 'English' %></a>
+  </div>
+  <div class="sheet">
+    <div class="head">
+      <% if (settings.logo_url) { %><img src="<%= settings.logo_url %>" alt=""><% } %>
+      <div>
+        <div class="brand"><%= (settings.company_name || '').toUpperCase() %></div>
+        <div class="muted"><strong><%= settings.legal_name %></strong><br><%= T.tax %>: <%= settings.tax_id %> · <%= settings.address %><br><%= T.tel %>: <%= settings.phone %></div>
+      </div>
+    </div>
+
+    <h1><%= T.title %></h1>
+    <div class="date"><%= dateText %> · <%= b.code %><%= b.name ? ' · ' + b.name : '' %></div>
+    <div class="info">
+      <div><%= T.name %>: <strong><%= b.customer_name || '' %></strong></div>
+      <div><%= T.phone %>: <%= b.customer_phone || '' %></div>
+      <div style="grid-column: span 2"><%= T.addr %>: <%= b.customer_addr || '' %></div>
+    </div>
+    <div><%= T.greet %></div>
+
+    <table>
+      <thead><tr><th style="width:34px"><%= T.no %></th><th><%= T.comp %></th><th style="width:36px"><%= T.qty %></th><th style="width:86px"><%= T.unit %></th><th style="width:96px"><%= T.amount %></th><th style="width:72px"><%= T.war %></th><th style="width:120px"><%= T.note %></th></tr></thead>
+      <tbody>
+        <% items.forEach((l, i) => { %>
+          <tr><td class="c"><%= i + 1 %></td><td><%= l.label %></td><td class="c"><%= l.qty %></td><td class="r"><%= n(l.price) %></td><td class="r"><%= n(l.amount) %></td>
+            <td class="c"><%= l.warranty_months != null && l.warranty_months !== '' ? String(l.warranty_months).padStart(2, '0') + ' ' + T.months : '' %></td><td><%= l.note || '' %></td></tr>
+        <% }) %>
+      </tbody>
+    </table>
+
+    <table class="sum">
+      <% if (b.discount) { %>
+        <tr><td><%= T.sub %>:</td><td class="r"><%= n(subtotal) %> ₫</td></tr>
+        <tr><td><%= T.disc %>:</td><td class="r">- <%= n(b.discount) %> ₫</td></tr>
+      <% } %>
+      <tr class="big"><td><%= T.total %> <span style="font-weight:400;font-size:12px"><%= T.vat %></span>:</td><td class="r"><%= n(b.total) %> ₫</td></tr>
+      <% if (b.deposit) { %>
+        <tr><td><%= T.dep %>:</td><td class="r"><%= n(b.deposit) %> ₫</td></tr>
+        <tr class="big"><td><%= T.rem %>:</td><td class="r"><%= n(Math.max(0, b.total - b.deposit)) %> ₫</td></tr>
+      <% } %>
+    </table>
+    <div class="words"><%= T.words %>: <strong><%= b.deposit ? remainingWords : words %></strong></div>
+    <% if (b.note) { %><div class="note"><%= b.note %></div><% } %>
+    <div class="note"><strong><%= T.notes %>:</strong>
+<%= printNote %></div>
+
+    <div class="sign">
+      <div><p><strong><%= T.by %></strong></p><p class="muted"><%= T.sign %></p><div class="space"></div><p><%= staffName %></p></div>
+      <div><p><strong><%= T.cust %></strong></p><p class="muted"><%= T.sign %></p><div class="space"></div><p><%= b.customer_name || '' %></p></div>
+    </div>
+  </div>
+  <script nonce="<%= nonce %>">document.getElementById('print-btn').onclick = function () { window.print(); };</script>
+</body>
+</html>

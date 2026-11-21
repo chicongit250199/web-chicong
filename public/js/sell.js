@@ -1,9 +1,13 @@
 // Form bán hàng: gợi ý hàng tồn kho, chọn serial, giỏ nhiều món, popup xác nhận
-window.sellForm = function (staffName, preset) {
+window.sellForm = function (staffName, preset, build) {
   return {
     staffName: staffName,
     // Mở từ trang kho (?item=ID): chọn sẵn đúng món đó
     init: function () {
+      if (build) {
+        this.buildId = build.id; this.buildCode = build.code;
+        this.cart = build.lines; this.customer_name = build.customer_name; this.customer_phone = build.customer_phone; this.delivery_address = build.delivery_address;
+      }
       if (!preset) return;
       this.group = preset; this.q = preset.name; this.unitId = String(preset.selected);
       this.applyUnit();
@@ -12,6 +16,7 @@ window.sellForm = function (staffName, preset) {
     group: null, unitId: '', price: '', payment: 'cash',
     customer_name: '', customer_phone: '', delivery_address: '', warranty: '', kind: 'repair',
     confirm: false, sending: false, error: '', success: '', confirmTime: '',
+    buildId: null, buildCode: '',
     cart: [], sale_date: '', today: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10), // các món đã thêm vào đơn: { item_id, name, serial, kind, price, warranty, label }
 
     get total() { return this.cart.reduce(function (s, l) { return s + Number(l.price || 0); }, 0); },
@@ -91,6 +96,15 @@ window.sellForm = function (staffName, preset) {
       if (this.$refs.q) this.$refs.q.focus();
     },
     removeLine: function (i) { this.cart.splice(i, 1); },
+    // Dòng từ Build PC: đổi sang serial khác cùng món (không trùng dòng khác)
+    unitChoices: function (l) {
+      var used = this.cart.filter(function (x) { return x !== l && x.item_id; }).map(function (x) { return x.item_id; });
+      return (l.choices || []).filter(function (u) { return used.indexOf(u.id) < 0; });
+    },
+    changeUnit: function (l, id) {
+      var u = (l.choices || []).find(function (c) { return c.id === Number(id); });
+      if (u) { l.item_id = u.id; l.serial = u.serial; }
+    },
 
     openConfirm: function () {
       this.error = ''; this.success = '';
@@ -106,7 +120,7 @@ window.sellForm = function (staffName, preset) {
       this.sending = true;
       api('/staff/sell', { method: 'POST', body: {
         items: this.cart.map(function (l) { return { item_id: l.item_id, name: l.item_id ? '' : l.name, kind: l.kind, price: l.price, warranty_months: l.warranty }; }),
-        payment_method: this.payment, sale_date: this.sale_date, customer_name: this.customer_name, customer_phone: this.customer_phone, delivery_address: this.delivery_address,
+        payment_method: this.payment, sale_date: this.sale_date, build_id: this.buildId, customer_name: this.customer_name, customer_phone: this.customer_phone, delivery_address: this.delivery_address,
       } }).then(function (d) {
         self.success = d.message; self.confirm = false; self.reset();
       }).catch(function (e) { self.error = e.message; self.confirm = false; })
@@ -115,7 +129,7 @@ window.sellForm = function (staffName, preset) {
     reset: function () {
       this.q = ''; this.results = []; this.group = null; this.unitId = ''; this.price = ''; this.payment = 'cash';
       this.customer_name = ''; this.customer_phone = ''; this.delivery_address = ''; this.warranty = ''; this.kind = 'repair';
-      this.cart = []; this.sale_date = '';
+      this.cart = []; this.sale_date = ''; this.buildId = null; this.buildCode = '';
     },
   };
 };

@@ -11,5 +11,6 @@ router.use(require('./tasks'));
 router.use(require('./sales'));
 router.use(require('./inventory'));
 router.use(require('./products'));
+router.use(require('./build'));
 
 module.exports = router;

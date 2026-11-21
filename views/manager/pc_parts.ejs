@@ -1,0 +1,108 @@
+<%- include('../app/_top') %>
+<div class="page-title">
+  <h1><%- icon('cpu', 'h-6 w-6 text-brand-600') %>Báo giá linh kiện</h1>
+  <div class="flex flex-wrap gap-2">
+    <a href="/staff/build" class="btn-secondary"><%- icon('desktop', 'h-4 w-4') %>Build PC</a>
+    <a href="/manager/import/pc-parts" class="btn-secondary"><%- icon('fileSheet', 'h-4 w-4') %>Nhập Excel</a>
+    <a href="/manager/pc-parts/stock" class="btn-secondary"><%- icon('archive', 'h-4 w-4') %>Ghép kho<% if (unlinkedCount) { %> <span class="badge-amber"><%= unlinkedCount %></span><% } %></a>
+    <a href="/manager/pc-parts/new<%= f.cat ? '?cat=' + encodeURIComponent(f.cat) : '' %>" class="btn-primary"><%- icon('plusSquare', 'h-4 w-4') %>Thêm linh kiện</a>
+  </div>
+</div>
+
+<% if (!totals.all) { %>
+  <div class="card py-10 text-center">
+    <p class="mb-3 text-slate-500">Chưa có linh kiện nào trong báo giá.</p>
+    <a href="/manager/import/pc-parts" class="btn-primary"><%- icon('fileSheet', 'h-4 w-4') %>Nhập từ file Excel</a>
+  </div>
+<% } else { %>
+<div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+  <a href="/manager/pc-parts" class="stat hover:border-brand-400"><p class="stat-label">Linh kiện</p><p class="stat-value"><%= totals.all %></p></a>
+  <a href="?stock=in" class="stat hover:border-brand-400 <%= f.stock === 'in' ? 'ring-2 ring-brand-500' : '' %>"><p class="stat-label">Có sẵn trong kho</p><p class="stat-value text-emerald-600"><%= totals.in %></p></a>
+  <a href="?info=none" class="stat hover:border-brand-400 <%= f.info === 'none' ? 'ring-2 ring-brand-500' : '' %>"><p class="stat-label">Chưa có thông số</p><p class="stat-value text-violet-600"><%= totals.noInfo %></p></a>
+  <div class="stat"><p class="stat-label">Chưa có giá</p><p class="stat-value text-amber-600"><%= totals.noPrice %></p></div>
+</div>
+
+<%# ---- AI tra hàng loạt ---- %>
+<% if (totals.noInfo || aiStatus.running) { %>
+<section class="card mb-4 border-violet-200 bg-violet-50/50 dark:border-violet-900 dark:bg-violet-950/20" x-data="aiBatch(<%= JSON.stringify(aiStatus) %>)">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="text-sm">
+      <p class="font-semibold"><%- icon('sparkles', 'mr-1 inline h-4 w-4 text-violet-600') %>AI tra thông số từ hãng</p>
+      <p class="text-slate-600 dark:text-slate-400" x-show="!s.running" x-text="(s.remaining || 0) + ' món chưa có thông số. AI tra lần lượt từng món (≈ 10–20 giây/món) và tự lưu; hết lượt Gemini thì tự dừng, bấm chạy tiếp sau.'"></p>
+      <p class="text-slate-600 dark:text-slate-400" x-show="s.running" x-text="'Đang tra: ' + (s.current || '...') + ' — ' + (s.done + s.failed) + '/' + s.total"></p>
+    </div>
+    <div class="flex gap-2">
+      <button type="button" x-show="!s.running" @click="start()" class="btn bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:opacity-90" <%= aiEnabled ? '' : 'disabled title="Chưa cấu hình GEMINI_API_KEY"' %>><%- icon('sparkles', 'h-4 w-4') %>Chạy AI cho các món còn thiếu</button>
+      <button type="button" x-show="s.running" x-cloak @click="stop()" class="btn-secondary">Dừng</button>
+    </div>
+  </div>
+  <div x-show="s.running || s.finishedAt" x-cloak class="mt-3">
+    <div class="h-2 overflow-hidden rounded-full bg-violet-100 dark:bg-violet-950"><div class="h-full rounded-full bg-violet-500 transition-all" :style="'width:' + pct + '%'"></div></div>
+    <p class="mt-1 text-xs text-slate-500" x-text="'Xong ' + s.done + (s.failed ? ' · lỗi ' + s.failed : '') + (s.running ? '' : ' — tải lại trang để xem thông số mới')"></p>
+  </div>
+  <p x-show="s.error" x-cloak class="mt-2 text-sm text-amber-700 dark:text-amber-400" x-text="s.error"></p>
+</section>
+<% } %>
+
+<form class="mb-4 flex flex-wrap gap-2" method="get">
+  <input name="q" value="<%= f.q %>" class="input max-w-xs flex-1" placeholder="Tìm tên linh kiện...">
+  <select name="cat" class="input w-auto"><option value="">Tất cả nhóm</option><% cats.forEach(c => { %><option <%= f.cat === c ? 'selected' : '' %>><%= c %></option><% }) %></select>
+  <select name="stock" class="input w-auto"><option value="">Còn / hết kho</option><option value="in" <%= f.stock === 'in' ? 'selected' : '' %>>Có sẵn</option><option value="out" <%= f.stock === 'out' ? 'selected' : '' %>>Hàng đặt</option></select>
+  <select name="info" class="input w-auto"><option value="">Thông số</option><option value="none" <%= f.info === 'none' ? 'selected' : '' %>>Chưa có</option><option value="has" <%= f.info === 'has' ? 'selected' : '' %>>Đã có</option></select>
+  <button class="btn-secondary"><%- icon('search', 'h-4 w-4') %>Lọc</button>
+  <% if (f.q || f.cat || f.stock || f.info) { %><a href="/manager/pc-parts" class="btn-secondary">Bỏ lọc</a><% } %>
+</form>
+
+<div class="space-y-5" x-data="receiveStock()">
+  <% groups.forEach(g => { %>
+    <section>
+      <h2 class="mb-2 flex items-center justify-between font-semibold"><span><%= g.category %> <span class="text-sm font-normal text-slate-500">(<%= g.items.length %>)</span></span>
+        <a href="/manager/pc-parts/new?cat=<%= encodeURIComponent(g.category) %>" class="text-sm font-normal text-brand-600 hover:underline">+ Thêm vào nhóm</a></h2>
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>Linh kiện</th><th class="text-right">Giá</th><th>BH</th><th>Kho</th><th></th></tr></thead>
+        <tbody>
+          <% g.items.forEach(p => { const fl = fieldsByType[typeOf(p.category)] || fieldsByType.other; %>
+            <tr id="p<%= p.id %>" class="<%= p.hidden ? 'opacity-50' : '' %>">
+              <td class="min-w-64">
+                <a href="/manager/pc-parts/<%= p.id %>" class="font-medium hover:text-brand-600"><%= p.name %></a>
+                <% if (p.condition) { %><span class="<%= /new/i.test(p.condition) && !/like/i.test(p.condition) ? 'badge-blue' : 'badge-gray' %> ml-1"><%= p.condition %></span><% } %>
+                <% if (p.hidden) { %><span class="badge-gray ml-1">Đang ẩn</span><% } %>
+                <% const chips = fl.map(([k, l]) => p.specsObj[k] ? `${l}: ${p.specsObj[k]}` : null).filter(Boolean).slice(0, 4); %>
+                <% if (chips.length) { %><p class="mt-0.5 text-xs text-slate-500"><%= chips.join(' · ') %></p><% } %>
+                <% if (p.note_public || p.note) { %><p class="mt-0.5 text-xs text-amber-700 dark:text-amber-400"><%= [p.note_public, p.note].filter(Boolean).join(' · ') %></p><% } %>
+              </td>
+              <td class="whitespace-nowrap text-right" x-data="quickPrice(<%= p.id %>, <%= p.price == null ? 'null' : p.price %>)">
+                <button type="button" x-show="!editing" @click="open()" class="font-semibold tabular-nums hover:text-brand-600" title="Bấm để sửa giá" x-text="saved != null ? formatVnd(saved) + ' ₫' : 'Chưa có giá'"><%= p.price != null ? fmt.money(p.price) : 'Chưa có giá' %></button>
+                <input x-show="editing" x-cloak x-ref="inp" class="input w-32 py-1 text-right tabular-nums" inputmode="numeric" :value="display" @input="onInput($event)" @keydown.enter.prevent="save()" @keydown.escape.prevent="cancel()" @blur="save()" :disabled="busy">
+              </td>
+              <td class="whitespace-nowrap text-slate-600 dark:text-slate-400"><%= p.warranty_months != null ? p.warranty_months + ' th' : '' %></td>
+              <td class="whitespace-nowrap">
+                <% if (p.stock) { %><span class="badge-green">Có sẵn <%= p.stock %></span>
+                <% } else { %><button type="button" class="badge-amber hover:ring-1 hover:ring-amber-400" title="Bấm để nhập kho khi hàng về"
+                    @click="openReceive(<%= JSON.stringify({ id: p.id, name: p.name, condition: p.condition, price: p.price, warranty_months: p.warranty_months }) %>)">Hàng đặt · Nhập kho</button><% } %>
+              </td>
+              <td class="whitespace-nowrap text-right">
+                <a href="/manager/pc-parts/<%= p.id %>" class="inline-grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-slate-800" title="Sửa"><%- icon('edit', 'h-4 w-4') %></a>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table></div>
+    </section>
+  <% }) %>
+  <% if (!groups.length) { %><p class="card py-6 text-center text-sm text-slate-500">Không có linh kiện khớp bộ lọc.</p><% } %>
+  <%- include('../staff/_receive_modal') %>
+</div>
+<% } %>
+
+<%# ---- Lưu ý in trên phiếu ---- %>
+<details id="print-note" class="card mt-6">
+  <summary class="cursor-pointer font-semibold">Lưu ý in trên phiếu báo giá / thanh toán</summary>
+  <form method="post" action="/manager/pc-parts/print-note" class="mt-3 space-y-3">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <label class="block"><span class="label">Tiếng Việt</span><textarea name="note_vi" rows="4" class="input"><%= printNote.vi %></textarea></label>
+    <label class="block"><span class="label">Tiếng Anh</span><textarea name="note_en" rows="4" class="input"><%= printNote.en %></textarea></label>
+    <div class="flex justify-end"><button class="btn-primary">Lưu</button></div>
+  </form>
+</details>
+<%- include('../app/_bottom') %>

@@ -1,0 +1,82 @@
+<%- include('../app/_top') %>
+<div class="page-title">
+  <h1><%- icon(part.id ? 'edit' : 'plusSquare', 'h-6 w-6 text-brand-600') %><%= part.id ? 'Sửa linh kiện' : 'Thêm linh kiện' %></h1>
+  <a href="/manager/pc-parts<%= part.category ? '?cat=' + encodeURIComponent(part.category) : '' %>" class="btn-secondary"><%- icon('arrowLeft', 'h-4 w-4') %>Báo giá linh kiện</a>
+</div>
+<% if (typeof invName !== 'undefined' && invName) { %>
+  <p class="mb-3 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:bg-blue-950 dark:text-blue-200">Thêm từ hàng kho <strong><%= invName %></strong> — lưu xong sẽ tự ghép món kho này với linh kiện mới. Nhớ chọn <strong>nhóm</strong>.</p>
+<% } %>
+
+<form method="post" action="/manager/pc-parts<%= part.id ? '/' + part.id : '' %>" class="grid gap-4 lg:grid-cols-5"
+      x-data="pcPartForm(<%= JSON.stringify(fields) %>, <%= JSON.stringify(types) %>, <%= JSON.stringify(specs) %>, <%= JSON.stringify(part.category || '') %>)">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <% if (typeof invName !== 'undefined' && invName) { %><input type="hidden" name="inv_name" value="<%= invName %>"><% } %>
+  <input type="hidden" name="ai_sources" :value="aiSources" :disabled="!aiSources">
+
+  <div class="card space-y-4 lg:col-span-3">
+    <div class="grid gap-4 sm:grid-cols-3">
+      <label class="block"><span class="label req">Nhóm</span>
+        <input name="category" x-model="category" list="pc-cats" class="input" required maxlength="60" placeholder="CPU, Main, RAM...">
+        <datalist id="pc-cats"><% cats.forEach(c => { %><option value="<%= c %>"><% }) %></datalist></label>
+      <label class="block sm:col-span-2"><span class="label req">Tên linh kiện</span>
+        <input name="name" value="<%= part.name %>" class="input" required maxlength="300"></label>
+    </div>
+    <div class="grid gap-4 sm:grid-cols-3">
+      <label class="block"><span class="label">Tình trạng</span>
+        <input name="condition" value="<%= part.condition || '' %>" list="pc-conds" class="input" maxlength="40">
+        <datalist id="pc-conds"><% ['New', '2nd', 'Like New', 'Tray New'].forEach(c => { %><option value="<%= c %>"><% }) %></datalist></label>
+      <label class="block" x-data="moneyInput(<%= JSON.stringify(part.price ?? '') %>)"><span class="label">Giá bán (₫)</span>
+        <input class="input text-right tabular-nums" inputmode="numeric" :value="display" @input="onInput($event)" placeholder="Bỏ trống = liên hệ"><input type="hidden" name="price" :value="raw"></label>
+      <label class="block"><span class="label">Bảo hành (tháng)</span>
+        <input type="number" min="0" max="120" name="warranty_months" value="<%= part.warranty_months ?? '' %>" class="input"></label>
+    </div>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <label class="block"><span class="label">Ghi chú hiển thị <span class="font-normal text-slate-400">(in trên phiếu, VD: BH 3/2027)</span></span>
+        <input name="note_public" value="<%= part.note_public || '' %>" class="input" maxlength="300"></label>
+      <label class="block"><span class="label">Ghi chú nội bộ</span>
+        <input name="note" value="<%= part.note || '' %>" class="input" maxlength="1000"></label>
+    </div>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="hidden" value="1" <%= part.hidden ? 'checked' : '' %>>Ẩn khỏi Build PC (tạm ngừng bán)</label>
+  </div>
+
+  <div class="card space-y-3 lg:col-span-2">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h2 class="font-semibold">Thông số <span class="text-xs font-normal text-slate-500" x-text="'(' + category + ')'"></span></h2>
+      <button type="button" @click="research()" :disabled="busy" class="btn bg-gradient-to-r from-violet-600 to-fuchsia-600 px-3 py-1.5 text-sm text-white hover:opacity-90" <%= aiEnabled ? '' : 'disabled title="Chưa cấu hình GEMINI_API_KEY"' %>>
+        <%- icon('sparkles', 'h-4 w-4') %><span x-text="busy ? 'AI đang tra (10–30 giây)...' : 'AI tra thông tin từ hãng'"></span></button>
+    </div>
+    <p x-show="err" x-cloak class="text-sm text-red-600" x-text="err"></p>
+    <p x-show="took && !busy" x-cloak class="text-xs text-emerald-700 dark:text-emerald-400" x-text="'AI đã điền sau ' + took + ' giây — kiểm tra lại rồi bấm Lưu.'"></p>
+    <template x-for="fd in fieldList" :key="fd[0]">
+      <label class="block"><span class="label" x-text="fd[1]"></span>
+        <input class="input" :name="'spec_' + fd[0]" x-model="specs[fd[0]]" :placeholder="fd[2]" maxlength="200"></label>
+    </template>
+    <label class="block"><span class="label">Mô tả ngắn</span><textarea name="summary" rows="3" class="input" maxlength="1000"><%= part.summary || '' %></textarea></label>
+    <% if (sources.length) { %>
+      <div class="text-xs"><p class="font-medium text-slate-500">Nguồn AI đã tham khảo:</p>
+        <ul class="mt-1 flex flex-wrap gap-1.5"><% sources.forEach(s => { %><li><a href="<%= s.uri %>" target="_blank" rel="noopener noreferrer" class="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-slate-600 hover:text-brand-600 dark:bg-slate-800 dark:text-slate-300"><%= s.title %></a></li><% }) %></ul></div>
+    <% } %>
+    <template x-if="sources.length">
+      <div class="text-xs"><p class="font-medium text-slate-500">Nguồn mới:</p>
+        <ul class="mt-1 flex flex-wrap gap-1.5"><template x-for="s in sources" :key="s.uri"><li><a :href="s.uri" target="_blank" rel="noopener noreferrer" class="inline-flex rounded-md bg-violet-50 px-2 py-0.5 text-violet-700 hover:underline dark:bg-violet-950 dark:text-violet-300" x-text="s.title"></a></li></template></ul></div>
+    </template>
+  </div>
+
+  <div class="flex flex-wrap items-center justify-between gap-2 lg:col-span-5">
+    <div class="text-sm text-slate-500">
+      <% if (part.id) { %>
+        Kho: <% if (units.length) { %><span class="badge-green">Có sẵn <%= units.length %></span>
+          <span class="text-xs"><%= units.slice(0, 8).map(u => u.serial || u.name).join(', ') %><%= units.length > 8 ? '…' : '' %></span>
+        <% } else { %><span class="badge-amber">Hàng đặt</span><% } %>
+      <% } %>
+    </div>
+    <div class="flex gap-2">
+      <% if (part.id) { %><button type="submit" form="del-form" class="btn-secondary text-red-600">Xóa</button><% } %>
+      <button class="btn-primary"><%- icon('check', 'h-4 w-4') %>Lưu</button>
+    </div>
+  </div>
+</form>
+<% if (part.id) { %>
+  <form id="del-form" method="post" action="/manager/pc-parts/<%= part.id %>/delete" x-data @submit="if (!confirm('Xóa linh kiện này khỏi báo giá? Cấu hình đã lưu vẫn giữ nguyên.')) $event.preventDefault()"><input type="hidden" name="_csrf" value="<%= csrfToken %>"></form>
+<% } %>
+<%- include('../app/_bottom') %>

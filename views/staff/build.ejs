@@ -1,0 +1,144 @@
+<%- include('../app/_top') %>
+<script type="application/json" id="build-data"><%- JSON.stringify(payload).replace(/</g, '\\u003c') %></script>
+<div x-data="buildPc()">
+  <div class="page-title">
+    <h1><%- icon('desktop', 'h-6 w-6 text-brand-600') %><span x-text="code ? 'Cấu hình ' + code : 'Build PC mới'">Build PC</span>
+      <span x-show="is_template" x-cloak class="badge-violet">Cấu hình mẫu</span><span x-show="soldAt" x-cloak class="badge-green">Đã bán</span></h1>
+    <div class="flex flex-wrap items-center gap-2">
+      <% if (payload.templates.length) { %>
+        <select class="input w-auto py-1.5 text-sm" @change="$event.target.value !== '' && applyTemplate(templates[$event.target.value]); $event.target.value = ''">
+          <option value="">Bắt đầu từ cấu hình mẫu…</option>
+          <template x-for="(t, i) in templates" :key="t.id"><option :value="i" x-text="t.name + ' — ' + formatVnd(t.total) + ' ₫'"></option></template>
+        </select>
+      <% } %>
+      <label class="flex items-center gap-1.5 text-sm"><input type="checkbox" x-model="onlyStock">Chỉ hàng có sẵn</label>
+      <a href="/staff/build" class="btn-secondary px-3 py-1.5 text-sm"><%- icon('list', 'h-4 w-4') %>Danh sách</a>
+    </div>
+  </div>
+
+  <div class="grid gap-4 lg:grid-cols-5">
+    <%# ---- Chọn linh kiện theo nhóm ---- %>
+    <div class="space-y-3 lg:col-span-3">
+      <template x-for="c in cats" :key="c.category">
+        <section class="card p-3" :class="pick === c.category && 'ring-2 ring-brand-500'">
+          <div class="flex items-center justify-between gap-2">
+            <h2 class="font-semibold" x-text="c.category"></h2>
+            <button type="button" @click="openPick(c.category)" class="text-sm font-medium text-brand-600 hover:underline"
+                    x-text="pick === c.category ? 'Đóng' : (linesOf(c.category).length && ['cpu','main','vga','psu','case','cooler'].includes(c.type) ? 'Đổi' : '+ Chọn')"></button>
+          </div>
+
+          <template x-for="l in linesOf(c.category)" :key="l.uid">
+            <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-slate-100 pt-2 text-sm dark:border-slate-800">
+              <div class="min-w-0 flex-1 basis-56">
+                <p class="font-medium"><span x-text="l.name"></span> <span class="text-xs text-slate-500" x-show="l.condition" x-text="'(' + l.condition + ')'"></span></p>
+                <p class="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs">
+                  <template x-if="stockBadge(l)">
+                    <button type="button" :class="stockBadge(l).cls" @click="!stockBadge(l).ok && receive(l)" :title="stockBadge(l).ok ? '' : 'Bấm để nhập kho khi hàng về'"
+                            x-text="stockBadge(l).text + (stockBadge(l).ok ? '' : ' · Nhập kho')"></button>
+                  </template>
+                  <span class="text-slate-500" x-text="(l.warranty_months != null ? 'BH ' + l.warranty_months + ' th' : '') + (l.note ? ' · ' + l.note : '')"></span>
+                </p>
+              </div>
+              <input type="number" min="1" max="99" x-model.number="l.qty" class="input w-16 py-1 text-center" title="Số lượng">
+              <input class="input w-32 py-1 text-right tabular-nums" inputmode="numeric" :value="formatVnd(l.price)" @change="setMoney(l, 'price', $event)" title="Đơn giá">
+              <span class="w-28 text-right font-semibold tabular-nums" x-text="formatVnd(l.price * l.qty) + ' ₫'"></span>
+              <button type="button" @click="remove(l)" class="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950" title="Bỏ"><%- icon('x', 'h-4 w-4') %></button>
+            </div>
+          </template>
+
+          <div x-show="pick === c.category" x-cloak class="mt-2">
+            <input id="pick-q" x-model="q" @input="hi = 0" @keydown="pickKey($event, c.category)" class="input py-1.5 text-sm" placeholder="Tìm trong nhóm..." autocomplete="off">
+            <div class="mt-1 max-h-72 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700">
+              <template x-for="(p, i) in options(c.category)" :key="p.id">
+                <button type="button" @click="choose(p)" @mouseenter="hi = i" class="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 text-left text-sm last:border-0 dark:border-slate-800"
+                        :class="[hi === i && 'bg-brand-50 dark:bg-slate-800', p.price == null && 'opacity-50']">
+                  <span class="min-w-0">
+                    <span class="block font-medium" x-text="p.name + (p.condition ? ' (' + p.condition + ')' : '')"></span>
+                    <span class="block truncate text-xs text-slate-500" x-text="Object.values(p.specs || {}).slice(0, 4).join(' · ') || p.summary || ''"></span>
+                  </span>
+                  <span class="shrink-0 text-right">
+                    <span class="block font-semibold tabular-nums" x-text="p.price != null ? formatVnd(p.price) + ' ₫' : 'Chưa có giá'"></span>
+                    <span :class="p.stock ? 'badge-green' : 'badge-amber'" x-text="p.stock ? 'Có sẵn ' + p.stock : 'Hàng đặt'"></span>
+                  </span>
+                </button>
+              </template>
+              <p x-show="!options(c.category).length" class="px-3 py-3 text-sm text-slate-500" x-text="onlyStock ? 'Không có món nào có sẵn trong kho.' : 'Không tìm thấy.'"></p>
+            </div>
+          </div>
+        </section>
+      </template>
+
+      <section class="card p-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="font-semibold">Khác <span class="text-sm font-normal text-slate-500">(công lắp đặt, dịch vụ, hàng ngoài báo giá)</span></h2>
+          <div class="flex gap-3 text-sm font-medium text-brand-600">
+            <button type="button" @click="addCustom('Công lắp đặt + vệ sinh', 200000)" class="hover:underline">+ Công lắp đặt</button>
+            <button type="button" @click="addCustom('', 0)" class="hover:underline">+ Dòng khác</button>
+          </div>
+        </div>
+        <template x-for="l in customLines" :key="l.uid">
+          <div class="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2 text-sm dark:border-slate-800">
+            <input x-model="l.name" class="input min-w-0 flex-1 basis-48 py-1" placeholder="Nội dung">
+            <input type="number" min="1" max="99" x-model.number="l.qty" class="input w-16 py-1 text-center">
+            <input class="input w-32 py-1 text-right tabular-nums" inputmode="numeric" :value="formatVnd(l.price)" @change="setMoney(l, 'price', $event)">
+            <span class="w-28 text-right font-semibold tabular-nums" x-text="formatVnd(l.price * l.qty) + ' ₫'"></span>
+            <button type="button" @click="remove(l)" class="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950"><%- icon('x', 'h-4 w-4') %></button>
+          </div>
+        </template>
+      </section>
+    </div>
+
+    <%# ---- Tổng kết, khách hàng, thao tác ---- %>
+    <aside class="lg:col-span-2">
+      <div class="card space-y-3 lg:sticky lg:top-20">
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="block sm:col-span-2"><span class="label">Tên cấu hình</span><input x-model="name" class="input" placeholder="VD: Gaming 20 triệu" maxlength="120"></label>
+          <label class="block"><span class="label">Tên khách hàng</span><input x-model="customer_name" class="input" autocomplete="off"></label>
+          <label class="block"><span class="label">SĐT</span><input x-model="customer_phone" class="input" inputmode="tel" autocomplete="off"></label>
+          <label class="block sm:col-span-2"><span class="label">Địa chỉ</span><input x-model="customer_addr" class="input"></label>
+        </div>
+
+        <dl class="divide-y divide-slate-100 rounded-lg border border-slate-200 text-sm dark:divide-slate-800 dark:border-slate-800">
+          <div class="flex justify-between px-3 py-2"><dt class="text-slate-500" x-text="'Tạm tính (' + lines.length + ' dòng)'"></dt><dd class="tabular-nums" x-text="formatVnd(subtotal) + ' ₫'"></dd></div>
+          <div class="flex items-center justify-between gap-3 px-3 py-1.5"><dt class="text-slate-500">Giảm giá</dt>
+            <dd><input class="input w-32 py-1 text-right tabular-nums" inputmode="numeric" :value="formatVnd(discount)" @change="setMoney($data, 'discount', $event)"></dd></div>
+          <div class="flex justify-between px-3 py-2"><dt class="font-semibold">Tổng cộng</dt><dd class="text-lg font-bold text-red-600 tabular-nums" x-text="formatVnd(total) + ' ₫'"></dd></div>
+          <div class="flex items-center justify-between gap-3 px-3 py-1.5"><dt class="text-slate-500">Đặt cọc</dt>
+            <dd><input class="input w-32 py-1 text-right tabular-nums" inputmode="numeric" :value="formatVnd(deposit)" @change="setMoney($data, 'deposit', $event)"></dd></div>
+          <div class="flex justify-between px-3 py-2"><dt class="text-slate-500">Còn lại</dt><dd class="font-semibold tabular-nums" x-text="formatVnd(remaining) + ' ₫'"></dd></div>
+        </dl>
+
+        <template x-if="warnings.length">
+          <ul class="space-y-1 text-sm">
+            <template x-for="w in warnings" :key="w.text">
+              <li class="flex gap-1.5 rounded-md px-2 py-1" :class="w.bad ? 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200' : 'bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200'">
+                <span x-text="w.bad ? '⚠' : 'ℹ'"></span><span x-text="w.text"></span></li>
+            </template>
+          </ul>
+        </template>
+        <p x-show="orderCount" x-cloak class="text-xs text-amber-700 dark:text-amber-400" x-text="orderCount + ' món là hàng đặt / chưa đủ trong kho.'"></p>
+
+        <label class="block"><span class="label">Ghi chú</span><textarea x-model="note" rows="2" class="input"></textarea></label>
+        <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="is_template">Lưu làm <strong>cấu hình mẫu</strong> (để chọn nhanh lần sau)</label>
+
+        <p x-show="err" x-cloak class="text-sm text-red-600" x-text="err"></p>
+        <p x-show="msg && !dirty" x-cloak class="text-sm text-emerald-700 dark:text-emerald-400" x-text="msg"></p>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" @click="save().catch(function(){})" :disabled="saving || !lines.length" class="btn-secondary"><%- icon('check', 'h-4 w-4') %><span x-text="saving ? 'Đang lưu...' : (dirty || !id ? 'Lưu' : 'Đã lưu')"></span></button>
+          <button type="button" @click="sell()" :disabled="saving || !lines.length || is_template" class="btn-primary"><%- icon('cart', 'h-4 w-4') %>Chốt bán</button>
+          <button type="button" @click="print('vi', 'quote')" :disabled="saving || !lines.length" class="btn-secondary text-sm"><%- icon('printer', 'h-4 w-4') %>In báo giá</button>
+          <button type="button" @click="print('vi', 'receipt')" :disabled="saving || !lines.length" class="btn-secondary text-sm"><%- icon('printer', 'h-4 w-4') %>Phiếu TT - BH</button>
+          <button type="button" @click="print('en', 'quote')" :disabled="saving || !lines.length" class="btn-secondary text-sm">Quotation (EN)</button>
+          <button type="button" @click="print('en', 'receipt')" :disabled="saving || !lines.length" class="btn-secondary text-sm">Receipt (EN)</button>
+        </div>
+        <template x-if="id">
+          <form method="post" :action="'/staff/build/' + id + '/delete'" class="text-right" @submit="if (!confirm('Xóa cấu hình này?')) $event.preventDefault(); else dirty = false">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="text-xs text-red-600 hover:underline">Xóa cấu hình</button></form>
+        </template>
+      </div>
+    </aside>
+  </div>
+  <%- include('_receive_modal') %>
+</div>
+<%- include('../app/_bottom') %>

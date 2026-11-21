@@ -34,6 +34,13 @@ const GROUPS = [
     ],
   },
   {
+    title: 'Build PC',
+    items: [
+      { key: 'build', href: '/staff/build', icon: 'desktop', label: 'Build PC', roles: ['staff', 'manager'] },
+      { key: 'm-pc-parts', href: '/manager/pc-parts', icon: 'cpu', label: 'Báo giá linh kiện', roles: ['manager'] },
+    ],
+  },
+  {
     title: 'Hóa đơn VAT',
     items: [
       { key: 'm-vat', href: '/manager/vat', icon: 'receipt', label: 'Kho hóa đơn VAT', roles: ['manager'] },

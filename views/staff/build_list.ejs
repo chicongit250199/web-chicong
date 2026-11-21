@@ -1,0 +1,56 @@
+<%- include('../app/_top') %>
+<div class="page-title">
+  <h1><%- icon('desktop', 'h-6 w-6 text-brand-600') %>Build PC</h1>
+  <div class="flex flex-wrap gap-2">
+    <% if (user.role === 'manager') { %><a href="/manager/pc-parts" class="btn-secondary"><%- icon('cpu', 'h-4 w-4') %>Báo giá linh kiện</a><% } %>
+    <a href="/staff/build/new" class="btn-primary"><%- icon('plusSquare', 'h-4 w-4') %>Build cấu hình mới</a>
+  </div>
+</div>
+
+<% if (!partCount) { %>
+  <p class="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:ring-amber-900">
+    Chưa có báo giá linh kiện. <% if (user.role === 'manager') { %><a href="/manager/import/pc-parts" class="font-semibold underline">Nhập file Excel báo giá</a> trước.<% } else { %>Nhờ quản lý nhập file báo giá trước.<% } %></p>
+<% } %>
+
+<% if (templates.length) { %>
+  <h2 class="mb-2 font-semibold">Cấu hình mẫu</h2>
+  <div class="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <% templates.forEach(t => { const its = parseJson(t.items, []); %>
+      <div class="card flex flex-col gap-2">
+        <p class="font-semibold"><%= t.name || t.code %></p>
+        <p class="text-lg font-bold text-red-600 tabular-nums"><%= fmt.money(t.total) %></p>
+        <p class="line-clamp-3 text-xs text-slate-500"><%= its.map(l => l.name).join(' · ') %></p>
+        <div class="mt-auto flex gap-2 pt-1">
+          <a href="/staff/build/new?from=<%= t.id %>" class="btn-primary flex-1 px-3 py-1.5 text-sm">Dùng mẫu này</a>
+          <a href="/staff/build/<%= t.id %>" class="btn-secondary px-3 py-1.5 text-sm" title="Sửa mẫu"><%- icon('edit', 'h-4 w-4') %></a>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+<% } %>
+
+<div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+  <h2 class="font-semibold">Cấu hình đã lưu</h2>
+  <form method="get" class="flex gap-2"><input name="q" value="<%= q %>" class="input w-64" placeholder="Mã, tên, khách hàng, SĐT..."><button class="btn-secondary"><%- icon('search', 'h-4 w-4') %></button></form>
+</div>
+<div class="tbl-wrap"><table class="tbl">
+  <thead><tr><th>Mã</th><th>Khách hàng / tên</th><th>Linh kiện</th><th class="text-right">Tổng</th><th>Cập nhật</th><th></th></tr></thead>
+  <tbody>
+    <% builds.forEach(b => { const its = parseJson(b.items, []); %>
+      <tr>
+        <td class="whitespace-nowrap"><a href="/staff/build/<%= b.id %>" class="font-mono font-semibold text-brand-600 hover:underline"><%= b.code %></a>
+          <% if (b.sold_at) { %><br><span class="badge-green">Đã bán</span><% } %></td>
+        <td><p class="font-medium"><%= b.customer_name || b.name || '—' %></p><p class="text-xs text-slate-500"><%= [b.customer_phone, b.customer_name && b.name ? b.name : null].filter(Boolean).join(' · ') %></p></td>
+        <td class="max-w-md text-xs text-slate-500"><%= its.slice(0, 6).map(l => (l.qty > 1 ? l.qty + '× ' : '') + l.name).join(' · ') %><%= its.length > 6 ? ` … (+${its.length - 6})` : '' %></td>
+        <td class="whitespace-nowrap text-right font-semibold tabular-nums"><%= fmt.money(b.total) %></td>
+        <td class="whitespace-nowrap text-xs text-slate-500"><%= fmt.datetime(b.updated_at) %><br><%= b.staff_name || '' %></td>
+        <td class="whitespace-nowrap text-right">
+          <a href="/staff/build/<%= b.id %>/print" target="_blank" class="inline-grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-slate-800" title="In báo giá"><%- icon('printer', 'h-4 w-4') %></a>
+          <a href="/staff/build/new?from=<%= b.id %>" class="inline-grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-slate-800" title="Nhân bản"><%- icon('refresh', 'h-4 w-4') %></a>
+        </td>
+      </tr>
+    <% }) %>
+    <% if (!builds.length) { %><tr><td colspan="6" class="py-6 text-center text-sm text-slate-500"><%= q ? 'Không tìm thấy' : 'Chưa có cấu hình nào' %></td></tr><% } %>
+  </tbody>
+</table></div>
+<%- include('../app/_bottom') %>
