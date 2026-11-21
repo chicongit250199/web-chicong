@@ -3,6 +3,7 @@ const express = require('express');
 const systemInfo = require('../../services/systemInfo');
 const vatSync = require('../../services/vatSync');
 const offsite = require('../../services/offsiteBackup');
+const gitBackup = require('../../services/gitBackup');
 const db = require('../../db');
 const { backup } = require('../../services/backup');
 
@@ -25,6 +26,18 @@ router.post('/system/speedtest', (req, res) => {
   systemInfo.runSpeedTest(); // không chờ
   res.json(systemInfo.speedStatus());
 });
+
+// ---------- Sao lưu lên GitHub (mã hóa) ----------
+router.get('/system/git-backup', (req, res) => res.set('Cache-Control', 'no-store').json(gitBackup.status()));
+router.post('/system/git-backup/run', async (req, res, next) => {
+  try {
+    await backup(db);
+    const r = await gitBackup.run('manual');
+    res.json({ ...gitBackup.status(), result: r });
+  } catch (e) { next(e); }
+});
+// Xem mật khẩu giải mã (chỉ quản lý — cả router này đã yêu cầu quyền manager)
+router.post('/system/git-backup/passphrase', (req, res) => res.set('Cache-Control', 'no-store').json({ passphrase: gitBackup.passphrase() }));
 
 // ---------- Sao lưu lên Google Drive ----------
 router.get('/system/offsite', (req, res) => res.set('Cache-Control', 'no-store').json(offsite.status()));

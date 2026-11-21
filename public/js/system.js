@@ -130,3 +130,19 @@ window.offsiteBackup = function () {
     },
   };
 };
+
+// Sao lưu ra ngoài máy lên GitHub (mã hóa)
+window.gitBackup = function () {
+  return {
+    s: {}, busy: false, err: '', msg: '', pass: '',
+    init: function () { var self = this; api('/manager/system/git-backup').then(function (d) { self.s = d; }).catch(function (e) { self.err = e.message; }); },
+    runNow: function () {
+      var self = this; this.busy = true; this.err = ''; this.msg = '';
+      api('/manager/system/git-backup/run', { method: 'POST' }).then(function (d) {
+        self.s = d; var r = d.result || {};
+        self.msg = r.skipped ? r.skipped : 'Đã đẩy ' + r.file + ' lên GitHub.';
+      }).catch(function (e) { self.err = e.message; self.init(); }).finally(function () { self.busy = false; });
+    },
+    showPass: function () { var self = this; api('/manager/system/git-backup/passphrase', { method: 'POST' }).then(function (d) { self.pass = d.passphrase || '(chưa đặt)'; }); },
+  };
+};
