@@ -16,8 +16,10 @@
       try { const d = await api('/manager/vat/sync/' + dir, { method: 'POST' }); this.job = d.job; this.poll(); }
       catch (e) { this.err = e.message }
     },
-    async openInv(id) { const d = await api('/manager/vat/invoices/' + id); this.inv = d.invoice; this.invItems = d.items; }
-  }" @keydown.escape.window="ex = null; inv = null">
+    async openInv(id) { const d = await api('/manager/vat/invoices/' + id); this.inv = d.invoice; this.invItems = d.items; },
+    mt: null,
+    async openMatch(id) { this.mt = await api('/manager/vat/reconcile/candidates/' + id); }
+  }" @keydown.escape.window="ex = null; inv = null; mt = null">
   <div class="page-title">
     <h1><%- icon('receipt', 'h-6 w-6 text-brand-600') %>Kho hóa đơn VAT</h1>
     <div class="flex flex-wrap gap-2">
@@ -64,8 +66,8 @@
   </template>
 
   <div class="tabs">
-    <% [['stock','Tồn kho VAT', counts.stock],['exported','Đã xuất hết', counts.exported],['exports','Lịch sử xuất', counts.exports],['in','HĐ đầu vào', counts.in],['out','HĐ bán ra', counts.out]].forEach(([k, l, n]) => { %>
-      <a href="?tab=<%= k %>" class="tab <%= tab === k ? 'tab-active' : '' %>"><%= l %> (<%= n %>)</a>
+    <% [['stock','Tồn kho VAT', counts.stock],['exported','Đã xuất hết', counts.exported],['exports','Lịch sử xuất', counts.exports],['in','HĐ đầu vào', counts.in],['out','HĐ bán ra', counts.out],['match','Đối chiếu', null]].forEach(([k, l, n]) => { %>
+      <a href="?tab=<%= k %>" class="tab <%= tab === k ? 'tab-active' : '' %>"><%= l %><%= n !== null ? ` (${n})` : '' %><% if (k === 'match' && (counts.match || counts.matchPending)) { %> <span class="ml-1 rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white"><%= counts.match + counts.matchPending %></span><% } %></a>
     <% }) %>
   </div>
   <form class="mb-3 flex gap-2"><input type="hidden" name="tab" value="<%= tab %>">
@@ -151,6 +153,43 @@
         <% } %>
       </table>
     </div>
+  <% } else if (tab === 'match') { %>
+    <div class="mb-3 flex flex-wrap items-center gap-2 text-sm">
+      <% [['','Tất cả'],['unmatched','Chưa tìm thấy'],['partial','Thiếu một phần'],['manual','Đã bỏ'],['matched','Đã khớp'],['service','Dịch vụ']].forEach(([k, l]) => { %>
+        <a href="?tab=match<%= k ? '&q=' + k : '' %>" class="rounded-md px-2.5 py-1 <%= search === k ? 'bg-brand-600 text-white' : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700' %>"><%= l %></a>
+      <% }) %>
+      <span class="ml-auto flex gap-2">
+        <form method="post" action="/manager/vat/reconcile"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn-primary px-3 py-1.5 text-xs"><%- icon('refresh', 'h-3.5 w-3.5') %>Đối chiếu</button></form>
+        <form method="post" action="/manager/vat/reconcile/reset" @submit="confirm('Bỏ toàn bộ kết quả đối chiếu tự động (giữ các lần chọn tay) rồi đối chiếu lại từ đầu?') || $event.preventDefault()"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn-secondary px-3 py-1.5 text-xs">Đối chiếu lại từ đầu</button></form>
+      </span>
+    </div>
+    <p class="mb-3 text-xs text-slate-500">Mỗi dòng hàng trên HĐ bán ra được trừ vào tồn kho VAT theo lô nhập sớm nhất (FIFO), ghép theo tên hàng / mã model. Tự chạy sau mỗi lần quét hóa đơn.</p>
+    <div class="tbl-wrap">
+      <table class="tbl table-fixed">
+        <colgroup><col class="w-32"><col><col class="w-24"><col class="hidden w-52 md:table-column"><col class="w-32"></colgroup>
+        <thead><tr><th>HĐ bán ra</th><th>Mặt hàng</th><th class="text-right">SL</th><th class="hidden md:table-cell">Trừ từ HĐ nhập</th><th>Trạng thái</th></tr></thead>
+        <tbody>
+          <% const MS = { matched: ['badge-green', 'Đã khớp'], partial: ['badge-amber', 'Thiếu một phần'], unmatched: ['badge-red', 'Chưa tìm thấy'], service: ['badge-gray', 'Dịch vụ'], manual: ['badge-gray', 'Đã bỏ'] }; %>
+          <% rows.forEach(r => { const m = MS[r.match_status] || ['badge-gray', 'Chưa đối chiếu']; %>
+            <tr>
+              <td><span class="font-semibold"><%= r.invoice_number %></span><span class="block text-xs text-slate-500"><%= fmt.date(r.invoice_date) %></span></td>
+              <td class="min-w-0"><span class="line-clamp-2" title="<%= r.item_name %>"><%= r.item_name %></span>
+                <span class="block truncate text-xs text-slate-500"><%= r.partner_name || 'Khách lẻ' %></span>
+                <% if (r.matched_from) { %><span class="block truncate text-xs text-slate-500 md:hidden">← HĐ nhập <%= r.matched_from %></span><% } %></td>
+              <td class="whitespace-nowrap text-right tabular-nums"><span class="font-semibold"><%= fmt.num(r.matched_qty) %></span> / <%= fmt.num(r.quantity_in) %></td>
+              <td class="hidden truncate text-xs md:table-cell" title="<%= r.matched_from || '' %>"><%= r.matched_from || '—' %></td>
+              <td>
+                <span class="<%= m[0] %>"><%= m[1] %></span>
+                <% if (['unmatched','partial','manual'].includes(r.match_status)) { %>
+                  <button type="button" @click="openMatch(<%= r.id %>)" class="mt-1 block text-xs font-medium text-brand-600 hover:underline">Chọn hàng nhập</button>
+                <% } %>
+              </td>
+            </tr>
+          <% }) %>
+          <% if (!rows.length) { %><tr><td colspan="5" class="py-10 text-center text-slate-500"><%= counts.out ? 'Không có dòng phù hợp.' : 'Chưa có hóa đơn bán ra.' %></td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
   <% } else { %>
     <div class="tbl-wrap">
       <table class="tbl table-fixed">
@@ -162,7 +201,8 @@
               <td class="whitespace-nowrap text-xs"><%= fmt.datetime(r.created_at) %><span class="block text-slate-500"><%= r.user_name %></span></td>
               <td class="min-w-0"><span class="line-clamp-2 font-medium" title="<%= r.item_name %>"><%= r.item_name %></span>
                 <span class="block truncate text-xs text-slate-500">HĐ nhập <%= r.invoice_number %> · <%= r.partner_name || '' %></span>
-                <% if (r.note) { %><span class="block truncate text-xs italic text-slate-500"><%= r.note %></span><% } %></td>
+                <% if (r.out_number) { %><span class="block text-xs"><span class="text-slate-500">→ HĐ bán ra</span> <strong><%= r.out_number %></strong> <span class="<%= r.auto ? 'badge-blue' : 'badge-gray' %> ml-1 text-[10px]"><%= r.auto ? 'tự động' : 'chọn tay' %></span></span>
+                <% } else if (r.note) { %><span class="block truncate text-xs italic text-slate-500"><%= r.note %></span><% } %></td>
               <td class="whitespace-nowrap text-right"><span class="font-semibold tabular-nums"><%= fmt.num(r.quantity) %></span> <span class="text-xs text-slate-500"><%= r.unit || '' %></span></td>
               <td class="hidden min-w-0 md:table-cell"><span class="block truncate"><%= r.buyer_name || '—' %></span><span class="font-mono text-xs text-slate-500"><%= r.buyer_tax_id || '' %></span></td>
               <td class="text-right"><form method="post" action="/manager/vat/exports/<%= r.id %>/undo" @submit="confirm('Hoàn tác lần xuất này? Số lượng sẽ được cộng lại vào tồn kho VAT.') || $event.preventDefault()">
@@ -201,6 +241,32 @@
         <label class="block"><span class="label">Ghi chú</span><input name="note" class="input" placeholder="Số HĐ bán ra, lý do..."></label>
         <div class="flex justify-end gap-2 pt-2"><button type="button" @click="ex = null" class="btn-secondary">Hủy</button><button class="btn-primary">Xác nhận xuất</button></div>
       </form>
+    </div>
+  </template>
+
+  <%# Popup chọn tay lô đầu vào cho 1 dòng bán ra %>
+  <template x-if="mt">
+    <div class="modal-backdrop" @click.self="mt = null">
+      <div class="modal max-w-2xl space-y-3">
+        <div class="flex items-start justify-between gap-3">
+          <div><h3 class="text-lg font-semibold">Chọn hàng nhập để trừ</h3>
+            <p class="text-sm" x-text="mt.item.item_name"></p>
+            <p class="text-xs text-slate-500" x-text="'Cần trừ ' + (mt.item.quantity_in - mt.item.matched_qty) + ' ' + (mt.item.unit || '')"></p></div>
+          <button type="button" @click="mt = null" class="rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800"><%- icon('x', 'h-5 w-5') %></button>
+        </div>
+        <div class="max-h-96 space-y-2 overflow-y-auto">
+          <template x-for="c in mt.candidates" :key="c.id">
+            <form method="post" action="/manager/vat/reconcile/manual" class="flex items-center gap-3 rounded-lg border border-slate-200 p-2.5 text-sm dark:border-slate-700">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="out_item_id" :value="mt.item.id"><input type="hidden" name="in_item_id" :value="c.id"><input type="hidden" name="page" value="<%= page %>">
+              <span class="min-w-0 flex-1"><span class="block truncate font-medium" :title="c.item_name" x-text="c.item_name"></span>
+                <span class="block text-xs text-slate-500" x-text="'HĐ ' + c.invoice_number + ' · ' + c.invoice_date + ' · còn ' + c.quantity_remaining + ' ' + (c.unit || '') + ' · giống ' + c.score + '%'"></span></span>
+              <input type="number" name="quantity" step="any" min="0" :max="Math.min(c.quantity_remaining, mt.item.quantity_in - mt.item.matched_qty)" :value="Math.min(c.quantity_remaining, mt.item.quantity_in - mt.item.matched_qty)" class="input w-20 py-1.5">
+              <button class="btn-primary px-3 py-1.5 text-xs">Trừ</button>
+            </form>
+          </template>
+          <p x-show="!mt.candidates.length" class="py-6 text-center text-sm text-slate-500">Không có hàng nhập nào còn tồn giống mặt hàng này.</p>
+        </div>
+      </div>
     </div>
   </template>
 

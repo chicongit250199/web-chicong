@@ -10,7 +10,8 @@ const ai = require('../../services/aiService');
 const vatSync = require('../../services/vatSync');
 
 const router = express.Router();
-const TABS = ['in', 'stock', 'exported', 'exports', 'out'];
+const TABS = ['in', 'stock', 'exported', 'exports', 'out', 'match'];
+const reconcile = require('../../services/vatReconcile');
 
 
 const PAGE_SIZE = 10;
@@ -37,9 +38,22 @@ function tabQuery(tab, s) {
       sum: 'COALESCE(SUM(x.quantity_remaining * x.unit_price), 0)',
     };
   }
+  if (tab === 'match') {
+    const st = ['unmatched', 'partial', 'matched', 'service', 'manual'].includes(s) ? s : null; // lọc theo trạng thái qua ô tìm kiếm
+    const likeQ = st ? null : like;
+    return {
+      select: `x.*, i.invoice_number, i.invoice_symbol, i.invoice_date, i.partner_name, i.pdf_link, i.drive_link,
+        (SELECT group_concat(ii.invoice_number || ' (' || e.quantity || ')', ', ') FROM vat_item_exports e JOIN vat_items xi ON xi.id = e.vat_item_id
+          JOIN vat_invoices ii ON ii.id = xi.invoice_id WHERE e.out_item_id = x.id) AS matched_from`,
+      from: `vat_items x JOIN vat_invoices i ON i.id = x.invoice_id WHERE i.direction = 'out'${st ? ' AND x.match_status = ?' : s ? ' AND (vn(x.item_name) LIKE ? OR i.invoice_number LIKE ?)' : ''}`,
+      params: st ? [st] : s ? [likeQ, likeQ] : [],
+      order: `CASE x.match_status WHEN 'unmatched' THEN 0 WHEN 'partial' THEN 1 WHEN 'manual' THEN 2 WHEN 'matched' THEN 3 ELSE 4 END, i.invoice_date DESC, x.id`,
+      sum: 'COALESCE(SUM(x.total_price), 0)',
+    };
+  }
   return {
-    select: 'e.*, x.item_name, x.unit, x.unit_price, i.invoice_number, i.invoice_symbol, i.partner_name',
-    from: `vat_item_exports e JOIN vat_items x ON x.id = e.vat_item_id JOIN vat_invoices i ON i.id = x.invoice_id${s ? ' WHERE vn(x.item_name) LIKE ? OR vn(e.buyer_name) LIKE ? OR e.buyer_tax_id LIKE ?' : ''}`,
+    select: 'e.*, x.item_name, x.unit, x.unit_price, i.invoice_number, i.invoice_symbol, i.partner_name, oi.invoice_number AS out_number',
+    from: `vat_item_exports e JOIN vat_items x ON x.id = e.vat_item_id JOIN vat_invoices i ON i.id = x.invoice_id LEFT JOIN vat_invoices oi ON oi.id = e.out_invoice_id${s ? ' WHERE vn(x.item_name) LIKE ? OR vn(e.buyer_name) LIKE ? OR e.buyer_tax_id LIKE ?' : ''}`,
     params: s ? [like, like, like] : [],
     order: 'e.id DESC',
     sum: 'COALESCE(SUM(e.quantity * x.unit_price), 0)',
@@ -61,6 +75,8 @@ router.get('/vat', (req, res) => {
     stock: db.prepare(`SELECT COUNT(*) c FROM vat_items x JOIN vat_invoices i ON i.id = x.invoice_id WHERE i.direction = 'in' AND x.status = 'available'`).get().c,
     exported: db.prepare(`SELECT COUNT(*) c FROM vat_items x JOIN vat_invoices i ON i.id = x.invoice_id WHERE i.direction = 'in' AND x.status = 'depleted'`).get().c,
     exports: db.prepare('SELECT COUNT(*) c FROM vat_item_exports').get().c,
+    match: db.prepare(`SELECT COUNT(*) c FROM vat_items x JOIN vat_invoices i ON i.id = x.invoice_id WHERE i.direction = 'out' AND x.match_status IN ('unmatched','partial')`).get().c,
+    matchPending: db.prepare(`SELECT COUNT(*) c FROM vat_items x JOIN vat_invoices i ON i.id = x.invoice_id WHERE i.direction = 'out' AND x.match_status IS NULL`).get().c,
   };
   const errors = db.prepare(`SELECT * FROM vat_drive_files WHERE status = 'error' ORDER BY processed_at DESC LIMIT 50`).all();
   res.render('manager/vat', {
@@ -119,14 +135,39 @@ router.post('/vat/items/:id/export', (req, res) => {
 
 // Hoàn tác 1 lần xuất
 router.post('/vat/exports/:id/undo', (req, res) => {
-  db.transaction(() => {
-    const e = db.prepare('SELECT * FROM vat_item_exports WHERE id = ?').get(req.params.id);
-    if (!e) return;
-    db.prepare(`UPDATE vat_items SET quantity_remaining = MIN(quantity_in, quantity_remaining + ?), status = 'available' WHERE id = ?`).run(e.quantity, e.vat_item_id);
-    db.prepare('DELETE FROM vat_item_exports WHERE id = ?').run(e.id);
-  })();
-  req.flash('success', 'Đã hoàn tác lần xuất.');
+  reconcile.undoExport(req.params.id);
+  req.flash('success', 'Đã hoàn tác lần xuất, số lượng đã cộng lại vào tồn kho VAT.');
   res.redirect('/manager/vat?tab=exports');
+});
+
+// ---------- Đối chiếu HĐ bán ra với tồn kho VAT ----------
+const statsText = r => `khớp ${r.matched}, thiếu một phần ${r.partial}, chưa tìm thấy ${r.unmatched}, dịch vụ ${r.service}`;
+
+router.post('/vat/reconcile', (req, res) => {
+  const r = reconcile.reconcile(req.user.full_name);
+  req.flash('success', `Đã đối chiếu: ${statsText(r)}.`);
+  res.redirect('/manager/vat?tab=match');
+});
+
+router.post('/vat/reconcile/reset', (req, res) => {
+  const r = reconcile.resetAndReconcile(req.user.full_name);
+  req.flash('success', `Đã đối chiếu lại từ đầu: ${statsText(r)}.`);
+  res.redirect('/manager/vat?tab=match');
+});
+
+// Ứng viên đầu vào cho 1 dòng bán ra (để chọn tay)
+router.get('/vat/reconcile/candidates/:id', (req, res, next) => {
+  const o = db.prepare(`SELECT x.*, i.invoice_date FROM vat_items x JOIN vat_invoices i ON i.id = x.invoice_id WHERE x.id = ? AND i.direction = 'out'`).get(req.params.id);
+  if (!o) return next();
+  const ins = db.prepare(`SELECT x.*, i.invoice_date, i.invoice_number, i.partner_name FROM vat_items x JOIN vat_invoices i ON i.id = x.invoice_id
+                          WHERE i.direction = 'in' AND x.quantity_remaining > 0`).all();
+  res.json({ item: o, candidates: reconcile.candidates(o, ins, 15).map(c => ({ ...c.it, score: Math.round(c.score * 100) })) });
+});
+
+router.post('/vat/reconcile/manual', (req, res) => {
+  const r = reconcile.manualMatch(Number(req.body.out_item_id), Number(req.body.in_item_id), Number(req.body.quantity) || 0, req.user.full_name);
+  if (r.error) req.flash('error', r.error); else req.flash('success', `Đã trừ ${fmt.num(r.got)} vào tồn kho VAT.`);
+  res.redirect('/manager/vat?tab=match' + (req.body.page > 1 ? '&page=' + Number(req.body.page) : ''));
 });
 
 module.exports = router;

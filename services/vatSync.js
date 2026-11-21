@@ -139,6 +139,10 @@ function start(direction, actor) {
     found: 0, total: 0, processed: 0, added: 0, duplicates: 0, errors: [], usedAi: 0, current: 'Đang đọc danh sách file trên Drive...' };
   const promise = sync(direction, { onProgress: r => Object.assign(job, r) })
     .then(r => {
+      // Có hóa đơn mới -> đối chiếu bán ra với tồn kho VAT
+      if (r.added) {
+        try { r.reconcile = require('./vatReconcile').reconcile(); } catch (e) { console.error('[vat] reconcile', e.message); }
+      }
       Object.assign(job, r, { running: false, finishedAt: new Date().toISOString() });
       // Chỉ thông báo khi có hóa đơn mới hoặc lỗi (tự động quét mỗi giờ sẽ không làm ồn)
       if (r.added || r.errors.length) {
