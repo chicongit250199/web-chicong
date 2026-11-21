@@ -16,21 +16,21 @@
       </span>
     </a>
     <%# Góc trên phải: ngôn ngữ + theme xếp thành cột %>
-    <div class="flex shrink-0 flex-col items-end gap-2">
+    <div class="flex shrink-0 flex-col items-stretch gap-1.5">
       <% const langNames = { vi: 'Tiếng Việt', en: 'English', ru: 'Русский', zh: '中文' }; %>
-      <div x-data="{ open: false }" class="relative text-sm text-slate-700 dark:text-slate-200" @click.outside="open = false" @keydown.escape="open = false">
+      <div x-data="{ open: false }" class="relative text-xs text-slate-700 dark:text-slate-200" @click.outside="open = false" @keydown.escape="open = false">
         <button type="button" @click="open = !open" :aria-expanded="open" aria-haspopup="listbox" aria-label="Language"
-                class="flex items-center gap-2 rounded-lg bg-white/90 px-2.5 py-1.5 font-semibold shadow-sm hover:bg-white dark:bg-slate-900/90 dark:hover:bg-slate-900">
-          <img src="/img/flags/<%= lang %>.svg" alt="" class="h-3.5 w-5 rounded-[2px] object-cover ring-1 ring-black/10">
-          <span><%= lang.toUpperCase() %></span>
-          <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 transition" :class="open && 'rotate-180'"><path d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4z"/></svg>
+                class="flex h-8 w-full items-center gap-2 rounded-lg border border-slate-300 bg-white/90 px-2.5 font-semibold shadow-sm hover:bg-white dark:border-slate-700 dark:bg-slate-900/90 dark:hover:bg-slate-900">
+          <img src="/img/flags/<%= lang %>.svg" alt="" class="h-3 w-[18px] rounded-[2px] object-cover ring-1 ring-black/10">
+          <span class="flex-1 text-left"><%= langNames[lang] %></span>
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5 opacity-60 transition" :class="open && 'rotate-180'"><path d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4z"/></svg>
         </button>
         <ul x-show="open" x-cloak x-transition.origin.top.right role="listbox"
-            class="absolute right-0 z-50 mt-1 w-40 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+            class="absolute right-0 z-50 mt-1 w-full min-w-[9rem] overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
           <% languages.forEach(l => { %>
             <li role="option" aria-selected="<%= l === lang %>">
-              <a href="<%= langUrl(l) %>" hreflang="<%= l %>" class="flex items-center gap-2.5 px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 <%= l === lang ? 'font-semibold text-brand-600' : '' %>">
-                <img src="/img/flags/<%= l %>.svg" alt="" class="h-3.5 w-5 rounded-[2px] object-cover ring-1 ring-black/10">
+              <a href="<%= langUrl(l) %>" hreflang="<%= l %>" class="flex items-center gap-2 px-2.5 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 <%= l === lang ? 'font-semibold text-brand-600' : '' %>">
+                <img src="/img/flags/<%= l %>.svg" alt="" class="h-3 w-[18px] rounded-[2px] object-cover ring-1 ring-black/10">
                 <%= langNames[l] %>
               </a>
             </li>
