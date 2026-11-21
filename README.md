@@ -38,7 +38,9 @@ npm i -g pm2
 npm run build:css
 pm2 start ecosystem.config.js && pm2 save
 pm2 startup                 # làm theo lệnh sudo nó in ra để tự chạy khi NUC khởi động
-pm2 logs chicong-web        # xem log
+pm2 logs chicong-web        # xem log (file: logs/out-0.log, logs/error-0.log; tự xoay vòng 10MB × 7 bản)
+pm2 restart chicong-web     # chạy lại sau khi sửa code / .env (PM2 không tự theo dõi file)
+pm2 status                  # trạng thái
 ```
 
 ## Sao lưu

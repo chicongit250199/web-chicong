@@ -14,5 +14,6 @@ module.exports = {
     out_file: 'logs/out.log',
     error_file: 'logs/error.log',
     time: true,
+    kill_timeout: 5000, // chờ đóng kết nối (SSE) trước khi tắt
   }],
 };
