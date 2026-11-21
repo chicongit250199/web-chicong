@@ -3,7 +3,7 @@
 
 <% if (isManager) { %>
   <%# Cột phải: thông báo real-time (SSE) %>
-  <script type="application/json" id="notif-data"><%- JSON.stringify({ items: notifications, unread: unreadCount }).replace(/</g, '\\u003c') %></script>
+  <script type="application/json" id="notif-data"><%- JSON.stringify({ items: notifications, unread: unreadCount, me: user.full_name }).replace(/</g, '\\u003c') %></script>
   <div x-data="notifPanel()" x-init="init()" @keydown.escape.window="open = false">
     <%# Banner thông báo mới kiểu iPhone: trượt lên từ góc dưới phải, 5 giây sau thu vào nút chuông %>
     <div class="pointer-events-none fixed bottom-[9.5rem] right-4 z-[60] flex w-[22rem] max-w-[calc(100vw-2rem)] flex-col gap-2 lg:bottom-24" aria-live="polite">
@@ -32,6 +32,10 @@
             </span>
           </h2>
           <div class="flex items-center gap-1">
+            <button type="button" @click="toggleSound()" class="rounded-md p-1 hover:bg-slate-100 dark:hover:bg-slate-800" :class="sound ? 'text-brand-600' : 'text-slate-400'" :title="sound ? 'Đang bật âm thanh — bấm để tắt' : 'Đang tắt âm thanh — bấm để bật'" :aria-label="sound ? 'Tắt âm thanh' : 'Bật âm thanh'">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><path d="M11 5L6 9H2v6h4l5 4V5z"/>
+                <path x-show="sound" d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/><path x-show="!sound" d="M23 9l-6 6M17 9l6 6"/></svg>
+            </button>
             <button type="button" x-show="unread > 0" @click="markRead()" class="rounded-md px-2 py-1 text-xs text-brand-600 hover:bg-brand-50 dark:hover:bg-slate-800">Đã đọc hết</button>
             <button type="button" @click="open = false" class="rounded-md p-1 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Thu nhỏ"><%- icon('x', 'h-5 w-5') %></button>
           </div>
