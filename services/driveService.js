@@ -30,8 +30,9 @@ function client() {
   return drive;
 }
 
-// Liệt kê file trong thư mục (kèm thư mục con 1 cấp — nhiều người chia theo tháng)
-async function listFiles(folderId, depth = 1) {
+// Liệt kê file trong thư mục (kèm thư mục con 1 cấp — nhiều người chia theo tháng).
+// skipFolder(name) -> true để bỏ qua thư mục con (VD: thư mục "HĐ Bán ra" nằm trong "Đầu vào")
+async function listFiles(folderId, depth = 1, skipFolder = () => false) {
   const d = client();
   const out = [];
   let pageToken;
@@ -44,7 +45,7 @@ async function listFiles(folderId, depth = 1) {
     });
     for (const f of r.data.files || []) {
       if (f.mimeType === 'application/vnd.google-apps.folder') {
-        if (depth > 0) out.push(...await listFiles(f.id, depth - 1));
+        if (depth > 0 && !skipFolder(f.name)) out.push(...await listFiles(f.id, depth - 1, skipFolder));
       } else out.push(f);
     }
     pageToken = r.data.nextPageToken;

@@ -6,6 +6,7 @@ const config = require('../config');
 const drive = require('./driveService');
 const { parseInvoiceXml } = require('./vatXml');
 const aiService = require('./aiService');
+const { stripVi } = require('./inventory');
 
 const MAX_PER_RUN = 40; // giới hạn mỗi lần bấm "Cập nhật" để không treo request
 
@@ -26,7 +27,7 @@ const q = {
 
 function kind(f) {
   const ext = path.extname(f.name || '').toLowerCase();
-  if (ext === '.xml' || /xml/.test(f.mimeType)) return 'xml';
+  if (ext === '.xml' || f.mimeType === 'text/xml' || f.mimeType === 'application/xml') return 'xml';
   if (ext === '.pdf' || f.mimeType === 'application/pdf') return 'pdf';
   if (/^image\//.test(f.mimeType)) return 'image';
   return null;
@@ -67,7 +68,9 @@ async function sync(direction) {
     const e = new Error(`Chưa cấu hình ${direction === 'in' ? 'DRIVE_VAT_INPUT_FOLDER_ID' : 'DRIVE_VAT_OUTPUT_FOLDER_ID'} trong .env`);
     e.status = 400; e.expose = true; throw e;
   }
-  const files = (await drive.listFiles(folder)).filter(kind);
+  // Không quét thư mục con thuộc chiều ngược lại (VD "HĐ Bán ra" nằm trong thư mục Đầu vào)
+  const other = direction === 'in' ? /ban\s*ra|xuat/ : /dau\s*vao|mua\s*vao|nhap/;
+  const files = (await drive.listFiles(folder, 1, name => other.test(stripVi(name).toLowerCase()))).filter(kind);
   const known = new Set(q.known.all('error').map(r => r.drive_file_id));
   const fresh = files.filter(f => !known.has(f.id));
 
