@@ -40,13 +40,13 @@
         <img src="<%= bannerList[0] %>" alt="<%= settings.company_name %>" class="block h-auto w-full md:rounded-xl md:shadow-md">
       </a>
     <% } else { %>
-      <%# Trình chiếu: các ảnh chồng cùng 1 ô lưới, đổi độ mờ; tự chuyển 5s, dừng khi rê chuột, vuốt trên điện thoại %>
+      <%# Trình chiếu: các ảnh chồng cùng 1 ô lưới, đổi độ mờ; tự chạy liên tục 4s/ảnh (chỉ tạm nghỉ khi tab bị ẩn), vuốt trên điện thoại %>
       <div class="mx-auto max-w-5xl md:px-4">
         <div x-data="{ i: 0, n: <%= bannerList.length %>, t: null, x0: null,
                        go(k) { this.i = (k + this.n) % this.n },
-                       start() { clearInterval(this.t); this.t = setInterval(() => this.go(this.i + 1), 5000) },
+                       start() { clearInterval(this.t); this.t = setInterval(() => this.go(this.i + 1), 4000) },
                        stop() { clearInterval(this.t) } }"
-             x-init="start()" @mouseenter="stop()" @mouseleave="start()"
+             x-init="start(); document.addEventListener('visibilitychange', () => document.hidden ? stop() : start())"
              @touchstart.passive="x0 = $event.touches[0].clientX; stop()"
              @touchend="if (x0 !== null) { const d = $event.changedTouches[0].clientX - x0; if (Math.abs(d) > 40) go(i + (d < 0 ? 1 : -1)); x0 = null } start()"
              class="group relative grid overflow-hidden md:rounded-xl md:shadow-md" role="region" aria-roledescription="carousel" aria-label="Banner">
