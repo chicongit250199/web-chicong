@@ -55,11 +55,11 @@
 
 /* ===== Logo nền in chìm / trôi quanh ===== */
 .bg-logos { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
-.bg-logos img { position: absolute; user-select: none; -webkit-user-drag: none; filter: grayscale(.2); }
-.bg-logo-center { left: 50%; top: 52%; width: min(46vw, 460px); transform: translate(-50%, -50%); opacity: .045; }
-.bg-logo-float { opacity: .07; transform: translate(-50%, -50%); animation: bg-drift 24s ease-in-out infinite; }
-.dark .bg-logo-center { opacity: .05; filter: grayscale(.2) brightness(1.6); }
-.dark .bg-logo-float { opacity: .06; filter: grayscale(.2) brightness(1.6); }
+.bg-logos img { position: absolute; height: auto; max-width: none; object-fit: contain; user-select: none; -webkit-user-drag: none; }
+.bg-logo-center { left: 50%; top: 52%; width: min(46vw, 460px); transform: translate(-50%, -50%); opacity: .08; }
+.bg-logo-float { opacity: .13; transform: translate(-50%, -50%); animation: bg-drift 24s ease-in-out infinite; }
+.dark .bg-logo-center { opacity: .09; filter: brightness(1.5); }
+.dark .bg-logo-float { opacity: .12; filter: brightness(1.5); }
 .bg-float-1 { animation-duration: 29s; animation-delay: -6s; }
 .bg-float-2 { animation-duration: 33s; animation-delay: -12s; animation-direction: reverse; }
 .bg-float-3 { animation-duration: 27s; animation-delay: -3s; }
