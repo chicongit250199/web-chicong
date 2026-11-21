@@ -38,7 +38,7 @@
     <section class="mt-10">
       <h2 class="mb-4 text-lg font-semibold"><%= t('product.related') %></h2>
       <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-5">
-        <% related.forEach(r => { %><%- include('_card', { p: r, catIcon: cat && cat.icon }) %><% }) %>
+        <% related.forEach(r => { %><%- partial('public/_card', { p: r, catIcon: cat && cat.icon, field, fmt, icon, t }) %><% }) %>
       </div>
     </section>
   <% } %>

@@ -6,6 +6,7 @@ class SqliteStore extends Store {
   constructor(db, { ttlMs = 7 * 24 * 3600 * 1000 } = {}) {
     super();
     this.ttlMs = ttlMs;
+    this.touched = new Map();
     this.q = {
       get: db.prepare('SELECT sess FROM sessions WHERE sid = ? AND expires > ?'),
       set: db.prepare('INSERT INTO sessions (sid, sess, expires) VALUES (?, ?, ?) ON CONFLICT(sid) DO UPDATE SET sess = excluded.sess, expires = excluded.expires'),
@@ -32,8 +33,15 @@ class SqliteStore extends Store {
   destroy(sid, cb) {
     try { this.q.destroy.run(sid); cb && cb(null); } catch (e) { cb && cb(e); }
   }
+  // rolling session gọi touch ở MỌI request -> chỉ ghi DB khi đã quá 10 phút từ lần gia hạn trước
   touch(sid, sess, cb) {
-    try { this.q.touch.run(this.expiry(sess), sid); cb && cb(null); } catch (e) { cb && cb(e); }
+    try {
+      const exp = this.expiry(sess);
+      const last = this.touched.get(sid) || 0;
+      if (exp - last > 10 * 60 * 1000) { this.q.touch.run(exp, sid); this.touched.set(sid, exp); }
+      if (this.touched.size > 5000) this.touched.clear();
+      cb && cb(null);
+    } catch (e) { cb && cb(e); }
   }
 }
 

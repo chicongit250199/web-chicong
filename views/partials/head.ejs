@@ -15,9 +15,9 @@
       document.documentElement.dataset.theme = m;
     })();
   </script>
-  <link rel="stylesheet" href="/css/app.css">
-  <script defer src="/js/app.js"></script>
-  <% (typeof scripts !== 'undefined' ? scripts : []).forEach(s => { %><script defer src="<%= s %>"></script>
+  <link rel="stylesheet" href="/css/app.css?v=<%= v %>">
+  <script defer src="/js/app.js?v=<%= v %>"></script>
+  <% (typeof scripts !== 'undefined' ? scripts : []).forEach(s => { %><script defer src="<%= s %>?v=<%= v %>"></script>
   <% }) %>
   <script defer src="/vendor/alpine.js"></script>
 </head>

@@ -60,9 +60,21 @@ const P = {
 };
 const NAMES = Object.keys(P);
 
+// Gom mọi icon vào 1 file sprite (/img/icons.svg) — trình duyệt tải 1 lần rồi cache,
+// mỗi chỗ dùng icon chỉ còn thẻ <use> ngắn => HTML nhẹ hơn nhiều.
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const sprite = `<svg xmlns="http://www.w3.org/2000/svg">${NAMES.map(n => `<symbol id="${n}" viewBox="0 0 24 24">${P[n]}</symbol>`).join('')}</svg>`;
+const VERSION = crypto.createHash('md5').update(sprite).digest('hex').slice(0, 8);
+try {
+  const file = path.join(__dirname, '..', 'public', 'img', 'icons.svg');
+  if (!fs.existsSync(file) || fs.readFileSync(file, 'utf8') !== sprite) fs.writeFileSync(file, sprite);
+} catch (e) { console.error('[icons] không ghi được sprite', e.message); }
+
 function icon(name, cls = 'h-5 w-5') {
-  const body = P[name] || P.box;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${cls}" aria-hidden="true">${body}</svg>`;
+  const id = P[name] ? name : 'box';
+  return `<svg class="${cls}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="/img/icons.svg?v=${VERSION}#${id}"/></svg>`;
 }
 
-module.exports = { icon, NAMES };
+module.exports = { icon, NAMES, VERSION };

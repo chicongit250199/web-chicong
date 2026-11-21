@@ -54,17 +54,34 @@
       init: function () {
         var self = this;
         try { var d = JSON.parse(document.getElementById('notif-data').textContent); self.items = d.items; self.unread = d.unread; } catch (e) {}
-        var es = new EventSource('/manager/events');
-        es.onopen = function () { self.live = true; };
-        es.onerror = function () { self.live = false; };
-        es.addEventListener('notification', function (ev) {
-          var n = JSON.parse(ev.data);
-          self.items.unshift(n);
-          if (self.items.length > 60) self.items.pop();
-          self.unread++;
-          self.toasts.push(n);
-          setTimeout(function () { self.toasts = self.toasts.filter(function (t) { return t.id !== n.id; }); }, 5000);
+        self.es = null;
+        // Chỉ giữ kết nối SSE khi tab đang hiển thị: trình duyệt giới hạn 6 kết nối/máy chủ,
+        // mở nhiều tab mà tab nào cũng giữ SSE thì trang mới sẽ bị treo.
+        var connect = function () {
+          if (self.es) return;
+          var es = new EventSource('/manager/events');
+          self.es = es;
+          es.onopen = function () { self.live = true; };
+          es.onerror = function () { self.live = false; };
+          es.addEventListener('notification', function (ev) {
+            var n = JSON.parse(ev.data);
+            if (self.items.some(function (x) { return x.id === n.id; })) return;
+            self.items.unshift(n);
+            if (self.items.length > 60) self.items.pop();
+            self.unread++;
+            self.toasts.push(n);
+            setTimeout(function () { self.toasts = self.toasts.filter(function (t) { return t.id !== n.id; }); }, 5000);
+          });
+        };
+        var disconnect = function () { if (self.es) { self.es.close(); self.es = null; self.live = false; } };
+        var refresh = function () {
+          api('/manager/notifications.json').then(function (d) { self.items = d.items; self.unread = d.unread; }).catch(function () {});
+        };
+        document.addEventListener('visibilitychange', function () {
+          if (document.hidden) disconnect(); else { refresh(); connect(); }
         });
+        window.addEventListener('pagehide', disconnect);
+        if (!document.hidden) connect();
         setInterval(function () { self.items = self.items.slice(); }, 60000); // cập nhật "x phút trước"
       },
       markRead: function () {

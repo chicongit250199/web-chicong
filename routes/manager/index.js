@@ -6,7 +6,7 @@ const appShell = require('../../middleware/appShell');
 const router = express.Router();
 router.use(requireRole('manager'));
 // SSE không cần dữ liệu khung trang
-router.use((req, res, next) => (req.path === '/events' || req.path === '/system.json' ? next() : appShell(req, res, next)));
+router.use((req, res, next) => (req.path === '/events' || req.path === '/system.json' || req.path === '/notifications.json' ? next() : appShell(req, res, next)));
 
 router.use(require('./revenue'));
 router.use(require('./users'));

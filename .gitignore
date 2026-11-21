@@ -7,3 +7,4 @@ public/uploads/*
 public/css/app.css
 logs/
 *.log
+public/img/icons.svg

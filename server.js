@@ -5,6 +5,8 @@ const express = require('express');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
+const compression = require('compression');
+const fs = require('fs');
 
 const config = require('./config');
 const db = require('./db');
@@ -38,8 +40,21 @@ app.use(helmet({
   originAgentCluster: false,
 }));
 
+// Nén gzip phản hồi (HTML/CSS/JS/JSON nhỏ đi 5-10 lần) — bỏ qua luồng SSE thông báo
+app.use(compression({ level: 6, threshold: 1024, filter: (req, res) => req.path !== '/manager/events' && compression.filter(req, res) }));
+
+// Phiên bản tài nguyên tĩnh: đổi khi build lại CSS/JS => trình duyệt tự lấy bản mới, còn lại cache lâu
+const assetVersion = (() => {
+  try {
+    return ['public/css/app.css', 'public/js/app.js', 'public/js/sell.js', 'public/js/system.js']
+      .map(f => fs.statSync(path.join(__dirname, f)).mtimeMs.toString(36)).join('').slice(-10);
+  } catch { return Date.now().toString(36); }
+})();
+app.locals.v = assetVersion;
+app.locals.partial = require('./services/partial');
+
 app.use('/vendor/alpine.js', (req, res) => res.sendFile(require.resolve('alpinejs/dist/cdn.min.js'), { maxAge: '30d' }));
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: config.isProd ? '7d' : 0 }));
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: config.isProd ? '30d' : 0 }));
 
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 app.use(express.json({ limit: '2mb' }));
@@ -80,6 +95,10 @@ const server = app.listen(config.port, config.host, () => {
   console.log(`[server] Chí Công Computer chạy tại http://${config.host}:${config.port} (${config.isProd ? 'production' : 'development'})`);
   require('./services/vatSync').scheduleAuto();
 });
+
+// Giữ kết nối lâu hơn để trình duyệt dùng lại (nhiều người dùng LAN)
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000;
 
 function shutdown() {
   server.close(() => { db.close(); process.exit(0); });

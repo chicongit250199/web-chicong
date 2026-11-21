@@ -11,7 +11,9 @@ db.pragma('journal_mode = WAL');
 db.pragma('synchronous = NORMAL');
 db.pragma('foreign_keys = ON');
 db.pragma('busy_timeout = 5000');
-db.pragma('cache_size = -8000'); // ~8MB
+db.pragma('cache_size = -16000'); // ~16MB cache trang
+db.pragma('mmap_size = 134217728'); // đọc file DB qua mmap (128MB) — nhanh hơn khi nhiều người xem cùng lúc
+db.pragma('temp_store = MEMORY');
 
 // vn(text): bỏ dấu + chữ thường, để tìm kiếm tiếng Việt không phân biệt dấu/hoa thường ("ha duy" khớp "HÀ DUY")
 const vn = s => (s == null ? null : String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toLowerCase());

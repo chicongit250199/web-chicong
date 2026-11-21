@@ -7,11 +7,12 @@
   <section>
     <h2 class="mb-2 flex items-center justify-between font-semibold">
       <span class="flex items-center gap-2"><span class="h-2.5 w-2.5 rounded-full bg-blue-500"></span>Task mới chưa nhận</span>
-      <span class="badge-blue"><%= newTasks.length %></span>
+      <span class="badge-blue"><%= newTotal %></span>
     </h2>
     <div class="space-y-2">
-      <% newTasks.forEach(t => { %><%- include('_task_card', { t }) %><% }) %>
+      <% newTasks.forEach(t => { %><%- partial('staff/_task_card', { t, fmt, icon }) %><% }) %>
       <% if (!newTasks.length) { %><p class="card py-10 text-center text-sm text-slate-500">Không có task mới</p><% } %>
+      <% if (newTotal > newTasks.length) { %><a href="/staff/tasks?view=pending" class="btn-secondary w-full">Xem tất cả <%= newTotal %> task</a><% } %>
     </div>
   </section>
   <section>
@@ -20,8 +21,9 @@
       <span class="badge-amber"><%= mine.length %></span>
     </h2>
     <div class="space-y-2">
-      <% mine.forEach(t => { %><%- include('_task_card', { t }) %><% }) %>
+      <% mine.forEach(t => { %><%- partial('staff/_task_card', { t, fmt, icon }) %><% }) %>
       <% if (!mine.length) { %><p class="card py-10 text-center text-sm text-slate-500">Chưa có task nào</p><% } %>
+      <% if (mineMore) { %><a href="/staff/tasks?view=processing" class="btn-secondary w-full">Xem tất cả</a><% } %>
     </div>
   </section>
 </div>

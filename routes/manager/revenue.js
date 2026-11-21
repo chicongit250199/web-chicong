@@ -85,7 +85,7 @@ router.get('/revenue', (req, res) => {
   const f = filters(req.query);
   const rows = aggregate(f);
   const totals = db.prepare(`SELECT ${SUMS} FROM revenues ${whereOf(f)}`).get(f);
-  const details = db.prepare(`SELECT * FROM revenues ${whereOf(f)} ORDER BY created_at DESC LIMIT 300`).all(f);
+  const details = db.prepare(`SELECT * FROM revenues ${whereOf(f)} ORDER BY created_at DESC LIMIT 100`).all(f);
   res.render('manager/revenue', {
     title: 'Thống kê doanh thu', f, rows, totals, details,
     chart: rows.map(r => ({ label: periodLabel(r.period, f.group), value: r.total, tip: `${periodLabel(r.period, f.group)}: ${fmt.money(r.total)} · ${r.count} giao dịch` })),
@@ -135,6 +135,12 @@ router.post('/revenues/:id/delete', (req, res) => {
 
 // ---------- Thông báo real-time ----------
 router.get('/events', events.stream);
+router.get('/notifications.json', (req, res) => {
+  res.json({
+    items: db.prepare('SELECT * FROM notifications ORDER BY id DESC LIMIT 40').all(),
+    unread: db.prepare('SELECT COUNT(*) c FROM notifications WHERE is_read = 0').get().c,
+  });
+});
 router.post('/notifications/read', (req, res) => {
   db.prepare('UPDATE notifications SET is_read = 1 WHERE is_read = 0').run();
   res.json({ ok: true });

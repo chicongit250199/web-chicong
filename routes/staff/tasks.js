@@ -59,12 +59,14 @@ function back(req, res, id, type, msg) { req.flash(type, msg); res.redirect(`/st
 router.get('/', (req, res) => {
   const u = req.user;
   const isManager = u.role === 'manager';
-  const newTasks = listTasks('pending', u);
+  const LIMIT = 40; // mỗi cột hiện tối đa 40 task, còn lại xem ở danh sách đầy đủ
+  const newTasksAll = listTasks('pending', u);
+  const newTasks = newTasksAll.slice(0, LIMIT);
   const mine = isManager
-    ? db.prepare(`${LIST_SQL} WHERE t.status = 'processing' OR (t.status = 'pending' AND t.assigned_to IS NOT NULL) ORDER BY t.status DESC, t.created_at`).all()
-    : db.prepare(`${LIST_SQL} WHERE t.assigned_to = ? AND t.status IN ('pending','processing') ORDER BY t.status DESC, t.created_at`).all(u.id);
+    ? db.prepare(`${LIST_SQL} WHERE t.status = 'processing' OR (t.status = 'pending' AND t.assigned_to IS NOT NULL) ORDER BY t.status DESC, t.created_at LIMIT ${LIMIT + 1}`).all()
+    : db.prepare(`${LIST_SQL} WHERE t.assigned_to = ? AND t.status IN ('pending','processing') ORDER BY t.status DESC, t.created_at LIMIT ${LIMIT + 1}`).all(u.id);
   res.locals.nav = 'home';
-  res.render('staff/dashboard', { title: 'Tổng quan', newTasks, mine });
+  res.render('staff/dashboard', { title: 'Tổng quan', newTasks, newTotal: newTasksAll.length, mine: mine.slice(0, LIMIT), mineMore: mine.length > LIMIT });
 });
 
 // ---------- Nhận máy ----------
