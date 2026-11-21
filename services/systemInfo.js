@@ -100,7 +100,7 @@ let lastRates = {};
 function netRates() {
   const now = Date.now();
   const dt = (now - lastNet.t) / 1000;
-  if (dt < 1) return lastRates; // 2 lần đọc quá sát nhau -> giữ số cũ cho khỏi nhiễu
+  if (dt < 1 && Object.keys(lastRates).length) return lastRates; // 2 lần đọc quá sát nhau -> giữ số cũ cho khỏi nhiễu (trừ lần đầu sau khởi động)
   const c = netCounters();
   const r = {};
   for (const [n, v] of Object.entries(c)) {
