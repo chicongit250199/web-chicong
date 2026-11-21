@@ -1,6 +1,6 @@
 <%- include('../app/_top') %>
 <div class="page-title"><h1><%- icon('cart', 'h-6 w-6 text-brand-600') %>Bán hàng</h1></div>
-<div class="grid gap-4 lg:grid-cols-5" x-data="sellForm(<%= JSON.stringify(user.full_name) %>)">
+<div class="grid gap-4 lg:grid-cols-5" x-data="sellForm(<%= JSON.stringify(user.full_name) %>, <%= JSON.stringify(preset || null) %>)">
   <div class="space-y-4 lg:col-span-3">
     <div x-show="success" x-cloak class="flex items-center gap-2 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-200 dark:ring-emerald-900"><%- icon('checkCircle', 'h-5 w-5') %><span x-text="success"></span></div>
     <div x-show="error" x-cloak class="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-200 dark:bg-red-950 dark:text-red-200 dark:ring-red-900"><%- icon('alert', 'h-5 w-5') %><span x-text="error"></span></div>

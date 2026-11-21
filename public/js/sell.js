@@ -1,7 +1,13 @@
 // Form bán hàng: gợi ý hàng tồn kho, chọn serial, popup xác nhận
-window.sellForm = function (staffName) {
+window.sellForm = function (staffName, preset) {
   return {
     staffName: staffName,
+    // Mở từ trang kho (?item=ID): chọn sẵn đúng món đó
+    init: function () {
+      if (!preset) return;
+      this.group = preset; this.q = preset.name; this.unitId = String(preset.selected);
+      this.applyUnit();
+    },
     q: '', results: [], open: false, loading: false, hi: -1, timer: null,
     group: null, unitId: '', price: '', payment: 'cash',
     customer_name: '', customer_phone: '', delivery_address: '', warranty: '',

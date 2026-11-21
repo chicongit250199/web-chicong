@@ -9,10 +9,30 @@ const { notify } = require('../../services/events');
 const router = express.Router();
 
 // ---------- Bán hàng ----------
+const qUnits = db.prepare(`SELECT id, serial, retail_price, condition, import_date, warranty_out_months FROM inventory_items
+    WHERE status = 'in_stock' AND COALESCE(item_code,'') = COALESCE(?, '') AND name = ? ORDER BY (serial LIKE ?) DESC, import_date, id LIMIT 100`);
+
+// Nhóm hàng (cùng mã + tên) chứa 1 món cụ thể — dùng khi bấm "Bán" từ trang kho
+function groupOf(itemId) {
+  const it = db.prepare(`SELECT * FROM inventory_items WHERE id = ? AND status = 'in_stock'`).get(itemId);
+  if (!it) return null;
+  const g = db.prepare(`SELECT item_code, name, COUNT(*) AS qty, MAX(retail_price) AS retail_price, MAX(warranty_out_months) AS warranty_out_months
+      FROM inventory_items WHERE status = 'in_stock' AND COALESCE(item_code,'') = COALESCE(?, '') AND name = ?`).get(it.item_code, it.name);
+  const units = qUnits.all(it.item_code, it.name, '');
+  // đưa món được chọn lên đầu danh sách
+  units.sort((a, b) => (a.id === it.id ? -1 : b.id === it.id ? 1 : 0));
+  return { ...g, units, selected: it.id };
+}
+
 router.get('/sell', (req, res) => {
   res.locals.nav = 'sell';
   const recent = db.prepare(`SELECT * FROM revenues WHERE type = 'sale' ORDER BY id DESC LIMIT 10`).all();
-  res.render('staff/sell', { title: 'Bán hàng', recent, scripts: ['/js/sell.js'] });
+  let preset = null;
+  if (req.query.item) {
+    preset = groupOf(Number(req.query.item));
+    if (!preset) res.locals.flash = [...(res.locals.flash || []), { type: 'error', message: 'Món hàng này không còn trong kho (đã bán hoặc đã xóa).' }];
+  }
+  res.render('staff/sell', { title: 'Bán hàng', recent, preset, scripts: ['/js/sell.js'] });
 });
 
 // Gợi ý hàng còn tồn: gom theo mã hàng + tên, kèm số lượng và danh sách serial
@@ -20,11 +40,10 @@ router.get('/api/inventory/suggest', (req, res) => {
   const s = String(req.query.q || '').trim();
   if (s.length < 1) return res.json({ items: [] });
   const like = `%${s}%`;
+  const likeVn = `%${db.vn(s)}%`; // tìm không phân biệt dấu: "chuot" khớp "Chuột"
   const groups = db.prepare(`SELECT item_code, name, COUNT(*) AS qty, MAX(retail_price) AS retail_price, MAX(warranty_out_months) AS warranty_out_months
-      FROM inventory_items WHERE status = 'in_stock' AND (name LIKE ? OR item_code LIKE ? OR serial LIKE ?)
-      GROUP BY item_code, name ORDER BY qty DESC, name LIMIT 15`).all(like, like, like);
-  const qUnits = db.prepare(`SELECT id, serial, retail_price, condition, import_date, warranty_out_months FROM inventory_items
-      WHERE status = 'in_stock' AND COALESCE(item_code,'') = COALESCE(?, '') AND name = ? ORDER BY (serial LIKE ?) DESC, import_date, id LIMIT 100`);
+      FROM inventory_items WHERE status = 'in_stock' AND (vn(name) LIKE ? OR vn(item_code) LIKE ? OR serial LIKE ?)
+      GROUP BY item_code, name ORDER BY qty DESC, name LIMIT 15`).all(likeVn, likeVn, like);
   res.json({ items: groups.map(g => ({ ...g, units: qUnits.all(g.item_code, g.name, like) })) });
 });
 
