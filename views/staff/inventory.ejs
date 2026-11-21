@@ -18,37 +18,67 @@
   <input name="q" value="<%= search %>" class="input" placeholder="Tên hàng, mã hàng, Serial, NPP<%= tab === 'sold' ? ', khách hàng, SĐT' : '' %>...">
   <button class="btn-primary"><%- icon('search', 'h-4 w-4') %></button>
 </form>
-<div class="tbl-wrap">
-  <table class="tbl">
-    <thead><tr>
-      <th>Mã hàng</th><th>Tên hàng</th><th>Serial</th><th>Ngày nhập</th><th>Tình trạng</th><th>NPP</th><th>BH nhập</th>
-      <th class="text-right">Giá KT</th><th class="text-right">Giá bán lẻ</th><th>BH xuất</th>
-      <% if (tab === 'sold') { %><th>Ngày bán</th><th>Khách hàng</th><th>Hết BH</th><% } %><th>Ghi chú</th>
-    </tr></thead>
-    <tbody>
-      <% items.forEach(i => { %>
-        <tr>
-          <td class="whitespace-nowrap text-xs"><%= i.item_code %></td>
-          <td class="min-w-48 font-medium"><%= i.name %></td>
-          <td class="font-mono text-xs"><%= i.serial || '' %></td>
-          <td class="whitespace-nowrap"><%= fmt.date(i.import_date) %></td>
-          <td><%= i.condition || '' %></td>
-          <td><%= i.supplier || '' %></td>
-          <td><%= i.warranty_in_months != null ? i.warranty_in_months + ' th' : '' %></td>
-          <td class="whitespace-nowrap text-right tabular-nums"><%= fmt.num(i.tech_price) %></td>
-          <td class="whitespace-nowrap text-right font-semibold tabular-nums"><%= fmt.num(i.retail_price) %></td>
-          <td><%= i.warranty_out_months != null ? i.warranty_out_months + ' th' : '' %></td>
-          <% if (tab === 'sold') { %>
-            <td class="whitespace-nowrap"><%= fmt.date(i.sold_date) %></td>
-            <td><%= i.customer_name || '' %><br><span class="text-xs text-slate-500"><%= i.customer_phone || '' %></span></td>
-            <td class="whitespace-nowrap"><% if (i.warranty_end) { %><span class="<%= i.warranty_end >= today ? 'badge-green' : 'badge-gray' %>"><%= fmt.date(i.warranty_end) %></span><% } %></td>
-          <% } %>
-          <td class="max-w-56 text-xs text-slate-500"><%= i.note || '' %></td>
-        </tr>
-      <% }) %>
-      <% if (!items.length) { %><tr><td colspan="14" class="py-10 text-center text-slate-500">Không có hàng hóa</td></tr><% } %>
-    </tbody>
-  </table>
+<% const canDel = tab === 'in_stock' || isManager; const backUrl = `/staff/inventory?tab=${tab}${search ? '&q=' + encodeURIComponent(search) : ''}${page > 1 ? '&page=' + page : ''}`; %>
+<div x-data="{ sel: [], all: <%= JSON.stringify(items.map(i => i.id)) %>,
+               toggleAll(e) { this.sel = e.target.checked ? [...this.all] : [] },
+               ask(ids, label) {
+                 const msg = 'Xóa ' + label + ' khỏi kho?<%= tab === 'sold' ? '\\nDoanh thu của các lần bán vẫn được giữ, chỉ xóa bản ghi trong kho.' : '' %>\nKhông thể hoàn tác.';
+                 if (!confirm(msg)) return;
+                 const f = $refs.delForm; f.querySelectorAll('input[name=ids]').forEach(x => x.remove());
+                 ids.forEach(id => { const i = document.createElement('input'); i.type = 'hidden'; i.name = 'ids'; i.value = id; f.appendChild(i); });
+                 f.submit();
+               } }">
+  <form method="post" action="/staff/inventory/delete" x-ref="delForm" class="hidden">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="back" value="<%= backUrl %>">
+  </form>
+  <% if (canDel) { %>
+    <div x-show="sel.length" x-cloak x-transition class="sticky top-16 z-20 mb-2 flex items-center justify-between gap-3 rounded-lg bg-slate-900 px-4 py-2.5 text-sm text-white shadow-lg dark:bg-slate-100 dark:text-slate-900">
+      <span x-text="'Đã chọn ' + sel.length + ' món'"></span>
+      <span class="flex gap-2">
+        <button type="button" @click="sel = []" class="rounded-md px-3 py-1 hover:bg-white/10 dark:hover:bg-black/10">Bỏ chọn</button>
+        <button type="button" @click="ask(sel, sel.length + ' món đã chọn')" class="flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1 font-semibold text-white hover:bg-red-700"><%- icon('trash', 'h-4 w-4') %>Xóa</button>
+      </span>
+    </div>
+  <% } %>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr>
+        <% if (canDel) { %><th class="w-8"><input type="checkbox" class="h-4 w-4" @change="toggleAll($event)" :checked="sel.length && sel.length === all.length" aria-label="Chọn tất cả"></th><% } %>
+        <th>Mã hàng</th><th>Tên hàng</th><th>Serial</th><th>Ngày nhập</th><th>Tình trạng</th><th>NPP</th><th>BH nhập</th>
+        <th class="text-right">Giá KT</th><th class="text-right">Giá bán lẻ</th><th>BH xuất</th>
+        <% if (tab === 'sold') { %><th>Ngày bán</th><th>Khách hàng</th><th>Hết BH</th><% } %><th>Ghi chú</th>
+        <% if (canDel) { %><th></th><% } %>
+      </tr></thead>
+      <tbody>
+        <% items.forEach(i => { %>
+          <tr :class="sel.includes(<%= i.id %>) && 'bg-brand-50/60 dark:bg-brand-900/20'">
+            <% if (canDel) { %><td><input type="checkbox" class="h-4 w-4" value="<%= i.id %>" x-model.number="sel" aria-label="Chọn"></td><% } %>
+            <td class="whitespace-nowrap text-xs"><%= i.item_code %></td>
+            <td class="min-w-48 font-medium"><%= i.name %></td>
+            <td class="font-mono text-xs"><%= i.serial || '' %></td>
+            <td class="whitespace-nowrap"><%= fmt.date(i.import_date) %></td>
+            <td><%= i.condition || '' %></td>
+            <td><%= i.supplier || '' %></td>
+            <td><%= i.warranty_in_months != null ? i.warranty_in_months + ' th' : '' %></td>
+            <td class="whitespace-nowrap text-right tabular-nums"><%= fmt.num(i.tech_price) %></td>
+            <td class="whitespace-nowrap text-right font-semibold tabular-nums"><%= fmt.num(i.retail_price) %></td>
+            <td><%= i.warranty_out_months != null ? i.warranty_out_months + ' th' : '' %></td>
+            <% if (tab === 'sold') { %>
+              <td class="whitespace-nowrap"><%= fmt.date(i.sold_date) %></td>
+              <td><%= i.customer_name || '' %><br><span class="text-xs text-slate-500"><%= i.customer_phone || '' %></span></td>
+              <td class="whitespace-nowrap"><% if (i.warranty_end) { %><span class="<%= i.warranty_end >= today ? 'badge-green' : 'badge-gray' %>"><%= fmt.date(i.warranty_end) %></span><% } %></td>
+            <% } %>
+            <td class="max-w-56 text-xs text-slate-500"><%= i.note || '' %></td>
+            <% if (canDel) { %>
+              <td class="text-right"><button type="button" @click="ask([<%= i.id %>], <%= JSON.stringify((i.name + (i.serial ? ' (SN ' + i.serial + ')' : '')).slice(0, 80)) %>)"
+                class="inline-grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950" title="Xóa"><%- icon('trash', 'h-4 w-4') %></button></td>
+            <% } %>
+          </tr>
+        <% }) %>
+        <% if (!items.length) { %><tr><td colspan="16" class="py-10 text-center text-slate-500">Không có hàng hóa</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
 </div>
 <% if (pages > 1) { %>
   <nav class="mt-4 flex flex-wrap items-center justify-center gap-1 text-sm">

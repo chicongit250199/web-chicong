@@ -75,4 +75,28 @@ router.post('/inventory', (req, res) => {
   res.redirect('/staff/inventory/new');
 });
 
+// ---------- Xóa hàng trong kho ----------
+// Nhân viên: chỉ hàng đang tồn kho. Quản lý: cả hàng đã bán (doanh thu giữ nguyên, chỉ xóa bản ghi kho).
+router.post('/inventory/delete', (req, res) => {
+  const backTo = typeof req.body.back === 'string' && /^\/staff\/inventory(\?|$)/.test(req.body.back) ? req.body.back : '/staff/inventory';
+  const ids = [...new Set([].concat(req.body.ids || []).map(Number).filter(n => Number.isInteger(n) && n > 0))].slice(0, 1000);
+  if (!ids.length) { req.flash('error', 'Chưa chọn món nào.'); return res.redirect(backTo); }
+  const isManager = req.user.role === 'manager';
+  const ph = ids.map(() => '?').join(',');
+  const items = db.prepare(`SELECT id, name, serial, status FROM inventory_items WHERE id IN (${ph})`).all(...ids);
+  const allowed = items.filter(i => isManager || i.status === 'in_stock');
+  const denied = items.length - allowed.length;
+  if (!allowed.length) {
+    req.flash('error', denied ? 'Hàng đã bán chỉ Quản lý được xóa.' : 'Không tìm thấy món hàng.');
+    return res.redirect(backTo);
+  }
+  const del = db.prepare('DELETE FROM inventory_items WHERE id = ?');
+  db.transaction(() => { for (const i of allowed) del.run(i.id); })();
+  const sold = allowed.filter(i => i.status === 'sold').length;
+  const label = allowed.length === 1 ? `${allowed[0].name}${allowed[0].serial ? ' (SN ' + allowed[0].serial + ')' : ''}` : `${allowed.length} món`;
+  notify('revenue_deleted', `${req.user.full_name} xóa khỏi kho: ${label}${sold ? ` (${sold} món đã bán)` : ''}`, '/staff/inventory', req.user.full_name);
+  req.flash('success', `Đã xóa ${label} khỏi kho${denied ? `; bỏ qua ${denied} món đã bán (chỉ Quản lý được xóa)` : ''}.`);
+  res.redirect(backTo);
+});
+
 module.exports = router;
