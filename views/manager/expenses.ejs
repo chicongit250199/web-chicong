@@ -1,0 +1,71 @@
+<%- include('../app/_top') %>
+<% const qs = p => '?' + new URLSearchParams({ from, to, ...(q ? { q } : {}), ...(p > 1 ? { page: p } : {}) }).toString();
+   const backUrl = '/manager/expenses' + qs(page); %>
+<div class="page-title">
+  <h1><%- icon('cash', 'h-6 w-6 text-brand-600') %>Chi phí</h1>
+</div>
+
+<div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+  <div class="stat col-span-2 lg:col-span-1"><p class="stat-label">Tổng chi</p><p class="stat-value text-red-600 dark:text-red-400"><%= fmt.money(agg.total) %></p><p class="text-xs text-slate-500"><%= fmt.num(agg.c) %> khoản · <%= fmt.date(from) %> – <%= fmt.date(to) %></p></div>
+  <div class="stat"><p class="stat-label">Tiền mặt / Chuyển khoản</p><p class="mt-1 text-sm font-semibold tabular-nums"><%= fmt.money(agg.cash) %></p><p class="text-sm font-semibold tabular-nums"><%= fmt.money(agg.transfer) %></p></div>
+  <div class="stat"><p class="stat-label">Doanh thu cùng kỳ</p><p class="stat-value text-lg"><%= fmt.money(income) %></p></div>
+  <div class="stat"><p class="stat-label">Thu − Chi</p><p class="stat-value text-lg <%= income - agg.total >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' %>"><%= fmt.money(income - agg.total) %></p></div>
+</div>
+
+<div class="grid gap-4 xl:grid-cols-[1fr_22rem]">
+  <section class="min-w-0">
+    <form class="card mb-3 flex flex-wrap items-end gap-2">
+      <label class="block"><span class="label">Từ ngày</span><input type="date" name="from" value="<%= from %>" class="input"></label>
+      <label class="block"><span class="label">Đến ngày</span><input type="date" name="to" value="<%= to %>" class="input"></label>
+      <label class="block min-w-40 flex-1"><span class="label">Tìm nội dung</span><input name="q" value="<%= q %>" class="input" placeholder="nhập hàng, mua máy..."></label>
+      <button class="btn-primary"><%- icon('search', 'h-4 w-4') %>Lọc</button>
+      <div class="flex w-full flex-wrap gap-1.5 text-xs">
+        <% Object.entries(presets).forEach(([l, [a, b]]) => { %>
+          <a href="?from=<%= a %>&to=<%= b %>" class="rounded-md px-2.5 py-1 <%= from === a && to === b ? 'bg-brand-600 text-white' : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700' %>"><%= l %></a>
+        <% }) %>
+      </div>
+    </form>
+    <div class="tbl-wrap"><table class="tbl table-fixed">
+      <colgroup><col class="w-24"><col><col class="w-32"><col class="hidden w-28 sm:table-column"><col class="w-12"></colgroup>
+      <thead><tr><th>Ngày</th><th>Nội dung</th><th class="text-right">Số tiền</th><th class="hidden sm:table-cell">Hình thức</th><th></th></tr></thead>
+      <tbody>
+        <% rows.forEach(e => { %>
+          <tr>
+            <td class="whitespace-nowrap text-xs"><%= fmt.date(e.expense_date) %></td>
+            <td class="min-w-0"><span class="block truncate font-medium" title="<%= e.content %>"><%= e.content %></span>
+              <span class="block truncate text-xs text-slate-500"><%= [e.note, e.staff_name, e.source === 'excel' ? 'từ Excel' : ''].filter(Boolean).join(' · ') %></span></td>
+            <td class="whitespace-nowrap text-right font-semibold tabular-nums text-red-600 dark:text-red-400"><%= fmt.num(e.amount) %></td>
+            <td class="hidden text-xs sm:table-cell"><%= fmt.payment(e.payment_method) %></td>
+            <td class="text-right">
+              <form method="post" action="/manager/expenses/<%= e.id %>/delete" @submit="confirm(<%= JSON.stringify('Xóa khoản chi \"' + e.content + '\" (' + fmt.money(e.amount) + ')?') %>) || $event.preventDefault()">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="back" value="<%= backUrl %>">
+                <button class="inline-grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950" title="Xóa"><%- icon('trash', 'h-4 w-4') %></button></form>
+            </td>
+          </tr>
+        <% }) %>
+        <% if (!rows.length) { %><tr><td colspan="5" class="py-10 text-center text-slate-500">Không có khoản chi trong khoảng này.</td></tr><% } %>
+      </tbody>
+    </table></div>
+    <%- include('../partials/pager', { page, pages, total: agg.c, pageSize: 20, link: qs }) %>
+  </section>
+
+  <aside>
+    <form method="post" action="/manager/expenses" class="card space-y-3 xl:sticky xl:top-20">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="back" value="<%= backUrl %>">
+      <h2 class="font-semibold">Thêm khoản chi</h2>
+      <label class="block"><span class="label">Ngày</span><input type="date" name="expense_date" value="<%= today %>" class="input"></label>
+      <label class="block"><span class="label req">Nội dung</span><input name="content" class="input" required placeholder="VD: Nhập hàng Hà Duy, tiền điện..."></label>
+      <label class="block" x-data="moneyInput('')"><span class="label req">Số tiền (₫)</span>
+        <input class="input text-right font-semibold tabular-nums" inputmode="numeric" :value="display" @input="onInput($event)" required><input type="hidden" name="amount" :value="raw"></label>
+      <fieldset><legend class="label">Hình thức</legend>
+        <div class="grid grid-cols-2 gap-2 text-sm">
+          <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 p-2.5 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 dark:border-slate-700 dark:has-[:checked]:bg-brand-900/30"><input type="radio" name="payment_method" value="cash" checked>Tiền mặt</label>
+          <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 p-2.5 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 dark:border-slate-700 dark:has-[:checked]:bg-brand-900/30"><input type="radio" name="payment_method" value="transfer">Chuyển khoản</label>
+        </div></fieldset>
+      <label class="block"><span class="label">Ghi chú</span><input name="note" class="input"></label>
+      <button class="btn-primary w-full"><%- icon('check', 'h-4 w-4') %>Lưu khoản chi</button>
+      <p class="text-xs text-slate-500">Nhập hàng loạt từ cột CHI: <a href="/manager/import/revenue" class="text-brand-600 hover:underline">Import Excel → Doanh thu</a>.</p>
+    </form>
+  </aside>
+</div>
+<%- include('../app/_bottom') %>

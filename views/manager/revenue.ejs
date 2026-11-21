@@ -18,12 +18,15 @@
   <div class="flex items-end"><button class="btn-primary w-full"><%- icon('search', 'h-4 w-4') %>Lọc</button></div>
 </form>
 
-<div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
+<div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4 2xl:grid-cols-7">
   <div class="stat col-span-2 lg:col-span-1"><p class="stat-label">Tổng doanh thu</p><p class="stat-value text-brand-700 dark:text-brand-300"><%= fmt.money(totals.total) %></p><p class="text-xs text-slate-500"><%= totals.count %> giao dịch</p></div>
   <div class="stat"><p class="stat-label">Tiền mặt</p><p class="stat-value text-lg"><%= fmt.money(totals.cash) %></p></div>
   <div class="stat"><p class="stat-label">Chuyển khoản</p><p class="stat-value text-lg"><%= fmt.money(totals.transfer) %></p></div>
   <div class="stat"><p class="stat-label">Sửa chữa</p><p class="stat-value text-lg"><%= fmt.money(totals.repair) %></p></div>
   <div class="stat"><p class="stat-label">Bán hàng</p><p class="stat-value text-lg"><%= fmt.money(totals.sale) %></p></div>
+  <a href="/manager/expenses?from=<%= f.from %>&to=<%= f.to %>" class="stat hover:border-brand-400"><p class="stat-label">Tổng chi</p><p class="stat-value text-lg text-red-600 dark:text-red-400"><%= fmt.money(expenseTotal.t) %></p><p class="text-xs text-slate-500"><%= fmt.num(expenseTotal.c) %> khoản</p></a>
+  <div class="stat"><p class="stat-label">Thu − Chi</p><p class="stat-value text-lg <%= totals.total - expenseTotal.t >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' %>"><%= fmt.money(totals.total - expenseTotal.t) %></p>
+    <% if (f.type || f.payment) { %><p class="text-[11px] text-slate-500">thu đã lọc, chi tính toàn bộ</p><% } %></div>
 </div>
 
 <section class="card mb-4">
@@ -35,13 +38,13 @@
   <section>
     <h2 class="mb-2 font-semibold">Bảng tổng hợp</h2>
     <div class="tbl-wrap max-h-[480px] overflow-y-auto"><table class="tbl">
-      <thead class="sticky top-0"><tr><th><%= { day: 'Ngày', month: 'Tháng', year: 'Năm' }[f.group] %></th><th class="text-right">GD</th><th class="text-right">Tiền mặt</th><th class="text-right">Chuyển khoản</th><th class="text-right">Tổng</th></tr></thead>
+      <thead class="sticky top-0"><tr><th><%= { day: 'Ngày', month: 'Tháng', year: 'Năm' }[f.group] %></th><th class="text-right">GD</th><th class="text-right">Tiền mặt</th><th class="text-right">Chuyển khoản</th><th class="text-right">Tổng thu</th><th class="text-right">Chi</th></tr></thead>
       <tbody>
-        <% rows.slice().reverse().filter(r => r.count).forEach(r => { %>
+        <% rows.slice().reverse().filter(r => r.count || r.expense).forEach(r => { %>
           <tr><td class="whitespace-nowrap"><%= f.group === 'day' ? fmt.date(r.period) : periodLabel(r.period, f.group) %></td><td class="text-right tabular-nums"><%= r.count %></td>
-            <td class="text-right tabular-nums"><%= fmt.num(r.cash) %></td><td class="text-right tabular-nums"><%= fmt.num(r.transfer) %></td><td class="text-right font-semibold tabular-nums"><%= fmt.num(r.total) %></td></tr>
+            <td class="text-right tabular-nums"><%= fmt.num(r.cash) %></td><td class="text-right tabular-nums"><%= fmt.num(r.transfer) %></td><td class="text-right font-semibold tabular-nums"><%= fmt.num(r.total) %></td><td class="text-right tabular-nums text-red-600 dark:text-red-400"><%= r.expense ? fmt.num(r.expense) : '' %></td></tr>
         <% }) %>
-        <% if (!totals.count) { %><tr><td colspan="5" class="py-8 text-center text-slate-500">Không có giao dịch</td></tr><% } %>
+         <% if (!totals.count && !expenseTotal.c) { %><tr><td colspan="6" class="py-8 text-center text-slate-500">Không có giao dịch</td></tr><% } %>
       </tbody>
     </table></div>
   </section>

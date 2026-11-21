@@ -56,6 +56,12 @@ function aggregate(f) {
   return rows;
 }
 
+// Chi phí theo kỳ (chỉ lọc theo khoảng ngày)
+function expenseByPeriod(f) {
+  const period = { day: 'expense_date', month: 'substr(expense_date, 1, 7)', year: 'substr(expense_date, 1, 4)' }[f.group];
+  return new Map(db.prepare(`SELECT ${period} AS p, COALESCE(SUM(amount),0) AS total FROM expenses WHERE expense_date BETWEEN ? AND ? GROUP BY p`).all(f.from, f.to).map(r => [r.p, r.total]));
+}
+
 function periodLabel(p, group) {
   if (group === 'day') return `${p.slice(8, 10)}/${p.slice(5, 7)}`;
   if (group === 'month') return `${p.slice(5, 7)}/${p.slice(0, 4)}`;
@@ -86,8 +92,11 @@ router.get('/revenue', (req, res) => {
   const rows = aggregate(f);
   const totals = db.prepare(`SELECT ${SUMS} FROM revenues ${whereOf(f)}`).get(f);
   const details = db.prepare(`SELECT * FROM revenues ${whereOf(f)} ORDER BY created_at DESC LIMIT 100`).all(f);
+  const expMap = expenseByPeriod(f);
+  for (const r of rows) r.expense = expMap.get(r.period) || 0;
+  const expenseTotal = db.prepare('SELECT COALESCE(SUM(amount),0) t, COUNT(*) c FROM expenses WHERE expense_date BETWEEN ? AND ?').get(f.from, f.to);
   res.render('manager/revenue', {
-    title: 'Thống kê doanh thu', f, rows, totals, details,
+    title: 'Thống kê doanh thu', f, rows, totals, details, expenseTotal,
     chart: rows.map(r => ({ label: periodLabel(r.period, f.group), value: r.total, tip: `${periodLabel(r.period, f.group)}: ${fmt.money(r.total)} · ${r.count} giao dịch` })),
     periodLabel,
   });

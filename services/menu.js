@@ -7,6 +7,7 @@ const GROUPS = [
     items: [
       { key: 'm-home', href: '/manager', icon: 'chart', label: 'Doanh thu hôm nay', roles: ['manager'] },
       { key: 'm-revenue', href: '/manager/revenue', icon: 'trending', label: 'Thống kê doanh thu', roles: ['manager'] },
+      { key: 'm-expenses', href: '/manager/expenses', icon: 'cash', label: 'Chi phí', roles: ['manager'] },
       { key: 'home', href: '/staff', icon: 'home', label: 'Bảng công việc', roles: ['staff', 'manager'] },
     ],
   },

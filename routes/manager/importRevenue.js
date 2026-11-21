@@ -42,7 +42,8 @@ const ok = r => !r.duplicate && !r.problem;
 router.get('/import/revenue', (req, res) => {
   res.locals.nav = 'm-import';
   const data = loadPreview(req);
-  const batches = db.prepare(`SELECT b.*, (SELECT COUNT(*) FROM revenues r WHERE r.import_batch = b.id) AS remaining
+  const batches = db.prepare(`SELECT b.*, (SELECT COUNT(*) FROM revenues r WHERE r.import_batch = b.id) AS remaining,
+                              (SELECT COUNT(*) FROM expenses e WHERE e.import_batch = b.id) AS exp_remaining
                               FROM import_batches b WHERE kind = 'revenue' ORDER BY created_at DESC`).all();
   let view = null;
   if (data) {
@@ -109,23 +110,29 @@ router.post('/import/revenue/confirm', (req, res) => {
   const data = loadPreview(req);
   if (!data) { req.flash('error', 'Phiên xem trước đã hết, hãy tải file lên lại.'); return res.redirect('/manager/import/revenue'); }
   const good = data.rows.filter(ok);
-  if (!good.length) { req.flash('error', 'Không có dòng hợp lệ để nhập.'); return res.redirect('/manager/import/revenue'); }
+  const withExpense = req.body.with_expense === '1';
+  const goodExp = withExpense ? (data.expenses || []).filter(ok) : [];
+  if (!good.length && !goodExp.length) { req.flash('error', 'Không có dòng hợp lệ để nhập.'); return res.redirect('/manager/import/revenue'); }
   const batch = 'XL' + fmt.todayYmd().replaceAll('-', '') + '-' + crypto.randomBytes(3).toString('hex');
   const ins = db.prepare(`INSERT INTO revenues (type, customer_name, customer_phone, content, amount, payment_method, staff_name, created_at, source, import_batch)
                           VALUES (?, ?, ?, ?, ?, ?, 'Nhập từ Excel', ?, 'excel', ?)`);
   const sum = good.reduce((s, r) => s + r.amount, 0);
-  const dates = good.map(r => r.date).sort();
+  const expSum = goodExp.reduce((s, r) => s + r.amount, 0);
+  const dates = [...good, ...goodExp].map(r => r.date).sort();
+  const insExp = db.prepare(`INSERT INTO expenses (expense_date, content, amount, payment_method, staff_name, source, import_batch)
+                             VALUES (?, ?, ?, ?, 'Nhập từ Excel', 'excel', ?)`);
   db.transaction(() => {
     for (const r of good) {
       // 12:00 trưa giờ VN để luôn rơi đúng ngày khi thống kê
       ins.run(r.type, r.customer, r.phone, r.saveContent, r.amount, r.payment, `${r.date}T05:00:00.000Z`, batch);
     }
-    db.prepare(`INSERT INTO import_batches (id, kind, file_name, row_count, total, date_from, date_to, user_name) VALUES (?, 'revenue', ?, ?, ?, ?, ?, ?)`)
-      .run(batch, data.fileName, good.length, sum, dates[0], dates[dates.length - 1], req.user.full_name);
+    for (const e of goodExp) insExp.run(e.date, e.saveContent, e.amount, e.payment, batch);
+    db.prepare(`INSERT INTO import_batches (id, kind, file_name, row_count, total, date_from, date_to, user_name, expense_count, expense_total) VALUES (?, 'revenue', ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(batch, data.fileName, good.length, sum, dates[0], dates[dates.length - 1], req.user.full_name, goodExp.length, expSum);
   })();
   cleanup(req);
-  notify('inventory', `${req.user.full_name} nhập doanh thu từ Excel: ${good.length} giao dịch, ${fmt.money(sum)} (${fmt.date(dates[0])} – ${fmt.date(dates[dates.length - 1])})`, '/manager/revenue?group=month', req.user.full_name);
-  req.flash('success', `Đã nhập ${good.length} giao dịch, tổng ${fmt.money(sum)} (đợt ${batch}).`);
+  notify('inventory', `${req.user.full_name} nhập từ Excel: ${good.length} giao dịch thu ${fmt.money(sum)}${goodExp.length ? `, ${goodExp.length} khoản chi ${fmt.money(expSum)}` : ''} (${fmt.date(dates[0])} – ${fmt.date(dates[dates.length - 1])})`, '/manager/revenue?group=month', req.user.full_name);
+  req.flash('success', `Đã nhập ${good.length} giao dịch thu, tổng ${fmt.money(sum)}${goodExp.length ? `; ${goodExp.length} khoản chi, tổng ${fmt.money(expSum)}` : ''} (đợt ${batch}).`);
   res.redirect('/manager/import/revenue');
 });
 
@@ -137,11 +144,12 @@ router.post('/import/revenue/batches/:id/delete', (req, res) => {
   if (!b) { req.flash('error', 'Không tìm thấy đợt nhập.'); return res.redirect('/manager/import/revenue'); }
   const n = db.transaction(() => {
     const r = db.prepare('DELETE FROM revenues WHERE import_batch = ?').run(b.id);
+    const e = db.prepare('DELETE FROM expenses WHERE import_batch = ?').run(b.id);
     db.prepare('DELETE FROM import_batches WHERE id = ?').run(b.id);
-    return r.changes;
+    return r.changes + (e.changes ? ` giao dịch thu + ${e.changes} khoản chi` : ' giao dịch');
   })();
-  notify('revenue_deleted', `${req.user.full_name} xóa đợt nhập doanh thu ${b.id} (${n} giao dịch)`, null, req.user.full_name);
-  req.flash('success', `Đã xóa đợt ${b.id}: ${n} giao dịch.`);
+  notify('revenue_deleted', `${req.user.full_name} xóa đợt nhập doanh thu ${b.id} (${n})`, null, req.user.full_name);
+  req.flash('success', `Đã xóa đợt ${b.id}: ${n}.`);
   res.redirect('/manager/import/revenue');
 });
 

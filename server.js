@@ -45,10 +45,14 @@ app.use(compression({ level: 6, threshold: 1024, filter: (req, res) => req.path 
 
 // Phiên bản tài nguyên tĩnh: đổi khi build lại CSS/JS => trình duyệt tự lấy bản mới, còn lại cache lâu
 const assetVersion = (() => {
-  try {
-    return ['public/css/app.css', 'public/js/app.js', 'public/js/sell.js', 'public/js/system.js']
-      .map(f => fs.statSync(path.join(__dirname, f)).mtimeMs.toString(36)).join('').slice(-10);
-  } catch { return Date.now().toString(36); }
+  // Băm nội dung mọi file CSS/JS: sửa bất kỳ file nào => phiên bản đổi => trình duyệt tải bản mới
+  const h = require('crypto').createHash('md5');
+  for (const dir of ['public/css', 'public/js']) {
+    for (const f of fs.readdirSync(path.join(__dirname, dir)).sort()) {
+      if (/\.(css|js)$/.test(f)) h.update(fs.readFileSync(path.join(__dirname, dir, f)));
+    }
+  }
+  return h.digest('hex').slice(0, 10);
 })();
 app.locals.v = assetVersion;
 app.locals.partial = require('./services/partial');
