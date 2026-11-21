@@ -19,7 +19,7 @@
   <button class="btn-primary"><%- icon('search', 'h-4 w-4') %></button>
 </form>
 <% const canDel = tab === 'in_stock' || isManager; const backUrl = `/staff/inventory?tab=${tab}${search ? '&q=' + encodeURIComponent(search) : ''}${page > 1 ? '&page=' + page : ''}`; %>
-<div x-data="{ sel: [], all: <%= JSON.stringify(items.map(i => i.id)) %>,
+<div @keydown.escape.window="ed = null" x-data="{ ed: null, sel: [], all: <%= JSON.stringify(items.map(i => i.id)) %>,
                toggleAll(e) { this.sel = e.target.checked ? [...this.all] : [] },
                ask(ids, label) {
                  const msg = 'Xóa ' + label + ' khỏi kho?<%= tab === 'sold' ? '\\nDoanh thu của các lần bán vẫn được giữ, chỉ xóa bản ghi trong kho.' : '' %>\nKhông thể hoàn tác.';
@@ -70,7 +70,8 @@
             <% } %>
             <td class="max-w-56 text-xs text-slate-500"><%= i.note || '' %></td>
             <% if (canDel) { %>
-              <td class="text-right"><button type="button" @click="ask([<%= i.id %>], <%= JSON.stringify((i.name + (i.serial ? ' (SN ' + i.serial + ')' : '')).slice(0, 80)) %>)"
+              <td class="whitespace-nowrap text-right"><button type="button" @click="ed = <%= JSON.stringify({ id: i.id, item_code: i.item_code || '', name: i.name, serial: i.serial || '', import_date: i.import_date || '', condition: i.condition || '', supplier: i.supplier || '', warranty_in_months: i.warranty_in_months ?? '', tech_price: i.tech_price ?? '', retail_price: i.retail_price ?? '', warranty_out_months: i.warranty_out_months ?? '', note: i.note || '', status: i.status, sold_date: i.sold_date || '', customer_name: i.customer_name || '', customer_phone: i.customer_phone || '', same: i.same_count }) %>"
+                class="inline-grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-slate-800" title="Sửa"><%- icon('edit', 'h-4 w-4') %></button><button type="button" @click="ask([<%= i.id %>], <%= JSON.stringify((i.name + (i.serial ? ' (SN ' + i.serial + ')' : '')).slice(0, 80)) %>)"
                 class="inline-grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950" title="Xóa"><%- icon('trash', 'h-4 w-4') %></button></td>
             <% } %>
           </tr>
@@ -79,6 +80,45 @@
       </tbody>
     </table>
   </div>
+
+  <%# Popup sửa hàng %>
+  <template x-if="ed">
+    <div class="modal-backdrop" @click.self="ed = null">
+      <form method="post" :action="'/staff/inventory/' + ed.id + '/edit'" class="modal max-w-2xl space-y-3">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="back" value="<%= backUrl %>">
+        <div class="flex items-center justify-between"><h3 class="text-lg font-semibold">Sửa hàng trong kho</h3>
+          <span :class="ed.status === 'sold' ? 'badge-violet' : 'badge-green'" x-text="ed.status === 'sold' ? 'Đã bán' : 'Tồn kho'"></span></div>
+        <div class="grid gap-3 sm:grid-cols-3">
+          <label class="block"><span class="label">Mã hàng</span><input name="item_code" x-model="ed.item_code" class="input uppercase" maxlength="64"></label>
+          <label class="block sm:col-span-2"><span class="label req">Tên hàng hóa</span><input name="name" x-model="ed.name" class="input" required maxlength="300"></label>
+          <label class="block"><span class="label">Serial</span><input name="serial" x-model="ed.serial" class="input font-mono"></label>
+          <label class="block"><span class="label">Ngày nhập</span><input type="date" name="import_date" x-model="ed.import_date" class="input"></label>
+          <label class="block"><span class="label">Tình trạng</span><input name="condition" x-model="ed.condition" list="conds" class="input"></label>
+          <label class="block"><span class="label">NPP</span><input name="supplier" x-model="ed.supplier" class="input"></label>
+          <label class="block"><span class="label">BH nhập (tháng)</span><input type="number" min="0" name="warranty_in_months" x-model="ed.warranty_in_months" class="input"></label>
+          <label class="block"><span class="label">BH xuất (tháng)</span><input type="number" min="0" name="warranty_out_months" x-model="ed.warranty_out_months" class="input"></label>
+          <label class="block"><span class="label">Giá KT (₫)</span><input name="tech_price" :value="formatVnd(ed.tech_price)" @input="$event.target.value = formatVnd($event.target.value)" inputmode="numeric" class="input text-right tabular-nums"></label>
+          <label class="block"><span class="label">Giá bán lẻ (₫)</span><input name="retail_price" :value="formatVnd(ed.retail_price)" @input="$event.target.value = formatVnd($event.target.value)" inputmode="numeric" class="input text-right font-semibold tabular-nums"></label>
+          <label class="block sm:col-span-3"><span class="label">Ghi chú</span><input name="note" x-model="ed.note" class="input"></label>
+        </div>
+        <datalist id="conds"><option value="Mới"><option value="Cũ"><option value="Like new"><option value="Đã qua sử dụng"></datalist>
+        <% if (isManager) { %>
+          <template x-if="ed.status === 'sold'">
+            <div class="grid gap-3 rounded-lg bg-violet-50 p-3 sm:grid-cols-3 dark:bg-violet-950/30">
+              <label class="block"><span class="label">Ngày bán</span><input type="date" name="sold_date" x-model="ed.sold_date" class="input"></label>
+              <label class="block"><span class="label">Khách hàng</span><input name="customer_name" x-model="ed.customer_name" class="input"></label>
+              <label class="block"><span class="label">SĐT khách</span><input name="customer_phone" x-model="ed.customer_phone" class="input" inputmode="tel"></label>
+            </div>
+          </template>
+        <% } %>
+        <label x-show="ed.status === 'in_stock' && ed.same > 0" class="flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-800/50">
+          <input type="checkbox" name="apply_same" value="1" class="mt-0.5 h-4 w-4">
+          <span>Áp dụng <strong>tên, giá, bảo hành</strong> cho <strong x-text="ed.same"></strong> món khác cùng mã hàng đang tồn kho</span>
+        </label>
+        <div class="flex justify-end gap-2 pt-1"><button type="button" @click="ed = null" class="btn-secondary">Hủy</button><button class="btn-primary"><%- icon('check', 'h-4 w-4') %>Lưu</button></div>
+      </form>
+    </div>
+  </template>
 </div>
 <% if (pages > 1) { %>
   <nav class="mt-4 flex flex-wrap items-center justify-center gap-1 text-sm">
