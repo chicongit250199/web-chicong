@@ -9,7 +9,7 @@
     <span class="hidden rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold uppercase text-slate-500 sm:inline dark:bg-slate-800"><%= user.role === 'manager' ? 'Quản lý' : 'Nhân viên' %></span>
   </a>
   <div class="flex items-center gap-2">
-    <div class="hidden sm:block"><%- include('theme-switch') %></div>
+    <%- include('theme-icons') %>
     <% if (user.role === 'manager') { %>
       <button type="button" @click="$dispatch('open-notifs')" class="relative rounded-lg p-2 hover:bg-slate-100 xl:hidden dark:hover:bg-slate-800" aria-label="Thông báo">
         <%- icon('bell', 'h-5 w-5') %>

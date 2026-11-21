@@ -1,7 +1,0 @@
-<div x-data="themeSwitch()" class="inline-flex h-8 items-center rounded-lg border border-slate-300 bg-white/80 p-0.5 text-xs dark:border-slate-700 dark:bg-slate-900/80" role="group" aria-label="Theme">
-  <template x-for="m in ['light','dark','auto']" :key="m">
-    <button type="button" @click="set(m)" class="flex-1 rounded-md px-2 py-1 font-medium transition"
-      :class="mode === m ? 'bg-brand-600 text-white' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'"
-      x-text="{light:'<%= t('theme.light') %>',dark:'<%= t('theme.dark') %>',auto:'<%= t('theme.auto') %>'}[m]"></button>
-  </template>
-</div>
