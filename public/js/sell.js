@@ -10,7 +10,7 @@ window.sellForm = function (staffName, preset) {
     },
     q: '', results: [], open: false, loading: false, hi: -1, timer: null,
     group: null, unitId: '', price: '', payment: 'cash',
-    customer_name: '', customer_phone: '', delivery_address: '', warranty: '',
+    customer_name: '', customer_phone: '', delivery_address: '', warranty: '', kind: 'repair',
     confirm: false, sending: false, error: '', success: '', confirmTime: '',
 
     get unit() {
@@ -18,6 +18,8 @@ window.sellForm = function (staffName, preset) {
       var id = Number(this.unitId);
       return this.group.units.find(function (u) { return u.id === id; }) || null;
     },
+    // Không chọn từ kho mà tự gõ tên -> dịch vụ / hàng ngoài kho
+    get free() { return !this.group && this.q.trim().length > 0; },
     get hasSerials() { return this.group && this.group.units.some(function (u) { return u.serial; }); },
     get priceDisplay() { return this.price === '' ? '' : formatVnd(this.price); },
 
@@ -57,8 +59,10 @@ window.sellForm = function (staffName, preset) {
 
     openConfirm: function () {
       this.error = ''; this.success = '';
-      if (!this.unit) { this.error = this.group ? 'Chọn số Serial của món hàng.' : 'Chọn hàng hóa từ danh sách gợi ý.'; return; }
-      if (this.price === '') { this.error = 'Nhập giá bán.'; return; }
+      if (this.group && !this.unit) { this.error = 'Chọn số Serial của món hàng.'; return; }
+      if (!this.group && !this.q.trim()) { this.error = 'Nhập tên hàng hóa / dịch vụ.'; return; }
+      if (this.price === '') { this.error = 'Nhập giá tiền.'; return; }
+      this.open = false;
       this.confirmTime = new Date().toLocaleString('vi-VN');
       this.confirm = true;
     },
@@ -66,7 +70,7 @@ window.sellForm = function (staffName, preset) {
       var self = this;
       this.sending = true;
       api('/staff/sell', { method: 'POST', body: {
-        item_id: this.unit.id, price: this.price, payment_method: this.payment, warranty_months: this.warranty,
+        item_id: this.unit ? this.unit.id : null, name: this.free ? this.q.trim() : '', kind: this.kind, price: this.price, payment_method: this.payment, warranty_months: this.warranty,
         customer_name: this.customer_name, customer_phone: this.customer_phone, delivery_address: this.delivery_address,
       } }).then(function (d) {
         self.success = d.message; self.confirm = false; self.reset();
@@ -75,7 +79,7 @@ window.sellForm = function (staffName, preset) {
     },
     reset: function () {
       this.q = ''; this.results = []; this.group = null; this.unitId = ''; this.price = ''; this.payment = 'cash';
-      this.customer_name = ''; this.customer_phone = ''; this.delivery_address = ''; this.warranty = '';
+      this.customer_name = ''; this.customer_phone = ''; this.delivery_address = ''; this.warranty = ''; this.kind = 'repair';
     },
   };
 };

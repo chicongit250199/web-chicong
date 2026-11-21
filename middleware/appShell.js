@@ -30,8 +30,7 @@ module.exports = function appShell(req, res, next) {
     res.locals.unreadCount = q.unread.get().c;
   }
   res.locals.isManager = isManager;
-  res.locals.menuStaff = menu.staff;
-  res.locals.menuManager = isManager ? menu.manager : [];
+  res.locals.menuGroups = menu.groupsFor(isManager ? 'manager' : 'staff');
   res.locals.badges = badges;
   res.locals.nav = '';
   next();

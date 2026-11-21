@@ -5,15 +5,20 @@
 <% if (isManager) { %>
   <%# Manager: sidebar trái cố định, luôn mở rộng %>
   <aside class="fixed bottom-0 left-0 top-14 z-30 hidden w-60 overflow-y-auto border-r border-slate-200 bg-white px-3 py-4 lg:block dark:border-slate-800 dark:bg-slate-900">
-    <p class="mb-1 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">Quản lý</p>
-    <nav class="space-y-0.5"><% menuManager.forEach(item => { %><%- partial('app/_nav_item', { item, nav, badges, icon }) %><% }) %></nav>
-    <p class="mb-1 mt-5 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">Nghiệp vụ</p>
-    <nav class="space-y-0.5"><% menuStaff.slice(1).forEach(item => { %><%- partial('app/_nav_item', { item, nav, badges, icon }) %><% }) %></nav>
+    <% menuGroups.forEach((g, gi) => { %>
+      <p class="mb-1 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 <%= gi ? 'mt-4' : '' %>"><%= g.title %></p>
+      <nav class="space-y-0.5"><% g.items.forEach(item => { %><%- partial('app/_nav_item', { item, nav, badges, icon }) %><% }) %></nav>
+    <% }) %>
   </aside>
 <% } else { %>
   <%# Staff: thu gọn icon, hover mở rộng (đè lên nội dung) %>
   <aside class="collapsible fixed bottom-0 left-0 top-14 z-30 hidden w-16 overflow-y-auto overflow-x-hidden border-r border-slate-200 bg-white px-2 py-3 transition-[width] duration-200 hover:w-60 hover:shadow-xl md:block dark:border-slate-800 dark:bg-slate-900">
-    <nav class="staff-nav space-y-0.5"><% menuStaff.forEach(item => { %><%- partial('app/_nav_item', { item, nav, badges, icon }) %><% }) %></nav>
+    <% menuGroups.forEach((g, gi) => { %>
+      <div class="<%= gi ? 'mt-2 border-t border-slate-200 pt-2 dark:border-slate-800' : '' %>">
+        <p class="nav-label mb-0.5 h-4 overflow-hidden whitespace-nowrap px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400"><%= g.title %></p>
+        <nav class="space-y-0.5"><% g.items.forEach(item => { %><%- partial('app/_nav_item', { item, nav, badges, icon }) %><% }) %></nav>
+      </div>
+    <% }) %>
   </aside>
 <% } %>
 
@@ -31,12 +36,10 @@
     <span class="font-semibold">Menu</span>
     <button type="button" @click="menu = false" class="rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Đóng"><%- icon('x', 'h-5 w-5') %></button>
   </div>
-  <% if (isManager) { %>
-    <p class="mb-1 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">Quản lý</p>
-    <nav class="mb-4 space-y-0.5"><% menuManager.forEach(item => { %><%- partial('app/_nav_item', { item, nav, badges, icon }) %><% }) %></nav>
-    <p class="mb-1 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">Nghiệp vụ</p>
-  <% } %>
-  <nav class="space-y-0.5"><% menuStaff.forEach(item => { %><%- partial('app/_nav_item', { item, nav, badges, icon }) %><% }) %></nav>
+  <% menuGroups.forEach((g, gi) => { %>
+    <p class="mb-1 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 <%= gi ? 'mt-4' : '' %>"><%= g.title %></p>
+    <nav class="space-y-0.5"><% g.items.forEach(item => { %><%- partial('app/_nav_item', { item, nav, badges, icon }) %><% }) %></nav>
+  <% }) %>
 </aside>
 
 <div class="pb-20 <%= isManager ? 'lg:pb-6 lg:pl-60 xl:pr-80' : 'md:pb-6 md:pl-16' %>">

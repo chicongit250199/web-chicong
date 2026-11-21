@@ -32,7 +32,7 @@ router.get('/sell', (req, res) => {
     preset = groupOf(Number(req.query.item));
     if (!preset) res.locals.flash = [...(res.locals.flash || []), { type: 'error', message: 'Món hàng này không còn trong kho (đã bán hoặc đã xóa).' }];
   }
-  res.render('staff/sell', { title: 'Bán hàng', recent, preset, scripts: ['/js/sell.js'] });
+  res.render('staff/sell', { title: 'Bán hàng / Dịch vụ', recent, preset, scripts: ['/js/sell.js'] });
 });
 
 // Gợi ý hàng còn tồn: gom theo mã hàng + tên, kèm số lượng và danh sách serial
@@ -48,19 +48,36 @@ router.get('/api/inventory/suggest', (req, res) => {
 });
 
 const sellSchema = v.z.object({
-  item_id: v.z.coerce.number().int().positive('Chọn hàng hóa từ danh sách gợi ý'),
-  price: v.money.refine(x => x != null, 'Nhập giá bán'),
+  // Chọn từ kho: item_id. Hàng ngoài kho / dịch vụ: để trống item_id, nhập name + kind
+  item_id: v.z.preprocess(x => (x === '' || x == null ? null : Number(x)), v.z.number().int().positive().nullable()),
+  name: v.text(300),
+  kind: v.z.preprocess(x => (x === 'sale' ? 'sale' : 'repair'), v.z.enum(['repair', 'sale'])),
+  price: v.money.refine(x => x != null, 'Nhập giá tiền'),
   payment_method: v.oneOf(['cash', 'transfer'], 'Chọn hình thức thanh toán'),
   customer_name: v.text(120),
   customer_phone: v.phone(false),
   delivery_address: v.text(500),
   warranty_months: v.intOpt,
-});
+}).refine(d => d.item_id || d.name, { message: 'Nhập tên hàng hóa / dịch vụ' });
 
 router.post('/sell', (req, res) => {
   const { data, error } = v.parse(sellSchema, req.body);
   if (error) return res.status(422).json({ error });
   const now = new Date().toISOString();
+  const insRevenue = db.prepare(`INSERT INTO revenues (type, ref_id, customer_name, customer_phone, delivery_address, content, amount, payment_method, warranty_months, staff_name, created_at)
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+
+  // ---- Hàng ngoài kho / dịch vụ: chỉ ghi doanh thu, không trừ kho ----
+  if (!data.item_id) {
+    const warranty = data.warranty_months ?? 0;
+    insRevenue.run(data.kind, null, data.customer_name, data.customer_phone, data.delivery_address, data.name, data.price, data.payment_method, warranty, req.user.full_name, now);
+    const label = data.kind === 'repair' ? 'dịch vụ' : 'hàng ngoài kho';
+    notify('sale', `${req.user.full_name} thu ${label}: ${data.name} — ${fmt.money(data.price)} (${fmt.payment(data.payment_method)})`,
+      data.customer_phone ? `/staff/search?q=${encodeURIComponent(data.customer_phone)}` : '/manager', req.user.full_name);
+    return res.json({ ok: true, message: `Đã ghi ${label} "${data.name}" — ${fmt.money(data.price)}` });
+  }
+
+  // ---- Bán từ kho: trừ đúng món (serial) ----
   const result = db.transaction(() => {
     const item = db.prepare(`SELECT * FROM inventory_items WHERE id = ? AND status = 'in_stock'`).get(data.item_id);
     if (!item) return null;
@@ -68,9 +85,7 @@ router.post('/sell', (req, res) => {
     db.prepare(`UPDATE inventory_items SET status = 'sold', sold_date = ?, customer_name = ?, customer_phone = ?, warranty_out_months = ? WHERE id = ?`)
       .run(fmt.todayYmd(), data.customer_name, data.customer_phone, warranty, item.id);
     const content = `${item.name}${item.serial ? ' — SN: ' + item.serial : ''}`;
-    const r = db.prepare(`INSERT INTO revenues (type, ref_id, customer_name, customer_phone, delivery_address, content, amount, payment_method, warranty_months, staff_name, created_at)
-                VALUES ('sale', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(item.id, data.customer_name, data.customer_phone, data.delivery_address, content, data.price, data.payment_method, warranty, req.user.full_name, now);
+    const r = insRevenue.run('sale', item.id, data.customer_name, data.customer_phone, data.delivery_address, content, data.price, data.payment_method, warranty, req.user.full_name, now);
     return { item, revenueId: r.lastInsertRowid, content, warranty };
   })();
   if (!result) return res.status(409).json({ error: 'Món hàng này vừa được bán hoặc không còn trong kho. Hãy chọn lại.' });
