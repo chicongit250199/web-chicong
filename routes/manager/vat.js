@@ -85,6 +85,21 @@ router.get('/vat', (req, res) => {
   });
 });
 
+// Chi tiết 1 mặt hàng VAT đầu vào + lịch sử các lần xuất (kèm hóa đơn bán ra)
+router.get('/vat/items/:id', (req, res, next) => {
+  const item = db.prepare(`SELECT x.*, i.invoice_number, i.invoice_symbol, i.invoice_date, i.partner_name, i.partner_tax_id, i.drive_link, i.pdf_link, i.id AS inv_id
+                           FROM vat_items x JOIN vat_invoices i ON i.id = x.invoice_id WHERE x.id = ? AND i.direction = 'in'`).get(req.params.id);
+  if (!item) return next();
+  const exports = db.prepare(`SELECT e.*, oi.id AS out_id, oi.invoice_number AS out_number, oi.invoice_symbol AS out_symbol, oi.invoice_date AS out_date,
+                                     oi.partner_name AS out_partner, oi.partner_tax_id AS out_tax_id, oi.total_amount AS out_total,
+                                     COALESCE(oi.pdf_link, oi.drive_link) AS out_link, ox.unit_price AS out_unit_price, ox.item_name AS out_item_name
+                              FROM vat_item_exports e
+                              LEFT JOIN vat_invoices oi ON oi.id = e.out_invoice_id
+                              LEFT JOIN vat_items ox ON ox.id = e.out_item_id
+                              WHERE e.vat_item_id = ? ORDER BY COALESCE(oi.invoice_date, e.created_at), e.id`).all(item.id);
+  res.json({ item, exports });
+});
+
 router.get('/vat/invoices/:id', (req, res, next) => {
   const inv = db.prepare('SELECT * FROM vat_invoices WHERE id = ?').get(req.params.id);
   if (!inv) return next();

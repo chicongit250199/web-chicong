@@ -17,9 +17,13 @@
       catch (e) { this.err = e.message }
     },
     async openInv(id) { const d = await api('/manager/vat/invoices/' + id); this.inv = d.invoice; this.invItems = d.items; },
+    it: null, itEx: [],
+    async openItem(id) { const d = await api('/manager/vat/items/' + id); this.it = d.item; this.itEx = d.exports; },
+    num(n) { return n == null ? '' : new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 3 }).format(n); },
+    dmy(s) { if (!s) return ''; const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3] + '/' + m[2] + '/' + m[1] : s; },
     mt: null,
     async openMatch(id) { this.mt = await api('/manager/vat/reconcile/candidates/' + id); }
-  }" @keydown.escape.window="ex = null; inv = null; mt = null">
+  }" @keydown.escape.window="ex = null; inv = null; mt = null; it = null">
   <div class="page-title">
     <h1><%- icon('receipt', 'h-6 w-6 text-brand-600') %>Kho hóa đơn VAT</h1>
     <div class="flex flex-wrap gap-2">
@@ -126,7 +130,7 @@
           <% rows.forEach(r => { const pct = r.quantity_in ? Math.round(r.quantity_remaining / r.quantity_in * 100) : 0; %>
             <tr>
               <td class="min-w-0">
-                <span class="line-clamp-2 font-medium" title="<%= r.item_name %>"><%= r.item_name %></span>
+                <button type="button" @click="openItem(<%= r.id %>)" class="line-clamp-2 text-left font-medium hover:text-brand-600 hover:underline" title="Xem lịch sử xuất"><%= r.item_name %></button>
                 <span class="text-xs text-slate-500"><%= r.unit || '' %><%= r.vat_rate ? ' · VAT ' + r.vat_rate : '' %></span>
                 <span class="block text-xs text-slate-500 md:hidden"><%= r.invoice_number %> · <%= fmt.date(r.invoice_date) %> · <%= fmt.num(r.unit_price) %> ₫</span>
               </td>
@@ -241,6 +245,66 @@
         <label class="block"><span class="label">Ghi chú</span><input name="note" class="input" placeholder="Số HĐ bán ra, lý do..."></label>
         <div class="flex justify-end gap-2 pt-2"><button type="button" @click="ex = null" class="btn-secondary">Hủy</button><button class="btn-primary">Xác nhận xuất</button></div>
       </form>
+    </div>
+  </template>
+
+  <%# Popup chi tiết mặt hàng VAT + lịch sử xuất %>
+  <template x-if="it">
+    <div class="modal-backdrop" @click.self="it = null">
+      <div class="modal max-w-3xl space-y-4">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h3 class="text-lg font-semibold leading-snug" x-text="it.item_name"></h3>
+            <p class="mt-0.5 text-sm text-slate-500" x-text="(it.unit || '') + (it.vat_rate ? ' · VAT ' + it.vat_rate : '') + (it.unit_price != null ? ' · đơn giá nhập ' + num(it.unit_price) + ' ₫' : '')"></p>
+          </div>
+          <button type="button" @click="it = null" class="rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800"><%- icon('x', 'h-5 w-5') %></button>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center">
+          <div class="rounded-lg bg-slate-50 p-2.5 dark:bg-slate-800/60"><p class="text-xs text-slate-500">Nhập</p><p class="text-lg font-bold tabular-nums" x-text="num(it.quantity_in)"></p></div>
+          <div class="rounded-lg bg-slate-50 p-2.5 dark:bg-slate-800/60"><p class="text-xs text-slate-500">Đã xuất</p><p class="text-lg font-bold tabular-nums text-violet-600 dark:text-violet-400" x-text="num(it.quantity_in - it.quantity_remaining)"></p></div>
+          <div class="rounded-lg bg-slate-50 p-2.5 dark:bg-slate-800/60"><p class="text-xs text-slate-500">Còn lại</p><p class="text-lg font-bold tabular-nums" :class="it.quantity_remaining > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'" x-text="num(it.quantity_remaining)"></p></div>
+        </div>
+        <div class="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div class="h-full rounded-full bg-violet-500" :style="'width:' + (it.quantity_in ? (it.quantity_in - it.quantity_remaining) / it.quantity_in * 100 : 0) + '%'"></div></div>
+
+        <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700">
+          <span><span class="text-slate-500">HĐ đầu vào:</span> <strong x-text="(it.invoice_symbol || '') + ' ' + it.invoice_number"></strong> · <span x-text="dmy(it.invoice_date)"></span> · <span x-text="it.partner_name || ''"></span></span>
+          <span class="flex gap-1.5">
+            <button type="button" @click="openInv(it.inv_id)" class="btn-secondary px-2.5 py-1 text-xs">Xem hóa đơn</button>
+            <a :href="it.pdf_link || it.drive_link" target="_blank" rel="noopener" class="btn-secondary px-2.5 py-1 text-xs"><%- icon('external', 'h-3.5 w-3.5') %>Drive</a>
+          </span>
+        </div>
+
+        <div>
+          <h4 class="mb-2 font-semibold">Lịch sử các lần xuất <span class="badge-gray" x-text="itEx.length"></span></h4>
+          <p x-show="!itEx.length" class="rounded-lg bg-slate-50 px-3 py-6 text-center text-sm text-slate-500 dark:bg-slate-800/50">Chưa xuất lần nào.</p>
+          <ol x-show="itEx.length" class="max-h-[45vh] space-y-2 overflow-y-auto">
+            <template x-for="(e, k) in itEx" :key="e.id">
+              <li class="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700">
+                <div class="flex flex-wrap items-start justify-between gap-2">
+                  <div class="min-w-0">
+                    <p class="font-medium">
+                      <span class="mr-1 text-slate-400" x-text="'#' + (k + 1)"></span>
+                      <template x-if="e.out_number"><span>HĐ bán ra <strong x-text="(e.out_symbol || '') + ' ' + e.out_number"></strong> · <span x-text="dmy(e.out_date)"></span></span></template>
+                      <template x-if="!e.out_number"><span>Xuất tay · <span x-text="new Date(e.created_at).toLocaleDateString('vi-VN')"></span></span></template>
+                    </p>
+                    <p class="mt-0.5 text-slate-600 dark:text-slate-400" x-text="(e.out_partner || e.buyer_name || 'Khách lẻ') + ((e.out_tax_id || e.buyer_tax_id) ? ' · MST ' + (e.out_tax_id || e.buyer_tax_id) : '')"></p>
+                    <p class="mt-0.5 text-xs text-slate-500" x-text="[e.out_unit_price != null ? 'giá bán ' + num(e.out_unit_price) + ' ₫/' + (it.unit || 'cái') : '', e.out_total != null ? 'tổng HĐ ' + num(e.out_total) + ' ₫' : '', e.note && !e.out_number ? e.note : '', e.user_name].filter(Boolean).join(' · ')"></p>
+                  </div>
+                  <div class="flex shrink-0 flex-col items-end gap-1">
+                    <span class="text-base font-bold tabular-nums" x-text="'−' + num(e.quantity) + ' ' + (it.unit || '')"></span>
+                    <span :class="e.auto ? 'badge-blue' : 'badge-gray'" class="text-[10px]" x-text="e.auto ? 'tự động' : 'chọn tay'"></span>
+                  </div>
+                </div>
+                <div x-show="e.out_id" class="mt-2 flex gap-1.5">
+                  <button type="button" @click="openInv(e.out_id)" class="btn-secondary px-2.5 py-1 text-xs">Xem hóa đơn bán ra</button>
+                  <a x-show="e.out_link" :href="e.out_link" target="_blank" rel="noopener" class="btn-secondary px-2.5 py-1 text-xs"><%- icon('external', 'h-3.5 w-3.5') %>Mở trên Drive</a>
+                </div>
+              </li>
+            </template>
+          </ol>
+        </div>
+      </div>
     </div>
   </template>
 
