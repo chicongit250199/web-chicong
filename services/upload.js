@@ -24,7 +24,7 @@ const fileUpload = (maxMb = 15) => multer({ storage: multer.memoryStorage(), lim
 
 const PRESETS = {
   logo: { width: 512, height: 512, fit: 'inside' },
-  banner: { width: 1920, height: 600, fit: 'cover' },
+  banner: { width: 1920, height: 1920, fit: 'inside' }, // giữ nguyên tỉ lệ ảnh gốc, không cắt
   product: { width: 1200, height: 1200, fit: 'inside' },
 };
 
