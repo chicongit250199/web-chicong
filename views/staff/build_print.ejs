@@ -1,11 +1,11 @@
 <% const T = en ? {
   title: doc === 'receipt' ? 'PAYMENT AND WARRANTY RECEIPT' : 'PC COMPONENTS QUOTATION', name: 'Name', phone: 'Phone', addr: 'Address', greet: 'Dear valued company and customers,',
   no: 'No', comp: 'Component name', qty: 'QTY', unit: 'Unit price', amount: 'Total amount', war: 'Warranty', note: 'Note', months: 'Months',
-  code: 'No.', pay: 'Payment', sub: 'Subtotal', disc: 'Discount', total: 'Total', vat: '(VAT included)', dep: 'Deposit', rem: 'Remaining', words: 'In words', notes: 'Note', by: 'Prepared by', cust: 'Customer', sign: '(Sign and full name)', tax: 'Tax code', tel: 'Phone',
+  code: 'No.', pay: 'Payment', sub: 'Subtotal', disc: 'Discount', total: 'Total', dep: 'Deposit', rem: 'Remaining', words: 'In words', notes: 'Note', by: 'Prepared by', cust: 'Customer', sign: '(Sign and full name)', tax: 'Tax code', tel: 'Phone',
 } : {
   title: doc === 'receipt' ? 'PHIẾU THANH TOÁN - BẢO HÀNH' : 'BÁO GIÁ LINH KIỆN PC', name: 'Tên KH', phone: 'SĐT', addr: 'Địa chỉ', greet: 'Kính gửi quý công ty, khách hàng.',
   no: 'STT', comp: 'Tên linh kiện', qty: 'SL', unit: 'Đơn giá', amount: 'Thành tiền', war: 'Bảo hành', note: 'Ghi chú', months: 'Tháng',
-  code: 'Số phiếu', pay: 'Thanh toán', sub: 'Tổng', disc: 'Giảm giá', total: 'Tổng cộng', vat: '(Đã bao gồm VAT)', dep: 'Đặt cọc', rem: 'Còn lại', words: 'Bằng chữ', notes: 'Lưu ý', by: 'Người lập phiếu', cust: 'Khách hàng', sign: '(ký, ghi rõ họ tên)', tax: 'MST', tel: 'Điện thoại',
+  code: 'Số phiếu', pay: 'Thanh toán', sub: 'Tổng', disc: 'Giảm giá', total: 'Tổng cộng', dep: 'Đặt cọc', rem: 'Còn lại', words: 'Bằng chữ', notes: 'Lưu ý', by: 'Người lập phiếu', cust: 'Khách hàng', sign: '(ký, ghi rõ họ tên)', tax: 'MST', tel: 'Điện thoại',
 }; const n = x => fmt.num(x); %><!doctype html>
 <html lang="<%= en ? 'en' : 'vi' %>">
 <head>
@@ -78,7 +78,7 @@
         <tr><td><%= T.sub %>:</td><td class="r"><%= n(subtotal) %> ₫</td></tr>
         <tr><td><%= T.disc %>:</td><td class="r">- <%= n(b.discount) %> ₫</td></tr>
       <% } %>
-      <tr class="big"><td><%= T.total %> <span style="font-weight:400;font-size:12px"><%= T.vat %></span>:</td><td class="r"><%= n(b.total) %> ₫</td></tr>
+      <tr class="big"><td><%= T.total %>:</td><td class="r"><%= n(b.total) %> ₫</td></tr>
       <% if (b.deposit) { %>
         <tr><td><%= T.dep %>:</td><td class="r"><%= n(b.deposit) %> ₫</td></tr>
         <tr class="big"><td><%= T.rem %>:</td><td class="r"><%= n(Math.max(0, b.total - b.deposit)) %> ₫</td></tr>
