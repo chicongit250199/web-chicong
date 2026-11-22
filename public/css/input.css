@@ -19,10 +19,6 @@
 [x-cloak] { display: none !important; }
 
 /* Sidebar Staff thu gọn: ẩn chữ, badge thành chấm nhỏ cạnh icon */
-.collapsible { scrollbar-width: none; }
-.collapsible .nav-label { transition: opacity .15s; }
-.collapsible:not(:hover) .nav-label { opacity: 0; }
-.collapsible:not(:hover) .nav-badge { position: absolute; top: 2px; left: 26px; transform: scale(.8); }
 
 @layer components {
   .badge { @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold; }

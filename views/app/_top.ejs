@@ -2,28 +2,16 @@
 <div x-data="{ menu: false, notifs: false }" @open-notifs.window="notifs = true">
 <%- include('../partials/app-header') %>
 
-<% if (isManager) { %>
-  <%# Manager: sidebar trái cố định, luôn mở rộng %>
-  <aside class="fixed bottom-0 left-0 top-14 z-30 hidden w-60 overflow-y-auto border-r border-slate-200 bg-white px-3 py-4 lg:block dark:border-slate-800 dark:bg-slate-900">
-    <% menuGroups.forEach((g, gi) => { %>
-      <p class="mb-1 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 <%= gi ? 'mt-4' : '' %>"><%= g.title %></p>
-      <nav class="space-y-0.5"><% g.items.forEach(item => { %><%- partial('app/_nav_item', { item, nav, badges, icon }) %><% }) %></nav>
-    <% }) %>
-  </aside>
-<% } else { %>
-  <%# Staff: thu gọn icon, hover mở rộng (đè lên nội dung) %>
-  <aside class="collapsible fixed bottom-0 left-0 top-14 z-30 hidden w-16 overflow-y-auto overflow-x-hidden border-r border-slate-200 bg-white px-2 py-3 transition-[width] duration-200 hover:w-60 hover:shadow-xl md:block dark:border-slate-800 dark:bg-slate-900">
-    <% menuGroups.forEach((g, gi) => { %>
-      <div class="<%= gi ? 'mt-2 border-t border-slate-200 pt-2 dark:border-slate-800' : '' %>">
-        <p class="nav-label mb-0.5 h-4 overflow-hidden whitespace-nowrap px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400"><%= g.title %></p>
-        <nav class="space-y-0.5"><% g.items.forEach(item => { %><%- partial('app/_nav_item', { item, nav, badges, icon }) %><% }) %></nav>
-      </div>
-    <% }) %>
-  </aside>
-<% } %>
+<%# Sidebar trái cố định, luôn mở rộng (quản lý và nhân viên) %>
+<aside class="fixed bottom-0 left-0 top-14 z-30 hidden w-60 overflow-y-auto border-r border-slate-200 bg-white px-3 py-4 lg:block dark:border-slate-800 dark:bg-slate-900">
+  <% menuGroups.forEach((g, gi) => { %>
+    <p class="mb-1 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 <%= gi ? 'mt-4' : '' %>"><%= g.title %></p>
+    <nav class="space-y-0.5"><% g.items.forEach(item => { %><%- partial('app/_nav_item', { item, nav, badges, icon }) %><% }) %></nav>
+  <% }) %>
+</aside>
 
 <%# Mobile: thanh dưới + drawer menu đầy đủ %>
-<nav class="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] text-[10px] font-medium backdrop-blur <%= isManager ? 'lg:hidden' : 'md:hidden' %> dark:border-slate-800 dark:bg-slate-900/95">
+<nav class="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] text-[10px] font-medium backdrop-blur lg:hidden dark:border-slate-800 dark:bg-slate-900/95">
   <% [[isManager ? '/manager' : '/staff', 'home', 'Tổng quan'], ['/staff/tasks/new', 'inbox', 'Nhận máy'], ['/staff/return', 'checkCircle', 'Trả máy'], ['/staff/sell', 'cart', 'Bán hàng']].forEach(([href, ic, label]) => { %>
     <a href="<%= href %>" class="flex flex-col items-center gap-0.5 py-2 <%= path === href.replace(/\?.*/, '') ? 'text-brand-600' : 'text-slate-600 dark:text-slate-300' %>"><%- icon(ic, 'h-5 w-5') %><%= label %></a>
   <% }) %>
@@ -42,7 +30,7 @@
   <% }) %>
 </aside>
 
-<div class="pb-20 <%= isManager ? 'lg:pb-6 lg:pl-60' : 'md:pb-6 md:pl-16' %>">
+<div class="pb-20 lg:pb-6 lg:pl-60">
   <main class="mx-auto <%= typeof wide !== 'undefined' && wide ? 'max-w-[1600px]' : 'max-w-6xl' %> p-4 md:p-6">
     <% if (taskAlerts.length && !(typeof hideTaskAlerts !== 'undefined' && hideTaskAlerts)) { const pend = taskAlerts.filter(x => x.alert && x.alert.kind === 'pending').length; %>
       <div x-data="{ open: <%= taskAlerts.length <= 3 ? 'true' : 'false' %> }" class="mb-4 overflow-hidden rounded-xl border border-orange-300 bg-orange-50 text-sm text-orange-900 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-100">
