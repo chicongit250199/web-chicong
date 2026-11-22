@@ -44,7 +44,7 @@
     <table class="tbl inv-tbl">
       <thead><tr>
         <% if (canDel) { %><th class="w-8"><input type="checkbox" class="h-4 w-4" @change="toggleAll($event)" :checked="sel.length && sel.length === all.length" aria-label="Chọn tất cả"></th><% } %>
-        <th class="w-24">Mã hàng</th><th>Tên hàng</th><th>Serial</th><th title="Ngày nhập">Nhập</th><th>Tình trạng</th><th>NPP</th><th title="Bảo hành nhập (tháng)">BH N</th>
+        <th class="w-24">Mã hàng</th><th>Tên hàng</th><th class="text-right" title="<%= tab === 'sold' ? 'Số lượng cùng mã hàng còn trong kho' : 'Số lượng cùng mã hàng đang tồn kho' %>">SL<%= tab === 'sold' ? ' còn' : '' %></th><th>Serial</th><th title="Ngày nhập">Nhập</th><th>Tình trạng</th><th>NPP</th><th title="Bảo hành nhập (tháng)">BH N</th>
         <th class="text-right">Giá KT</th><th class="text-right">Giá bán lẻ</th><th title="Bảo hành xuất (tháng)">BH X</th>
         <% if (tab === 'sold') { %><th>Ngày bán</th><th>Khách hàng</th><th>Hết BH</th><% } %><th>Ghi chú</th>
         <% if (canDel) { %><th></th><% } %>
@@ -55,6 +55,8 @@
             <% if (canDel) { %><td><input type="checkbox" class="h-4 w-4" value="<%= i.id %>" x-model.number="sel" aria-label="Chọn"></td><% } %>
             <td class="max-w-[6rem] truncate text-xs" title="<%= i.item_code %>"><%= i.item_code %></td>
             <td class="min-w-40 font-medium"><span class="line-clamp-2" title="<%= i.name %>"><%= i.name %></span></td>
+            <% const qty = tab === 'sold' ? (i.item_code ? i.same_count : null) : i.same_count + 1; %>
+            <td class="whitespace-nowrap text-right font-semibold tabular-nums <%= qty === 0 ? 'text-red-600' : qty === 1 ? 'text-amber-600' : '' %>"><%= qty == null ? '' : qty %></td>
             <td class="max-w-[7.5rem] truncate font-mono text-[11px]" title="<%= i.serial || '' %>"><%= i.serial || '' %></td>
             <td class="whitespace-nowrap text-xs" title="<%= fmt.date(i.import_date) %>"><%= fmt.dateShort(i.import_date) %></td>
             <td class="text-xs"><%= i.condition || '' %></td>
@@ -77,7 +79,7 @@
             <% } %>
           </tr>
         <% }) %>
-        <% if (!items.length) { %><tr><td colspan="16" class="py-10 text-center text-slate-500">Không có hàng hóa</td></tr><% } %>
+        <% if (!items.length) { %><tr><td colspan="17" class="py-10 text-center text-slate-500">Không có hàng hóa</td></tr><% } %>
       </tbody>
     </table>
   </div>
