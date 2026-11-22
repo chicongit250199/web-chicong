@@ -35,6 +35,8 @@ function appShell(req, res, next) {
     processing: isManager ? q.processingAll.get().c : q.processing.get(u.id).c,
     ready: q.ready.get().c,
   };
+  // Số trên mục "Quản lý task": quản lý = task chưa ai nhận; nhân viên = chưa ai nhận + được giao cho mình
+  badges.taskMenu = isManager ? badges.pending : badges.pending + badges.assigned;
   if (isManager) {
     badges.unassigned = badges.pending;
     badges.productsPending = q.productsPending.get().c;

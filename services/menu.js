@@ -15,14 +15,9 @@ const GROUPS = [
     title: 'Sửa chữa',
     items: [
       { key: 'task-new', href: '/staff/tasks/new', icon: 'inbox', label: 'Nhận máy', roles: ['staff', 'manager'] },
-      // Quản lý: 1 mục gồm các tab Chưa làm / Được giao / Đang làm / Quá hạn / Đã trả / Tất cả / Phân task
-      { key: 'm-tasks', href: '/staff/tasks?view=pending', icon: 'list', label: 'Quản lý task', badge: 'pending', roles: ['manager'] },
-      { key: 'tasks-pending', href: '/staff/tasks?view=pending', icon: 'list', label: 'Task chưa làm', badge: 'pending', roles: ['staff'] },
-      { key: 'tasks-assigned', href: '/staff/tasks?view=assigned', icon: 'userCheck', label: 'Task được giao', badge: 'assigned', roles: ['staff'] },
-      { key: 'tasks-processing', href: '/staff/tasks?view=processing', icon: 'wrench', label: 'Task đang làm', badge: 'processing', roles: ['staff'] },
-      { key: 'tasks-overdue', href: '/staff/tasks?view=overdue', icon: 'alert', label: 'Task quá hạn', badge: 'overdue', roles: ['staff'] },
+      // 1 mục gồm các tab Chưa làm / Được giao / Đang làm / Quá hạn / Chờ trả / Đã trả / Tất cả (+ Phân task cho quản lý)
+      { key: 'm-tasks', href: '/staff/tasks?view=pending', icon: 'list', label: 'Quản lý task', badge: 'taskMenu', roles: ['staff', 'manager'] },
       { key: 'return', href: '/staff/return', icon: 'checkCircle', label: 'Trả máy', badge: 'ready', roles: ['staff', 'manager'] },
-      { key: 'completed', href: '/staff/tasks?view=completed', icon: 'checkSquare', label: 'Máy đã trả', roles: ['staff'] },
       { key: 'partners', href: '/staff/partners', icon: 'users', label: 'Khách đối tác', roles: ['staff', 'manager'] },
     ],
   },
@@ -30,11 +25,8 @@ const GROUPS = [
     title: 'Bán hàng & Kho',
     items: [
       { key: 'sell', href: '/staff/sell', icon: 'cart', label: 'Bán hàng / Dịch vụ', roles: ['staff', 'manager'] },
-      // Quản lý: 1 mục gồm tab Tồn kho / Đã bán / Nhập kho / Tra cứu bảo hành (also: các trang con vẫn sáng mục này)
-      { key: 'm-inventory', also: ['inventory', 'inventory-new', 'search'], href: '/staff/inventory', icon: 'archive', label: 'Quản lý kho', roles: ['manager'] },
-      { key: 'inventory', href: '/staff/inventory', icon: 'archive', label: 'Xem kho', roles: ['staff'] },
-      { key: 'inventory-new', href: '/staff/inventory/new', icon: 'plusSquare', label: 'Nhập kho', roles: ['staff'] },
-      { key: 'search', href: '/staff/search', icon: 'search', label: 'Tra cứu bảo hành', roles: ['staff'] },
+      // 1 mục gồm tab Tồn kho / Đã bán / Nhập kho / Tra cứu bảo hành (also: các trang con vẫn sáng mục này)
+      { key: 'm-inventory', also: ['inventory', 'inventory-new', 'search'], href: '/staff/inventory', icon: 'archive', label: 'Quản lý kho', roles: ['staff', 'manager'] },
     ],
   },
   {
