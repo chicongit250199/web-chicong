@@ -21,7 +21,9 @@ router.get('/inventory', (req, res) => {
   const pages = Math.max(1, Math.ceil(total / PAGE));
   const page = Math.min(Math.max(parseInt(req.query.page, 10) || 1, 1), pages);
   const order = tab === 'sold' ? 'sold_date DESC, id DESC' : 'import_date DESC, id DESC';
-  const items = db.prepare(`SELECT inventory_items.*, (SELECT COUNT(*) FROM inventory_items s2 WHERE s2.item_code = inventory_items.item_code AND s2.status = 'in_stock' AND s2.id <> inventory_items.id) AS same_count
+  const items = db.prepare(`SELECT inventory_items.*, (SELECT COUNT(*) FROM inventory_items s2 WHERE s2.item_code = inventory_items.item_code AND s2.status = 'in_stock' AND s2.id <> inventory_items.id) AS same_count,
+    CASE WHEN COALESCE(serial,'') = '' AND status = 'in_stock' THEN (SELECT COUNT(*) FROM inventory_items s3 WHERE s3.status = 'in_stock' AND COALESCE(s3.serial,'') = ''
+      AND (s3.item_code = inventory_items.item_code OR s3.id = inventory_items.id)) END AS nos_count
     FROM inventory_items WHERE ${where.join(' AND ')} ORDER BY ${order} LIMIT ${PAGE} OFFSET ${(page - 1) * PAGE}`).all(params)
     .map(i => ({ ...i, warranty_end: inv.warrantyEnd(i.sold_date, i.warranty_out_months) }));
   const counts = Object.fromEntries(db.prepare('SELECT status, COUNT(*) c FROM inventory_items GROUP BY status').all().map(r => [r.status, r.c]));
@@ -93,6 +95,8 @@ const editSchema = v.z.object({
   sold_date: v.date,
   customer_name: v.text(120),
   customer_phone: v.phone(false),
+  // Hàng không serial: số lượng tồn cùng mã (thêm / bớt món)
+  quantity: v.z.preprocess(x => (x === '' || x == null ? null : Number(x)), v.z.number().int().min(0, 'Số lượng không âm').max(500, 'Tối đa 500').nullable()),
 });
 
 router.post('/inventory/:id/edit', (req, res) => {
@@ -108,7 +112,7 @@ router.post('/inventory/:id/edit', (req, res) => {
     if (dup) { req.flash('error', `Serial ${data.serial} đã có ở món "${dup.name}".`); return res.redirect(backTo); }
   }
   const itemCode = data.item_code || inv.makeItemCode(data.name);
-  let applied = 0;
+  let applied = 0, qtyMsg = '';
   db.transaction(() => {
     db.prepare(`UPDATE inventory_items SET item_code=@item_code, name=@name, serial=@serial, import_date=@import_date, condition=@condition, supplier=@supplier,
                 warranty_in_months=@warranty_in_months, tech_price=@tech_price, retail_price=@retail_price, warranty_out_months=@warranty_out_months, note=@note
@@ -123,8 +127,26 @@ router.post('/inventory/:id/edit', (req, res) => {
                             WHERE item_code = ? AND status = 'in_stock' AND id <> ?`)
         .run(itemCode, data.name, data.tech_price, data.retail_price, data.warranty_in_months, data.warranty_out_months, item.item_code, item.id).changes;
     }
+    // Sửa số lượng hàng không serial (đang tồn): thêm bản sao của món này hoặc xóa bớt các món cùng mã (món mới nhập sau cùng xóa trước)
+    if (data.quantity != null && item.status === 'in_stock' && !data.serial) {
+      const same = `status = 'in_stock' AND COALESCE(serial,'') = '' AND item_code = ?`;
+      const cur = db.prepare(`SELECT COUNT(*) c FROM inventory_items WHERE ${same}`).get(itemCode).c;
+      const want = data.quantity;
+      if (want > cur) {
+        const add = db.prepare(`INSERT INTO inventory_items (item_code, name, serial, import_date, condition, supplier, warranty_in_months, tech_price, retail_price, status, warranty_out_months, note, import_batch)
+          SELECT item_code, name, NULL, import_date, condition, supplier, warranty_in_months, tech_price, retail_price, 'in_stock', warranty_out_months, note, import_batch FROM inventory_items WHERE id = ?`);
+        for (let k = cur; k < want; k++) add.run(item.id);
+        qtyMsg = `, thêm ${want - cur} món (tồn ${want})`;
+      } else if (want < cur) {
+        // giữ lại món đang sửa nếu còn ít nhất 1
+        const ids = db.prepare(`SELECT id FROM inventory_items WHERE ${same} ORDER BY (id = ?) ASC, id DESC LIMIT ?`).all(itemCode, item.id, cur - want).map(r => r.id);
+        const del = db.prepare('DELETE FROM inventory_items WHERE id = ?');
+        for (const id of ids) del.run(id);
+        qtyMsg = `, bớt ${cur - want} món (tồn ${want})`;
+      }
+    }
   })();
-  req.flash('success', `Đã lưu "${data.name}"${data.serial ? ' (SN ' + data.serial + ')' : ''}${applied ? ` và cập nhật thêm ${applied} món cùng mã` : ''}.`);
+  req.flash('success', `Đã lưu "${data.name}"${data.serial ? ' (SN ' + data.serial + ')' : ''}${applied ? ` và cập nhật thêm ${applied} món cùng mã` : ''}${qtyMsg}.`);
   res.redirect(backTo);
 });
 
