@@ -48,6 +48,10 @@
 
 /* Bảng kho nhiều cột: đệm ô gọn hơn để vừa màn hình */
 .inv-tbl th, .inv-tbl td { padding-left: .5rem; padding-right: .5rem; }
+/* Xem kho: tô nền xen kẽ từng dòng, dòng được chọn tô màu thương hiệu */
+.inv-tbl tbody tr:nth-child(even) td { @apply bg-slate-100/70 dark:bg-slate-800/40; }
+.inv-tbl tbody tr:hover td { @apply bg-sky-50 dark:bg-slate-700/50; }
+.inv-tbl tbody tr.is-sel td { @apply bg-brand-50 dark:bg-brand-900/30; }
 
 /* ===== Logo nền in chìm / trôi quanh ===== */
 .bg-logos { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
