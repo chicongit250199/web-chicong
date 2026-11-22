@@ -12,8 +12,10 @@
   <% } %>
   <% sections.forEach(s => { %>
     <section id="cat-<%= s.cat.id %>" class="scroll-mt-4">
-      <div class="mb-4 flex items-end justify-between gap-3 border-b border-slate-200 pb-2 dark:border-slate-800">
-        <h2 class="flex items-center gap-2 text-lg font-bold md:text-xl"><%- icon(s.cat.icon, 'h-6 w-6 text-brand-600') %><%= field(s.cat, 'name') %></h2>
+      <%# Tiêu đề danh mục kiểu tab Chrome: tên danh mục = tab đang mở, cùng màu nền với phần sản phẩm bên dưới %>
+      <div class="tabs items-end justify-between">
+        <h2 class="tab tab-active flex items-center gap-2 text-base md:text-xl"><%- icon(s.cat.icon, 'h-6 w-6 text-brand-600') %><%= field(s.cat, 'name') %></h2>
+        <a href="/c/<%= s.cat.id %>" class="tab mb-1 flex items-center gap-1 py-1.5 text-sm"><%= t('home.see_more') %> (<%= s.total %>) <%- icon('arrowRight', 'h-4 w-4') %></a>
       </div>
       <div class="feat-grid grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5">
         <% s.products.forEach(p => { %><%- partial('public/_card', { p, catIcon: s.cat.icon, field, fmt, icon, t, stock: stockOf(p) }) %><% }) %>
