@@ -59,12 +59,12 @@ function buildPreset(buildId) {
 
 router.get('/sell', (req, res) => {
   res.locals.nav = 'sell';
-  // Gom các dòng cùng đơn (order_code) thành 1 giao dịch
-  const rows = db.prepare(`SELECT * FROM revenues WHERE source IS NULL AND (type = 'sale' OR ref_id IS NULL) ORDER BY id DESC LIMIT 60`).all();
+  // Gom các dòng cùng đơn (order_code) thành 1 giao dịch; trả máy (có số phiếu) hiện cả dòng tiền sửa máy
+  const rows = db.prepare(`SELECT * FROM revenues WHERE source IS NULL AND (type = 'sale' OR ref_id IS NULL OR order_code IS NOT NULL) ORDER BY id DESC LIMIT 60`).all();
   const recent = [];
   for (const r of rows) {
     const last = recent[recent.length - 1];
-    if (r.order_code && last && last.order_code === r.order_code) { last.lines.push(r.content); last.amount += r.amount; continue; }
+    if (r.order_code && last && last.order_code === r.order_code) { last.lines.unshift(r.content); last.amount += r.amount; last.created_at = r.created_at; continue; } // đọc ngược id -> chèn đầu để giữ đúng thứ tự trong đơn
     if (recent.length >= 10) break;
     recent.push({ ...r, lines: [r.content] });
   }
