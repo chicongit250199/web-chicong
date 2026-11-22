@@ -45,7 +45,7 @@
 <% } %>
 
 <% const qs = c => '?' + new URLSearchParams(Object.entries({ q: f.q, cat: c, stock: f.stock, info: f.info }).filter(([, v]) => v)).toString(); %>
-<nav class="tabs sticky top-14 z-10 -mx-1 bg-paper px-1 pt-1 dark:bg-slate-950" aria-label="Nhóm linh kiện">
+<nav class="tabs sticky top-14 z-10" aria-label="Nhóm linh kiện">
   <a href="<%= qs('') %>" class="tab <%= !f.cat ? 'tab-active' : '' %>">Tất cả <span class="text-xs text-slate-400"><%= totals.all %></span></a>
   <% cats.forEach(c => { %><a href="<%= qs(c) %>" class="tab <%= f.cat === c ? 'tab-active' : '' %>"><%= c %> <span class="text-xs text-slate-400"><%= catCounts[c] || 0 %></span></a><% }) %>
 </nav>

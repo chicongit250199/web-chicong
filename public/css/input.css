@@ -18,6 +18,10 @@
 
 [x-cloak] { display: none !important; }
 
+/* Màu cho tab kiểu Chrome: --tab-page = màu nền trang (body bg-paper / dark:bg-slate-950), --tab-strip = dải tab */
+:root { --tab-page: #fdf6dc; --tab-strip: #efe3b8; }
+.dark { --tab-page: #020617; --tab-strip: #1e293b; }
+
 /* Trang nội bộ: cỡ chữ gốc co theo độ rộng màn hình máy tính — Tailwind tính bằng rem nên chữ, khoảng cách,
    menu trái, thẻ, bảng... co giãn cùng tỉ lệ. Laptop 13" (1280–1440px) gọn như màn 24" (1920px).
    Điện thoại / tablet (< 1024px) giữ 16px. */
@@ -42,12 +46,15 @@
   .tbl td { @apply border-b border-slate-100 px-3 py-2 align-top dark:border-slate-800; }
   .tbl tbody tr:hover td { @apply bg-slate-50 dark:bg-slate-800/40; }
   .tbl-wrap { @apply overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900; }
-  .tabs { @apply mb-4 flex gap-1 overflow-x-auto border-b-2 border-brand-600/20 dark:border-slate-800; }
-  /* Tab: chữ to, tab đang mở phủ nền màu thương hiệu (dễ nhận ra đang xem tab nào) */
-  .tab { @apply -mb-px whitespace-nowrap rounded-t-lg border-b-2 border-transparent px-4 py-2.5 text-[0.95rem] font-semibold text-slate-500 transition-colors duration-200
-    hover:bg-brand-50 hover:text-brand-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100; }
-  .tab-active { @apply border-brand-600 bg-brand-600 text-white shadow-md shadow-brand-600/25 hover:bg-brand-600 hover:text-white
-    dark:border-brand-500 dark:bg-brand-600 dark:text-white dark:hover:bg-brand-600; }
+  /* Tab kiểu Google Chrome: dải tab nền đậm, tab đang mở cùng màu nền trang (liền với phần nội dung bên dưới),
+     2 góc cong ngược ở chân tab (::before / ::after) */
+  .tabs { @apply mb-4 flex gap-1 overflow-x-auto rounded-t-xl px-3 pt-1.5; background: var(--tab-strip); }
+  .tab { @apply relative whitespace-nowrap rounded-t-lg px-4 py-2.5 text-[0.95rem] font-semibold text-slate-600 transition-colors duration-200
+    hover:bg-white/50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-100; }
+  .tab.tab-active, .tab.tab-active:hover { @apply text-brand-700 dark:text-white; background: var(--tab-page); }
+  .tab-active::before, .tab-active::after { content: ''; position: absolute; bottom: 0; width: 12px; height: 12px; pointer-events: none; }
+  .tab-active::before { left: -12px; background: radial-gradient(circle at 0 0, transparent 11.5px, var(--tab-page) 12px); }
+  .tab-active::after { right: -12px; background: radial-gradient(circle at 100% 0, transparent 11.5px, var(--tab-page) 12px); }
   .modal-backdrop { @apply fixed inset-0 z-[70] grid place-items-center overflow-y-auto bg-slate-950/60 p-4; }
   .modal { @apply w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900; }
   .req::after { content: ' *'; @apply text-red-500; }

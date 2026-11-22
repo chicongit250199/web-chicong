@@ -9,7 +9,7 @@
   </form>
 </div>
 
-<nav class="tabs sticky top-14 z-10 bg-paper pt-1 dark:bg-slate-950" aria-label="Đối tác">
+<nav class="tabs sticky top-14 z-10" aria-label="Đối tác">
   <a href="<%= '?m=' + month %>" class="tab <%= !sel ? 'tab-active' : '' %>">Tất cả đối tác <span class="text-xs text-slate-400"><%= list.length %></span></a>
   <% list.forEach(p => { %>
     <a href="?p=<%= p.id %>&m=<%= month %>" class="tab flex items-center gap-1.5 <%= sel && sel.id === p.id ? 'tab-active' : '' %>"><%= p.name %>
