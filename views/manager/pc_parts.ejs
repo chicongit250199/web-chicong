@@ -127,16 +127,4 @@
 </div>
 <% } %>
 
-<%# ---- Lưu ý in trên phiếu ---- %>
-<% if (canEdit) { %>
-<details id="print-note" class="card mt-6">
-  <summary class="cursor-pointer font-semibold">Lưu ý in trên phiếu báo giá / thanh toán</summary>
-  <form method="post" action="/manager/pc-parts/print-note" class="mt-3 space-y-3">
-    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-    <label class="block"><span class="label">Tiếng Việt</span><textarea name="note_vi" rows="4" class="input"><%= printNote.vi %></textarea></label>
-    <label class="block"><span class="label">Tiếng Anh</span><textarea name="note_en" rows="4" class="input"><%= printNote.en %></textarea></label>
-    <div class="flex justify-end"><button class="btn-primary">Lưu</button></div>
-  </form>
-</details>
-<% } %>
 <%- include('../app/_bottom') %>

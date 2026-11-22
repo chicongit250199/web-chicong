@@ -365,6 +365,20 @@
     <p x-show="msg" x-cloak class="mt-2 text-sm text-emerald-700 dark:text-emerald-400" x-text="msg"></p>
   </section>
 
+  <%# ---- Lưu ý in trên phiếu (báo giá / thanh toán - bảo hành) ---- %>
+  <section id="print-note" class="card mt-4 scroll-mt-20">
+    <h2 class="flex items-center gap-2 font-semibold"><%- icon('receipt', 'h-5 w-5 text-brand-600') %>Lưu ý in trên phiếu</h2>
+    <p class="mt-1 text-sm text-slate-500">In ở cuối phiếu báo giá Build PC và phiếu thanh toán - bảo hành (bán hàng).</p>
+    <form method="post" action="/manager/system/print-note" class="mt-3 space-y-3">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="grid gap-3 lg:grid-cols-2">
+        <label class="block"><span class="label">Tiếng Việt</span><textarea name="note_vi" rows="5" class="input"><%= printNote.vi %></textarea></label>
+        <label class="block"><span class="label">Tiếng Anh</span><textarea name="note_en" rows="5" class="input"><%= printNote.en %></textarea></label>
+      </div>
+      <div class="flex justify-end"><button class="btn-primary"><%- icon('check', 'h-4 w-4') %>Lưu</button></div>
+    </form>
+  </section>
+
   <%# ---- Báo cáo doanh thu qua email ---- %>
   <section class="card mt-4" x-data="reportEmail()">
     <div class="flex flex-wrap items-start justify-between gap-3">

@@ -6,7 +6,6 @@ const v = require('../../services/validate');
 const pc = require('../../services/pcParts');
 const pcAi = require('../../services/pcPartsAi');
 const ai = require('../../services/aiService');
-const settings = require('../../services/settings');
 const { notify } = require('../../services/events');
 
 const router = express.Router();
@@ -46,7 +45,6 @@ function renderList(req, res, canEdit) {
   res.render('manager/pc_parts', {
     title: 'Giá Linh Kiện', canEdit, base: canEdit ? '/manager/pc-parts' : '/staff/pc-parts', groups, f, totals, cats: categories(), catCounts, unlinkedCount: unlinked.length,
     aiEnabled: ai.isEnabled(), aiStatus: pcAi.status(), fieldsByType: pc.FIELDS, typeOf: pc.typeOf,
-    printNote: { vi: settings.get('pc_print_note_vi') || DEFAULT_NOTE_VI, en: settings.get('pc_print_note_en') || DEFAULT_NOTE_EN },
     scripts: ['/js/pc-parts.js'],
   });
 }
@@ -205,14 +203,9 @@ router.get('/pc-parts/from-stock', nav, (req, res) => {
   res.render('manager/pc_part_edit', { ...formData({ category: '', name, condition: cond, price: g?.price ?? null, warranty_months: g?.w ?? null, hidden: 0 }), invName: name });
 });
 
-// ---------- Lưu ý in phiếu ----------
+// ---------- Lưu ý in phiếu (mặc định; sửa ở trang Hệ thống) ----------
 const DEFAULT_NOTE_VI = '1) Các linh kiện, thiết bị NEW được bảo hành theo chính sách của hãng, thời gian ghi ở trên và tem trên sản phẩm.\n2) Linh kiện đã qua sử dụng (2nd / Like New) được bảo hành theo thời gian ghi ở trên. Không bảo hành khi tem bị rách, sản phẩm bị va đập, cháy nổ, vào nước.';
 const DEFAULT_NOTE_EN = '1) New components are covered by the manufacturer\'s warranty for the period stated above and on the product label.\n2) Used components (2nd / Like New) are covered for the period stated above. Warranty is void if the seal is broken or the product is physically damaged, burnt or exposed to liquid.';
-router.post('/pc-parts/print-note', (req, res) => {
-  settings.set({ pc_print_note_vi: String(req.body.note_vi || '').slice(0, 3000), pc_print_note_en: String(req.body.note_en || '').slice(0, 3000) });
-  req.flash('success', 'Đã lưu lưu ý in trên phiếu.');
-  res.redirect('/manager/pc-parts#print-note');
-});
 
 module.exports = router;
 module.exports.renderList = renderList;
