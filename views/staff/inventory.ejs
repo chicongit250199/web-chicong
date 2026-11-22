@@ -20,10 +20,13 @@
                toggleAll(e) { this.sel = e.target.checked ? [...this.all] : [] },
                ask(ids, label) {
                  const msg = 'Xóa ' + label + ' khỏi kho?<%= tab === 'sold' ? '\\nDoanh thu của các lần bán vẫn được giữ, chỉ xóa bản ghi trong kho.' : '' %>\nKhông thể hoàn tác.';
-                 if (!confirm(msg)) return;
-                 const f = $refs.delForm; f.querySelectorAll('input[name=ids]').forEach(x => x.remove());
-                 ids.forEach(id => { const i = document.createElement('input'); i.type = 'hidden'; i.name = 'ids'; i.value = id; f.appendChild(i); });
-                 f.submit();
+                 const f = $refs.delForm;
+                 uiConfirm(msg).then(ok => {
+                   if (!ok) return;
+                   f.querySelectorAll('input[name=ids]').forEach(x => x.remove());
+                   ids.forEach(id => { const i = document.createElement('input'); i.type = 'hidden'; i.name = 'ids'; i.value = id; f.appendChild(i); });
+                   f.submit();
+                 });
                } }">
   <form method="post" action="/staff/inventory/delete" x-ref="delForm" class="hidden">
     <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="back" value="<%= backUrl %>">
