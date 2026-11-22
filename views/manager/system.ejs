@@ -292,6 +292,10 @@
               <span x-show="p.shared && s.sharing" class="badge-green">Chia sẻ LAN</span>
             </div>
             <p class="mt-1 break-all text-xs text-slate-500"><span x-text="p.name"></span><span x-show="p.model"> · <span x-text="p.model"></span></span><span x-show="p.location"> · <span x-text="p.location"></span></span> · <span x-text="p.uri"></span></p>
+            <label x-show="p.pageSizes && p.pageSizes.length" class="mt-2 flex items-center gap-2 text-sm"><span class="text-slate-500">Khổ giấy mặc định</span>
+              <select class="input w-auto py-1 text-sm" :value="p.pageSize" @change="setSize(p, $event.target.value)" :disabled="busy">
+                <template x-for="z in p.pageSizes" :key="z"><option :value="z" :selected="z === p.pageSize" x-text="z"></option></template>
+              </select></label>
             <p x-show="p.reason || (p.reasons && p.reasons !== 'none')" class="mt-1 text-xs text-amber-700 dark:text-amber-400" x-text="p.reason || p.reasons"></p>
             <div class="mt-2 flex flex-wrap gap-2 text-sm">
               <button type="button" @click="act(p, 'test')" :disabled="busy" class="btn-secondary px-2.5 py-1 text-xs">In thử</button>

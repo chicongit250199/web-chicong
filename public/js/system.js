@@ -166,6 +166,7 @@ window.printerAdmin = function () {
       var msgs = { test: function (d) { return 'Đã gửi trang in thử' + (d.job ? ' (' + d.job + ')' : '') + '.'; }, default: 'Đã đặt ' + p.name + ' làm mặc định.', enable: 'Đã bật lại.', disable: 'Đã tạm dừng.', delete: 'Đã xóa ' + p.name + '.', 'cancel-all': 'Đã hủy các lệnh in.' };
       this.call('/manager/system/printers/' + encodeURIComponent(p.name) + '/' + action, {}, msgs[action]);
     },
+    setSize: function (p, size) { this.call('/manager/system/printers/' + encodeURIComponent(p.name) + '/pagesize', { size: size }, 'Đã đặt khổ giấy ' + size + ' cho ' + (p.info || p.name) + '.'); },
     cancelJob: function (j) { this.call('/manager/system/print-jobs/' + encodeURIComponent(j.id) + '/cancel', {}, 'Đã hủy lệnh ' + j.id + '.'); },
     printFile: function (ev) {
       var file = ev.target.files[0]; ev.target.value = '';

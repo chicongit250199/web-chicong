@@ -80,6 +80,11 @@ async function status() {
     pr.reasons = get('printer-state-reasons');
     pr.connection = /^usb:|^ippusb:/.test(pr.uri) ? 'USB' : pr.uri ? 'Mạng' : '';
     pr.shared = get('printer-is-shared') === 'true';
+    // Khổ giấy mặc định + các khổ driver hỗ trợ (dấu * = đang chọn)
+    const l = await run('lpoptions', ['-p', pr.name, '-l']).catch(() => '');
+    const ps = l.match(/^PageSize\/[^:]*:\s*(.+)$/m);
+    pr.pageSizes = ps ? ps[1].trim().split(/\s+/).map(x => x.replace(/^\*/, '')) : [];
+    pr.pageSize = ps ? ((ps[1].match(/\*(\S+)/) || [])[1] || '') : '';
   }));
 
   const jobs = [...o.matchAll(/^(\S+)-(\d+)\s+(\S+)\s+(\d+)\s+(.+)$/gm)].map(m => ({ id: `${m[1]}-${m[2]}`, printer: m[1], user: m[3], size: Number(m[4]), time: vnTime(m[5].trim()) }));
@@ -207,7 +212,16 @@ async function serverSharing() {
 }
 const setShared = (name, on) => run('lpadmin', ['-p', checkName(name), '-o', `printer-is-shared=${on ? 'true' : 'false'}`]);
 
+async function setPageSize(name, size) {
+  checkName(name);
+  if (!/^[\w.-]{1,40}$/.test(size || '')) throw Object.assign(new Error('Khổ giấy không hợp lệ'), { status: 400 });
+  const l = await run('lpoptions', ['-p', name, '-l']);
+  const ps = (l.match(/^PageSize\/[^:]*:\s*(.+)$/m) || [])[1] || '';
+  if (!ps.split(/\s+/).map(x => x.replace(/^\*/, '')).includes(size)) throw Object.assign(new Error('Máy in không hỗ trợ khổ ' + size), { status: 400 });
+  await run('lpadmin', ['-p', name, '-o', `PageSize=${size}`]);
+}
+
 const cancelJob = id => run('cancel', [checkJob(id)]);
 const cancelAll = name => run('cancel', ['-a', checkName(name)]);
 
-module.exports = { serverSharing, setShared, typeOf, available, status, discover, models, add, remove, setDefault, setEnabled, testPage, printFile, cancelJob, cancelAll, suggestName, PRINT_TYPES };
+module.exports = { setPageSize, serverSharing, setShared, typeOf, available, status, discover, models, add, remove, setDefault, setEnabled, testPage, printFile, cancelJob, cancelAll, suggestName, PRINT_TYPES };
