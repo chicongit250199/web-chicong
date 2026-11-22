@@ -5,6 +5,7 @@
     <h1><%- icon('wrench', 'h-6 w-6 text-brand-600') %><%= task.ticket_code %> <span class="<%= st.cls %> text-sm"><%= st.label %></span><% if (task.partner_name) { %><a href="/staff/partners?p=<%= task.partner_id %>" class="badge-violet text-sm hover:underline">Đối tác: <%= task.partner_name %></a><% } %></h1>
     <div class="flex gap-2">
       <a href="/staff/tasks/<%= task.id %>/print" target="_blank" class="btn-secondary"><%- icon('receipt', 'h-4 w-4') %>In phiếu</a>
+      <% const payRev = task.status === 'completed' && revenues.find(r => r.order_code); if (payRev) { %><a href="/staff/sell/receipt/<%= payRev.order_code %>" target="_blank" class="btn-secondary"><%- icon('printer', 'h-4 w-4') %>Phiếu thanh toán</a><% } %>
     </div>
   </div>
 
@@ -38,6 +39,14 @@
             <% if (task.status === 'completed') { %>
               <div><dt class="text-slate-500">Thanh toán</dt><dd><%= fmt.payment(task.payment_method) %> · BH <%= task.warranty_months || 0 %> tháng</dd></div>
               <div><dt class="text-slate-500">Trả máy lúc</dt><dd><%= fmt.datetime(task.completed_at) %></dd></div>
+              <% if (extras.length) { %>
+                <div class="sm:col-span-2"><dt class="text-slate-500">Bán kèm khi trả máy</dt><dd>
+                  <ul class="mt-1 divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
+                    <% extras.forEach(x => { %><li class="flex justify-between gap-3 px-3 py-1.5"><span><%= x.content %> <span class="text-xs text-slate-500">· BH <%= x.warranty_months || 0 %> th</span></span><span class="shrink-0 tabular-nums"><%= fmt.money(x.amount) %></span></li><% }) %>
+                  </ul>
+                  <p class="mt-1 text-right font-semibold">Tổng thu: <%= fmt.money((task.final_price || 0) + extras.reduce((s, x) => s + x.amount, 0)) %></p>
+                </dd></div>
+              <% } %>
             <% } %>
           </dl>
         </section>
@@ -165,24 +174,77 @@
 
   <template x-if="m === 'complete'">
     <div class="modal-backdrop" @click.self="m = null">
-      <form method="post" action="/staff/tasks/<%= task.id %>/complete" class="modal space-y-3">
+      <form method="post" action="/staff/tasks/<%= task.id %>/complete" class="modal max-w-2xl space-y-3" x-data="completeForm(<%= task.status === 'unrepairable' ? 0 : (task.final_price ?? 0) %>)" @submit="beforeSubmit($event)">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input type="hidden" name="extra_items" :value="extraJson">
         <h3 class="text-lg font-semibold">Hoàn thành — trả máy cho khách</h3>
         <p class="text-sm text-slate-500"><%= task.device_model %> · <%= task.customer_name || '' %> <%= task.customer_phone %></p>
-        <label class="block" x-data="moneyInput('<%= task.status === 'unrepairable' ? 0 : (task.final_price ?? 0) %>')"><span class="label">Số tiền thanh toán (₫)</span>
-          <input class="input text-right text-lg font-semibold tabular-nums" inputmode="numeric" :value="display" @input="onInput($event)">
-          <input type="hidden" name="amount" :value="raw"></label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block"><span class="label">Tiền sửa máy (₫)</span>
+            <input class="input text-right text-lg font-semibold tabular-nums" inputmode="numeric" :value="amountDisplay" @input="onAmount($event)">
+            <input type="hidden" name="amount" :value="amount"></label>
+          <label class="block"><span class="label">Bảo hành sửa chữa</span>
+            <select name="warranty_months" class="input"><% warrantyOptions.forEach(w => { %><option value="<%= w %>" <%= w === (task.status === 'unrepairable' ? 0 : 3) ? 'selected' : '' %>><%= w %> tháng</option><% }) %></select></label>
+        </div>
+
+        <%# ---- Bán kèm hàng / dịch vụ (trừ kho, ghi doanh thu chung phiếu) ---- %>
+        <fieldset class="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+          <legend class="px-1 text-sm font-semibold">Bán kèm hàng / dịch vụ <span class="font-normal text-slate-400">(không bắt buộc)</span></legend>
+          <div class="relative" @click.outside="open = false">
+            <input x-model="q" x-ref="q" @input="search()" @keydown.arrow-down.prevent="move(1)" @keydown.arrow-up.prevent="move(-1)" @keydown.enter.prevent="open && results.length ? choose() : addLine()" @focus="results.length && (open = true)"
+                   class="input" placeholder="Gõ tên hàng / serial (VD: chuột LM106) hoặc tên dịch vụ" autocomplete="off">
+            <p class="mt-1 text-xs" :class="group ? 'text-emerald-600' : free ? 'text-amber-600' : 'text-slate-500'"
+               x-text="group ? 'Hàng trong kho — sẽ trừ kho' : free ? 'Không chọn từ kho → ghi doanh thu, không trừ kho' : 'Chọn từ gợi ý để trừ kho'"></p>
+            <div x-show="open" x-cloak class="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
+              <template x-for="(g, i) in results" :key="g.item_code + g.name">
+                <button type="button" @click="choose(g)" @mouseenter="hi = i" class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm" :class="hi === i && 'bg-brand-50 dark:bg-slate-800'">
+                  <span class="min-w-0"><span class="block truncate font-medium" x-text="g.name"></span><span class="block text-xs text-slate-500" x-text="g.item_code"></span></span>
+                  <span class="shrink-0 text-right"><span class="block font-semibold tabular-nums" x-text="g.retail_price != null ? formatVnd(g.retail_price) + ' ₫' : '—'"></span><span class="badge-green" x-text="'Còn ' + g.qty"></span></span>
+                </button>
+              </template>
+              <p x-show="!results.length && !loading" class="px-3 py-3 text-sm text-slate-500">Không có trong kho — sẽ ghi như <strong>dịch vụ / hàng ngoài kho</strong></p>
+            </div>
+          </div>
+          <template x-if="group && hasSerials">
+            <select x-model="unitId" @change="applyUnit()" class="input">
+              <option value="" x-text="'— Chọn Serial (còn ' + freeUnits.length + ') —'"></option>
+              <template x-for="u in freeUnits" :key="u.id"><option :value="u.id" x-text="(u.serial || '(không serial)') + (u.condition ? ' · ' + u.condition : '') + (u.retail_price != null ? ' · ' + formatVnd(u.retail_price) + ' ₫' : '')"></option></template>
+            </select>
+          </template>
+          <div x-show="free" x-cloak class="flex gap-4 text-sm">
+            <label class="flex items-center gap-1.5"><input type="radio" x-model="kind" value="sale">Hàng ngoài kho</label>
+            <label class="flex items-center gap-1.5"><input type="radio" x-model="kind" value="repair">Dịch vụ</label>
+          </div>
+          <div class="flex flex-wrap items-end gap-2" x-show="q.trim() || group" x-cloak>
+            <label class="block min-w-[8rem] flex-1"><span class="label">Giá (₫)</span>
+              <input class="input text-right font-semibold tabular-nums" inputmode="numeric" :value="priceDisplay" @input="onPrice($event)" @keydown.enter.prevent="addLine()"></label>
+            <label class="block w-36"><span class="label">Bảo hành</span>
+              <select x-model="warranty" class="input"><option value="" x-text="group ? 'Theo kho' : 'Không BH'"></option><% [0,1,3,6,9,12,24,36].forEach(w => { %><option value="<%= w %>"><%= w %> tháng</option><% }) %></select></label>
+            <button type="button" @click="addLine()" class="btn-secondary"><%- icon('plusSquare', 'h-4 w-4') %>Thêm</button>
+          </div>
+          <p x-show="error" x-cloak class="text-xs text-red-600" x-text="error"></p>
+          <ul x-show="cart.length" x-cloak class="divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
+            <template x-for="(l, i) in cart" :key="i">
+              <li class="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                <span class="min-w-0"><span class="block truncate font-medium" x-text="l.name"></span>
+                  <span class="block text-xs text-slate-500" x-text="(l.item_id ? 'Trong kho' : (l.kind === 'repair' ? 'Dịch vụ' : 'Ngoài kho')) + (l.serial ? ' · SN: ' + l.serial : '') + ' · BH ' + l.warrantyShow + ' th'"></span></span>
+                <span class="flex shrink-0 items-center gap-2"><span class="font-semibold tabular-nums" x-text="formatVnd(l.price) + ' ₫'"></span>
+                  <button type="button" @click="removeLine(i)" class="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950" title="Bỏ món"><%- icon('x', 'h-4 w-4') %></button></span>
+              </li>
+            </template>
+          </ul>
+        </fieldset>
+
         <fieldset><legend class="label">Hình thức thanh toán</legend>
           <div class="grid grid-cols-2 gap-2">
             <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 p-3 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 dark:border-slate-700 dark:has-[:checked]:bg-brand-900/30"><input type="radio" name="payment_method" value="cash" checked><%- icon('cash', 'h-4 w-4') %>Tiền mặt</label>
             <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 p-3 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 dark:border-slate-700 dark:has-[:checked]:bg-brand-900/30"><input type="radio" name="payment_method" value="transfer"><%- icon('bank', 'h-4 w-4') %>Chuyển khoản</label>
           </div></fieldset>
-        <div class="grid grid-cols-2 gap-3">
-          <label class="block"><span class="label">Thời hạn bảo hành</span>
-            <select name="warranty_months" class="input"><% warrantyOptions.forEach(w => { %><option value="<%= w %>" <%= w === (task.status === 'unrepairable' ? 0 : 3) ? 'selected' : '' %>><%= w %> tháng</option><% }) %></select></label>
-          <label class="block"><span class="label">Thời gian</span><input class="input bg-slate-50 dark:bg-slate-800/50" value="<%= nowStr %>" disabled></label>
+        <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm dark:bg-slate-800/50">
+          <span class="text-slate-500"><span x-text="cart.length ? 'Tổng thu (sửa máy + ' + cart.length + ' món bán kèm)' : 'Tổng thu'"></span> · <%= nowStr %></span>
+          <span class="text-lg font-bold tabular-nums text-red-600" x-text="formatVnd(total) + ' ₫'"></span>
         </div>
-        <div class="flex justify-end gap-2 pt-2"><button type="button" @click="m = null" class="btn-secondary">Hủy</button><button class="btn-primary"><%- icon('checkCircle', 'h-4 w-4') %>Xác nhận hoàn thành</button></div>
+        <div class="flex justify-end gap-2 pt-1"><button type="button" @click="m = null" class="btn-secondary">Hủy</button><button class="btn-primary"><%- icon('checkCircle', 'h-4 w-4') %>Xác nhận hoàn thành</button></div>
       </form>
     </div>
   </template>

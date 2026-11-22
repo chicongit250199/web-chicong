@@ -7,6 +7,7 @@ const { nextTicketCode } = require('../../services/tickets');
 const { notify } = require('../../services/events');
 const taskAlerts = require('../../services/taskAlerts');
 const partners = require('../../services/partners');
+const sales = require('../../services/sales');
 
 const router = express.Router();
 
@@ -23,6 +24,12 @@ const q = {
 };
 
 const LIST_SQL = `SELECT t.*, u.full_name AS assigned_name, p.name AS partner_name FROM tasks t LEFT JOIN users u ON u.id = t.assigned_to LEFT JOIN partners p ON p.id = t.partner_id`;
+
+// Hàng / dịch vụ bán kèm lúc trả máy (cùng số phiếu với dòng doanh thu sửa chữa)
+function extrasOf(taskId) {
+  return db.prepare(`SELECT x.* FROM revenues r JOIN revenues x ON x.order_code = r.order_code AND x.id <> r.id
+                     WHERE r.type = 'repair' AND r.ref_id = ? AND r.order_code IS NOT NULL AND NOT (x.type = 'repair' AND x.ref_id IS NOT NULL) ORDER BY x.id`).all(taskId);
+}
 
 // Danh sách theo "view" của menu
 function listTasks(view, user, search) {
@@ -129,7 +136,8 @@ router.get('/tasks/:id', (req, res, next) => {
   res.locals.nav = { pending: 'tasks-pending', processing: 'tasks-processing', done: 'return', unrepairable: 'return' }[task.status] || '';
   res.render('staff/task_detail', {
     title: task.ticket_code, task, histories: q.histories.all(task.id), staffList: q.staff.all(),
-    revenues: q.revenue.all(task.id), canWork: canWork(task, req.user), canDelete: canDelete(task, req.user), warrantyOptions: v.WARRANTY_OPTIONS,
+    revenues: q.revenue.all(task.id), extras: extrasOf(task.id), canWork: canWork(task, req.user), canDelete: canDelete(task, req.user), warrantyOptions: v.WARRANTY_OPTIONS,
+    scripts: ['/js/task-complete.js'],
   });
 });
 
@@ -184,11 +192,16 @@ router.post('/tasks/:id/fail', (req, res, next) => {
 });
 
 // ---------- Trả máy "Hoàn thành": done/unrepairable -> completed + doanh thu ----------
+// Có thể bán kèm hàng / dịch vụ (extra_items = JSON các dòng như trang Bán hàng): trừ kho + doanh thu, chung 1 số phiếu với tiền sửa máy.
 const completeSchema = v.z.object({
   amount: v.money,
   payment_method: v.oneOf(['cash', 'transfer'], 'Chọn hình thức thanh toán'),
   warranty_months: v.intOneOf(v.WARRANTY_OPTIONS, 'Chọn thời hạn bảo hành'),
-});
+  extra_items: v.z.preprocess(x => {
+    if (x == null || x === '') return [];
+    try { return JSON.parse(x); } catch { return null; }
+  }, v.z.array(sales.lineSchema, { invalid_type_error: 'Danh sách bán kèm không hợp lệ' }).max(30, 'Tối đa 30 món bán kèm')),
+}).refine(d => sales.noDupSerial(d.extra_items), { message: 'Một món (serial) bị chọn 2 lần trong đơn' });
 router.post('/tasks/:id/complete', (req, res, next) => {
   const task = q.get.get(req.params.id);
   if (!task) return next();
@@ -196,21 +209,35 @@ router.post('/tasks/:id/complete', (req, res, next) => {
   if (error) return back(req, res, task.id, 'error', error);
   const amount = data.amount ?? (task.status === 'unrepairable' ? 0 : task.final_price ?? 0);
   const now = new Date().toISOString();
-  const ok = db.transaction(() => {
-    const r = db.prepare(`UPDATE tasks SET status = 'completed', final_price = ?, payment_method = ?, warranty_months = ?, completed_at = ?, updated_at = ?
-                          WHERE id = ? AND status IN ('done','unrepairable')`).run(amount, data.payment_method, data.warranty_months, now, now, task.id);
-    if (!r.changes) return false;
-    const content = task.status === 'unrepairable'
-      ? `Trả máy không sửa được: ${task.device_model} (${task.ticket_code})`
-      : `Sửa chữa ${task.device_model} (${task.ticket_code})${task.repair_detail ? ': ' + task.repair_detail : ''}${task.replaced_parts ? ' — Thay: ' + task.replaced_parts : ''}`;
-    db.prepare(`INSERT INTO revenues (type, ref_id, customer_name, customer_phone, content, amount, payment_method, warranty_months, staff_name, created_at)
-                VALUES ('repair', ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(task.id, task.customer_name, task.customer_phone, content.slice(0, 1000), amount, data.payment_method, data.warranty_months, req.user.full_name, now);
-    return true;
-  })();
+  const orderCode = sales.newOrderCode(); // số phiếu chung: in 1 phiếu gồm tiền sửa + hàng bán kèm
+  let extras = [];
+  let ok;
+  try {
+    ok = db.transaction(() => {
+      const r = db.prepare(`UPDATE tasks SET status = 'completed', final_price = ?, payment_method = ?, warranty_months = ?, completed_at = ?, updated_at = ?
+                            WHERE id = ? AND status IN ('done','unrepairable')`).run(amount, data.payment_method, data.warranty_months, now, now, task.id);
+      if (!r.changes) return false;
+      const content = task.status === 'unrepairable'
+        ? `Trả máy không sửa được: ${task.device_model} (${task.ticket_code})`
+        : `Sửa chữa ${task.device_model} (${task.ticket_code})${task.repair_detail ? ': ' + task.repair_detail : ''}${task.replaced_parts ? ' — Thay: ' + task.replaced_parts : ''}`;
+      db.prepare(`INSERT INTO revenues (type, ref_id, customer_name, customer_phone, content, amount, payment_method, warranty_months, staff_name, created_at, order_code)
+                  VALUES ('repair', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(task.id, task.customer_name, task.customer_phone, content.slice(0, 1000), amount, data.payment_method, data.warranty_months, req.user.full_name, now, orderCode);
+      extras = sales.writeLines(data.extra_items, {
+        customer_name: task.customer_name, customer_phone: task.customer_phone, payment_method: data.payment_method,
+        staff_name: req.user.full_name, now, saleDay: fmt.todayYmd(), orderCode,
+      });
+      return true;
+    })();
+  } catch (e) {
+    if (e.gone) return back(req, res, task.id, 'error', e.message);
+    throw e;
+  }
   if (!ok) return back(req, res, task.id, 'error', 'Task không ở trạng thái chờ trả máy.');
-  notify('task_completed', `${req.user.full_name} trả máy ${task.device_model} (${task.ticket_code}) — thu ${fmt.money(amount)} (${fmt.payment(data.payment_method)})`, `/staff/tasks/${task.id}`, req.user.full_name);
-  back(req, res, task.id, 'success', `Đã trả máy, ghi nhận doanh thu ${fmt.money(amount)}.`);
+  const extraSum = extras.reduce((s, l) => s + l.price, 0);
+  const extraText = extras.length ? ` + bán kèm ${extras.map(l => l.content).join('; ')} (${fmt.money(extraSum)})` : '';
+  notify('task_completed', `${req.user.full_name} trả máy ${task.device_model} (${task.ticket_code}) — thu ${fmt.money(amount + extraSum)}${extraText} (${fmt.payment(data.payment_method)})`.slice(0, 500), `/staff/tasks/${task.id}`, req.user.full_name);
+  back(req, res, task.id, 'success', `Đã trả máy, ghi nhận doanh thu ${fmt.money(amount + extraSum)}${extras.length ? ` (sửa máy ${fmt.money(amount)} + ${extras.length} món bán kèm ${fmt.money(extraSum)})` : ''}.`);
 });
 
 // ---------- Trả máy "Sửa lại": lưu lịch sử lần sửa cũ -> processing ----------
@@ -251,9 +278,11 @@ router.post('/tasks/:id/delete', (req, res, next) => {
       ? 'Máy đã trả có doanh thu — chỉ Quản lý được xóa.' : 'Bạn chỉ được xóa task do chính mình nhận máy.');
   }
   const removed = db.transaction(() => {
-    const rev = db.prepare(`DELETE FROM revenues WHERE type = 'repair' AND ref_id = ? RETURNING amount`).all(task.id);
+    const rev = db.prepare(`DELETE FROM revenues WHERE type = 'repair' AND ref_id = ? RETURNING amount, order_code`).all(task.id);
+    // hàng bán kèm lúc trả máy (cùng số phiếu): xóa doanh thu + trả món về kho
+    const extra = rev.reduce((s, r) => s + sales.removeOrderExtras(r.order_code), 0);
     db.prepare('DELETE FROM tasks WHERE id = ?').run(task.id); // task_histories xóa theo (ON DELETE CASCADE)
-    return rev.reduce((s, r) => s + (r.amount || 0), 0);
+    return rev.reduce((s, r) => s + (r.amount || 0), 0) + extra;
   })();
   notify('task_deleted', `${req.user.full_name} xóa ${task.status === 'completed' ? 'máy đã trả' : 'task'} ${task.ticket_code} (${task.device_model})${removed ? ' — kèm doanh thu ' + fmt.money(removed) : ''}`,
     null, req.user.full_name);

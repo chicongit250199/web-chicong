@@ -90,14 +90,7 @@ router.get('/api/inventory/suggest', (req, res) => {
   res.json({ items: groups.map(g => ({ ...g, units: qUnits.all(g.item_code, g.name, like) })) });
 });
 
-const lineSchema = v.z.object({
-  // Chọn từ kho: item_id. Hàng ngoài kho / dịch vụ: để trống item_id, nhập name + kind
-  item_id: v.z.preprocess(x => (x === '' || x == null ? null : Number(x)), v.z.number().int().positive().nullable()),
-  name: v.text(300),
-  kind: v.z.preprocess(x => (x === 'sale' ? 'sale' : 'repair'), v.z.enum(['repair', 'sale'])),
-  price: v.money.refine(x => x != null, 'Nhập giá tiền cho từng món'),
-  warranty_months: v.intOpt,
-}).refine(d => d.item_id || d.name, { message: 'Nhập tên hàng hóa / dịch vụ' });
+const { lineSchema, noDupSerial, newOrderCode, writeLines } = require('../../services/sales');
 
 const sellSchema = v.z.object({
   items: v.z.array(lineSchema).min(1, 'Chưa có món nào trong đơn').max(50, 'Tối đa 50 món mỗi đơn'),
@@ -107,14 +100,7 @@ const sellSchema = v.z.object({
   delivery_address: v.text(500),
   sale_date: v.date, // để trống = hôm nay; cho phép ghi lùi ngày bán
   build_id: v.z.preprocess(x => (x === '' || x == null ? null : Number(x)), v.z.number().int().positive().nullable()),
-}).refine(d => new Set(d.items.filter(i => i.item_id).map(i => i.item_id)).size === d.items.filter(i => i.item_id).length,
-  { message: 'Một món (serial) bị chọn 2 lần trong đơn' });
-
-// Mã đơn: BH-YYMMDD-HHMMSS-xxx (giờ VN)
-function newOrderCode() {
-  const d = new Date(Date.now() + 7 * 3600e3).toISOString();
-  return `BH-${d.slice(2, 4)}${d.slice(5, 7)}${d.slice(8, 10)}-${d.slice(11, 13)}${d.slice(14, 16)}${d.slice(17, 19)}-${Math.random().toString(36).slice(2, 5)}`;
-}
+}).refine(d => noDupSerial(d.items), { message: 'Một món (serial) bị chọn 2 lần trong đơn' });
 
 router.post('/sell', (req, res) => {
   // tương thích form cũ: 1 món gửi phẳng
@@ -128,31 +114,14 @@ router.post('/sell', (req, res) => {
   const now = saleDay === today ? new Date().toISOString()
     : new Date(`${saleDay}T${new Date(Date.now() + 7 * 3600e3).toISOString().slice(11, 23)}+07:00`).toISOString();
   const orderCode = newOrderCode(); // mọi đơn đều có số phiếu (để in lại)
-  const insRevenue = db.prepare(`INSERT INTO revenues (type, ref_id, customer_name, customer_phone, delivery_address, content, amount, payment_method, warranty_months, staff_name, created_at, order_code)
-                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-  const getItem = db.prepare(`SELECT * FROM inventory_items WHERE id = ? AND status = 'in_stock'`);
-  const markSold = db.prepare(`UPDATE inventory_items SET status = 'sold', sold_date = ?, customer_name = ?, customer_phone = ?, warranty_out_months = ? WHERE id = ?`);
-
   let lines;
   try {
-    lines = db.transaction(() => data.items.map(line => {
-      if (!line.item_id) {
-        // Hàng ngoài kho / dịch vụ: chỉ ghi doanh thu, không trừ kho
-        insRevenue.run(line.kind, null, data.customer_name, data.customer_phone, data.delivery_address, line.name, line.price, data.payment_method,
-          line.warranty_months ?? 0, req.user.full_name, now, orderCode);
-        return { content: line.name, price: line.price, kind: line.kind };
-      }
-      // Bán từ kho: trừ đúng món (serial)
-      const item = getItem.get(line.item_id);
-      if (!item) { const e = new Error('gone'); e.gone = true; throw e; }
-      const warranty = line.warranty_months ?? item.warranty_out_months ?? 0;
-      markSold.run(saleDay, data.customer_name, data.customer_phone, warranty, item.id);
-      const content = `${item.name}${item.serial ? ' — SN: ' + item.serial : ''}`;
-      insRevenue.run('sale', item.id, data.customer_name, data.customer_phone, data.delivery_address, content, line.price, data.payment_method, warranty, req.user.full_name, now, orderCode);
-      return { content, price: line.price, kind: 'sale', serial: item.serial };
+    lines = db.transaction(() => writeLines(data.items, {
+      customer_name: data.customer_name, customer_phone: data.customer_phone, delivery_address: data.delivery_address,
+      payment_method: data.payment_method, staff_name: req.user.full_name, now, saleDay, orderCode,
     }))();
   } catch (e) {
-    if (e.gone) return res.status(409).json({ error: 'Có món trong đơn vừa được bán hoặc không còn trong kho. Hãy chọn lại.' });
+    if (e.gone) return res.status(409).json({ error: e.message });
     throw e;
   }
 
