@@ -59,10 +59,10 @@
             <td class="whitespace-nowrap text-xs" title="<%= fmt.date(i.import_date) %>"><%= fmt.dateShort(i.import_date) %></td>
             <td class="text-xs"><%= i.condition || '' %></td>
             <td class="max-w-[8rem] truncate text-xs" title="<%= i.supplier || '' %>"><%= i.supplier || '' %></td>
-            <td class="text-xs"><%= i.warranty_in_months != null ? i.warranty_in_months : '' %></td>
+            <td class="whitespace-nowrap text-xs"><%= i.warranty_in_months != null ? String(i.warranty_in_months).padStart(2, '0') + ' tháng' : '' %></td>
             <td class="whitespace-nowrap text-right tabular-nums"><%= fmt.num(i.tech_price) %></td>
             <td class="whitespace-nowrap text-right font-semibold tabular-nums"><%= fmt.num(i.retail_price) %></td>
-            <td class="text-xs"><%= i.warranty_out_months != null ? i.warranty_out_months : '' %></td>
+            <td class="whitespace-nowrap text-xs"><%= i.warranty_out_months != null ? String(i.warranty_out_months).padStart(2, '0') + ' tháng' : '' %></td>
             <% if (tab === 'sold') { %>
               <td class="whitespace-nowrap text-xs" title="<%= fmt.date(i.sold_date) %>"><%= fmt.dateShort(i.sold_date) %></td>
               <td><%= i.customer_name || '' %><br><span class="text-xs text-slate-500"><%= i.customer_phone || '' %></span></td>
