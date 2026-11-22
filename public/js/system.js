@@ -83,7 +83,7 @@ window.systemPage = function () {
       var line = pts.map(function (p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ');
       return { line: line, area: '0,' + H + ' ' + line + ' ' + W + ',' + H };
     },
-    get powerMax() { var r = this.histRange('w'); return Math.max(2, r ? r.max * 1.25 : 10); },
+    get powerMax() { var r = this.histRange('nw'); return Math.max(6, r ? r.max * 1.25 : 12); },
     get reqMax() { return this.d && this.d.requests ? Math.max.apply(null, this.d.requests.minutes) : 0; },
     num: function (n) { return new Intl.NumberFormat('vi-VN').format(n || 0); },
     histRange: function (key) {

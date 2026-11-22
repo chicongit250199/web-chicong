@@ -74,30 +74,33 @@
       </div>
 
       <div class="grid gap-4 lg:grid-cols-2">
-        <%# ---- Điện năng (Intel RAPL) ---- %>
+        <%# ---- Điện năng: cả máy NUC (ước tính) + CPU (đo bằng Intel RAPL) ---- %>
         <section class="card">
-          <h2 class="mb-3 flex items-center justify-between font-semibold">Tiêu thụ điện <span class="text-xs font-normal text-slate-500">CPU (cảm biến Intel RAPL)</span></h2>
-          <template x-if="d.power && d.power.available && d.power.watts != null">
+          <h2 class="mb-3 flex items-center justify-between font-semibold">Tiêu thụ điện <span class="text-xs font-normal text-slate-500">cả máy NUC · ước tính từ cảm biến CPU</span></h2>
+          <template x-if="d.power && d.power.available && d.power.nuc">
             <div>
               <div class="grid grid-cols-3 gap-3">
-                <div><p class="text-xs text-slate-500">Hiện tại</p><p class="text-2xl font-bold tabular-nums text-amber-600" x-text="d.power.watts.toFixed(1) + ' W'"></p></div>
-                <div><p class="text-xs text-slate-500">Trung bình</p><p class="text-2xl font-bold tabular-nums" x-text="(d.power.avg || 0).toFixed(1) + ' W'"></p></div>
-                <div><p class="text-xs text-slate-500">Ước tính / tháng</p><p class="text-2xl font-bold tabular-nums" x-text="((d.power.avg || 0) * 24 * 30 / 1000).toFixed(1) + ' kWh'"></p></div>
+                <div><p class="text-xs text-slate-500">Hiện tại</p><p class="text-2xl font-bold tabular-nums text-amber-600" x-text="'~' + d.power.nuc.watts.toFixed(1) + ' W'"></p>
+                  <p class="text-xs text-slate-500" x-text="'CPU đo: ' + d.power.watts.toFixed(2) + ' W'"></p></div>
+                <div><p class="text-xs text-slate-500">Trung bình</p><p class="text-2xl font-bold tabular-nums" x-text="'~' + (d.power.nuc.avg || 0).toFixed(1) + ' W'"></p>
+                  <p class="text-xs text-slate-500" x-text="'CPU: ' + (d.power.avg || 0).toFixed(2) + ' W'"></p></div>
+                <div><p class="text-xs text-slate-500">Ước tính / tháng</p><p class="text-2xl font-bold tabular-nums" x-text="'~' + ((d.power.nuc.avg || 0) * 24 * 30 / 1000).toFixed(1) + ' kWh'"></p>
+                  <p class="text-xs text-slate-500" x-text="'≈ ' + ((d.power.nuc.avg || 0) * 24 / 1000).toFixed(2) + ' kWh / ngày'"></p></div>
               </div>
               <figure class="mt-4">
-                <svg viewBox="0 0 300 60" preserveAspectRatio="none" class="h-16 w-full" role="img" aria-label="Điện năng 10 phút">
-                  <polygon :points="spark('w', powerMax).area" class="fill-amber-500/10"/>
-                  <polyline :points="spark('w', powerMax).line" fill="none" class="stroke-amber-500" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+                <svg viewBox="0 0 300 60" preserveAspectRatio="none" class="h-16 w-full" role="img" aria-label="Điện năng cả máy 10 phút">
+                  <polygon :points="spark('nw', powerMax).area" class="fill-amber-500/10"/>
+                  <polyline :points="spark('nw', powerMax).line" fill="none" class="stroke-amber-500" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
                 </svg>
                 <figcaption class="mt-1 flex justify-between text-xs text-slate-500">
-                  <span x-text="'Đã dùng ' + d.power.wh.toFixed(2) + ' Wh từ ' + time(d.power.since)"></span>
-                  <span x-show="histRange('w')" x-text="histRange('w') ? 'thấp ' + histRange('w').min.toFixed(1) + ' W · cao ' + histRange('w').max.toFixed(1) + ' W' : ''"></span>
+                  <span x-text="'Cả máy đã dùng ~' + d.power.nuc.wh.toFixed(1) + ' Wh từ ' + time(d.power.since)"></span>
+                  <span x-show="histRange('nw')" x-text="histRange('nw') ? 'thấp ' + histRange('nw').min.toFixed(1) + ' W · cao ' + histRange('nw').max.toFixed(1) + ' W' : ''"></span>
                 </figcaption>
               </figure>
-              <p class="mt-2 text-xs text-slate-400">Chỉ tính phần CPU (nhân + đồ họa tích hợp). Cả máy NUC thường cao hơn khoảng 3–6 W (RAM, ổ cứng, mainboard, adapter).</p>
+              <p class="mt-2 text-xs text-slate-400">Cả máy = (CPU đo được × 1,12 hao hụt ổn áp + ~2,5 W RAM / SSD / LAN / quạt) ÷ 0,87 hiệu suất adapter. Sai số khoảng ±1 W; muốn chính xác tuyệt đối cần đồng hồ đo điện ở ổ cắm.</p>
             </div>
           </template>
-          <p x-show="d.power && d.power.available && d.power.watts == null" class="text-sm text-slate-500">Đang đo… (khoảng 10–20 giây)</p>
+          <p x-show="d.power && d.power.available && !d.power.nuc" class="text-sm text-slate-500">Đang đo… (khoảng 10–20 giây)</p>
           <div x-show="d.power && !d.power.available" class="text-sm">
             <p x-show="d.power && d.power.reason === 'no-permission'" class="text-slate-600 dark:text-slate-300">Chưa bật quyền đọc cảm biến điện. Chạy lệnh sau trên máy chủ (1 lần, cần sudo):
               <code class="mt-1 block rounded bg-slate-100 px-2 py-1 font-mono text-xs dark:bg-slate-800">sudo bash scripts/setup-power.sh</code></p>

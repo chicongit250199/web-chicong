@@ -1,6 +1,9 @@
-<div class="page-title"><h1><%- icon('fileSheet', 'h-6 w-6 text-brand-600') %>Import Excel</h1></div>
-<div class="tabs">
-  <a href="/manager/import" class="tab <%= active === 'inventory' ? 'tab-active' : '' %>">Kho hàng</a>
-  <a href="/manager/import/revenue" class="tab <%= active === 'revenue' ? 'tab-active' : '' %>">Doanh thu</a>
-  <a href="/manager/import/pc-parts" class="tab <%= active === 'pc_parts' ? 'tab-active' : '' %>">Giá Linh Kiện</a>
+<%# Import Excel nằm trong trang Hệ thống (tab "Import Excel"); bên dưới chọn loại import dạng nút %>
+<div class="page-title"><h1><%- icon('cpu', 'h-6 w-6 text-brand-600') %>Hệ thống</h1></div>
+<%- include('_system_tabs', { sysTab: 'import' }) %>
+<div class="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Loại import">
+  <% [['inventory', 'Kho hàng', 'archive', '/manager/import'], ['revenue', 'Doanh thu', 'chart', '/manager/import/revenue'], ['pc_parts', 'Giá Linh Kiện', 'cpu', '/manager/import/pc-parts']].forEach(([k, l, ic, href]) => { %>
+    <a href="<%= href %>" role="tab" aria-selected="<%= active === k %>"
+       class="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition <%= active === k ? 'bg-brand-600 text-white shadow' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-brand-50 hover:text-brand-700 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700 dark:hover:bg-slate-800' %>"><%- icon(ic, 'h-4 w-4') %><%= l %></a>
+  <% }) %>
 </div>

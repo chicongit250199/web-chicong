@@ -164,6 +164,10 @@ function network(rates) {
 // Đo phần CPU (package: nhân + GPU tích hợp + bộ nhớ đệm), chưa gồm ổ cứng / RAM / mainboard / adapter.
 const RAPL = '/sys/class/powercap/intel-rapl:0';
 const power = { available: false, watts: null, avg: null, wh: 0, since: Date.now(), last: null, maxRange: Number(read(RAPL + '/max_energy_range_uj', 0)) || 0, reason: '' };
+// Ước tính cả máy NUC (đo ở ổ cắm) từ điện CPU: (CPU × hao hụt bộ ổn áp + phần còn lại của máy) ÷ hiệu suất adapter.
+// Phần còn lại ~2.5 W: RAM DDR3L 8GB ~1 W, SSD SATA ~0.5 W, LAN ~0.5 W, quạt + linh tinh ~0.5 W (BRIX J3160: ~4–5 W rảnh, ~10–11 W tải nặng)
+const NUC_BASE_W = Number(process.env.NUC_BASE_W) || 2.5, NUC_VRM = 1.12, NUC_ADAPTER_EFF = 0.87;
+const nucWatts = w => (w == null ? null : Math.round((w * NUC_VRM + NUC_BASE_W) / NUC_ADAPTER_EFF * 100) / 100);
 function readPower() {
   const e = read(RAPL + '/energy_uj');
   if (e == null) {
@@ -241,7 +245,7 @@ function sample(record = true) {
     history.push({
       t: Date.now(), cpu: c.total, temp: Number.isFinite(cpuTemp) && cpuTemp > 0 ? cpuTemp : null,
       fan: fanList.length ? Math.max(...fanList.map(f => f.rpm)) : null,
-      rx: net.reduce((s, n) => s + n.rx, 0), tx: net.reduce((s, n) => s + n.tx, 0), w,
+      rx: net.reduce((s, n) => s + n.rx, 0), tx: net.reduce((s, n) => s + n.tx, 0), w, nw: nucWatts(w),
     });
     if (history.length > HISTORY) history.shift();
   }
@@ -280,7 +284,14 @@ function snapshot() {
       manager: process.env.pm_id !== undefined ? 'PM2' : 'thủ công', env: config.isProd ? 'production' : 'development',
       db, uploads: dirSize(config.uploadDir), backups,
     },
-    power: { available: power.available, reason: power.reason, watts: power.watts, avg: power.avg, wh: Math.round(power.wh * 100) / 100, since: new Date(power.since).toISOString() },
+    power: {
+      available: power.available, reason: power.reason, watts: power.watts, avg: power.avg, wh: Math.round(power.wh * 100) / 100, since: new Date(power.since).toISOString(),
+      // cả máy NUC (ước tính): điện năng = CPU đã đo + phần còn lại theo thời gian đo
+      nuc: power.watts == null ? null : {
+        watts: nucWatts(power.watts), avg: nucWatts(power.avg),
+        wh: Math.round(((power.wh * NUC_VRM) + NUC_BASE_W * (Date.now() - power.since) / 3.6e6) / NUC_ADAPTER_EFF * 100) / 100,
+      },
+    },
     requests: require('./reqStats').stats(),
     history,
   };

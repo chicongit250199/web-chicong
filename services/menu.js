@@ -59,8 +59,7 @@ const GROUPS = [
   {
     title: 'Quản trị',
     items: [
-      { key: 'm-import', href: '/manager/import', icon: 'fileSheet', label: 'Import Excel', roles: ['manager'] },
-      { key: 'm-system', also: ['m-users'], href: '/manager/system', icon: 'cpu', label: 'Hệ thống', roles: ['manager'] },
+      { key: 'm-system', also: ['m-users', 'm-import'], href: '/manager/system', icon: 'cpu', label: 'Hệ thống', roles: ['manager'] },
     ],
   },
 ];
