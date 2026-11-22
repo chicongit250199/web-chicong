@@ -8,6 +8,34 @@
     </div>
   </div>
 
+  <%# ---- Console máy chủ (log PM2) ---- %>
+  <section class="card mb-4" x-data="serverConsole()">
+    <div class="mb-3 flex flex-wrap items-center gap-2">
+      <h2 class="mr-auto flex items-center gap-2 font-semibold"><%- icon('terminal', 'h-5 w-5 text-brand-600') %>Console máy chủ
+        <span class="text-xs font-normal text-slate-500" x-text="paused ? '· tạm dừng' : '· tự làm mới 3 giây'"></span></h2>
+      <input type="search" x-model="q" placeholder="Lọc dòng..." class="input w-36 py-1 text-xs sm:w-48">
+      <div class="inline-flex overflow-hidden rounded-lg border border-slate-300 text-xs dark:border-slate-700">
+        <template x-for="o in [['all','Tất cả'],['err','Lỗi']]" :key="o[0]">
+          <button type="button" @click="only = o[0]" class="px-2.5 py-1" :class="only === o[0] ? 'bg-brand-600 text-white' : 'bg-white text-slate-700 dark:bg-slate-800 dark:text-slate-200'" x-text="o[1] + (o[0] === 'err' && errCount ? ' (' + errCount + ')' : '')"></button>
+        </template>
+      </div>
+      <button type="button" class="btn-secondary px-2.5 py-1 text-xs" @click="togglePause()" x-text="paused ? 'Tiếp tục' : 'Tạm dừng'"></button>
+      <button type="button" class="btn-secondary px-2.5 py-1 text-xs" @click="open = !open" x-text="open ? 'Thu gọn' : 'Mở rộng'"></button>
+    </div>
+    <p x-show="err" x-cloak class="mb-2 text-xs text-red-600 dark:text-red-400" x-text="'Không đọc được log: ' + err"></p>
+    <div x-ref="box" @scroll="onScroll()" class="overflow-auto rounded-lg bg-slate-950 p-3 font-mono text-[11px] leading-5 text-slate-200 sm:text-xs" :class="open ? 'h-[28rem]' : 'h-48'">
+      <p x-show="loaded && !shown.length" class="text-slate-500" x-text="lines.length ? 'Không có dòng nào khớp.' : 'Chưa có log.'"></p>
+      <p x-show="!loaded" class="text-slate-500">Đang đọc log...</p>
+      <template x-for="(l, i) in shown" :key="i">
+        <div class="whitespace-pre-wrap break-all" :class="l.s === 'err' ? 'text-red-400' : ''"><span class="select-none text-slate-500" x-text="fmt(l.t) + ' '"></span><span x-text="l.m"></span></div>
+      </template>
+    </div>
+    <p class="mt-1.5 flex justify-between text-xs text-slate-500">
+      <span x-text="lines.length + ' dòng gần nhất · đỏ = luồng lỗi (stderr)'"></span>
+      <button type="button" x-show="!stick" x-cloak class="text-brand-600 hover:underline" @click="toBottom()">Xuống dòng mới nhất ↓</button>
+    </p>
+  </section>
+
   <p x-show="err" x-cloak class="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200" x-text="'Không lấy được số liệu: ' + err"></p>
   <p x-show="!d && !err" class="card py-10 text-center text-sm text-slate-500">Đang đọc số liệu...</p>
 

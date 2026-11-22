@@ -4,6 +4,7 @@ const systemInfo = require('../../services/systemInfo');
 const vatSync = require('../../services/vatSync');
 const offsite = require('../../services/offsiteBackup');
 const gitBackup = require('../../services/gitBackup');
+const serverLog = require('../../services/serverLog');
 const db = require('../../db');
 const { backup } = require('../../services/backup');
 
@@ -19,6 +20,13 @@ router.get('/system.json', (req, res) => {
   const st = vatSync.status();
   s.vat = { auto: st.auto, running: Boolean(st.job && st.job.running), job: st.job && { direction: st.job.direction, processed: st.job.processed, total: st.job.total } };
   res.set('Cache-Control', 'no-store').json(s);
+});
+
+// Console máy chủ (đọc từ log PM2); gửi ?sig= để khỏi tải lại khi log không đổi
+router.get('/system/logs', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  if (req.query.sig && req.query.sig === serverLog.signature()) return res.json({ same: true });
+  res.json(serverLog.tail(req.query.limit));
 });
 
 // Đo tốc độ Internet (chạy nền ~5–20 giây, trang tự hỏi lại kết quả qua system.json)

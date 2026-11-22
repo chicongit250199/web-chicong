@@ -146,3 +146,41 @@ window.gitBackup = function () {
     showPass: function () { var self = this; api('/manager/system/git-backup/passphrase', { method: 'POST' }).then(function (d) { self.pass = d.passphrase || '(chưa đặt)'; }); },
   };
 };
+
+// Console máy chủ: đọc log PM2 mỗi 3 giây (chỉ tải lại khi log thay đổi)
+window.serverConsole = function () {
+  return {
+    lines: [], sig: '', q: '', only: 'all', paused: false, open: false, stick: true, loaded: false, err: '', timer: null,
+    init: function () { this.load(); },
+    load: function () {
+      var self = this;
+      clearTimeout(this.timer);
+      if (this.paused) return;
+      if (document.hidden) { this.timer = setTimeout(function () { self.load(); }, 3000); return; }
+      api('/manager/system/logs?limit=500' + (this.sig ? '&sig=' + encodeURIComponent(this.sig) : ''))
+        .then(function (d) {
+          self.err = ''; self.loaded = true;
+          if (d.same) return;
+          self.sig = d.sig; self.lines = d.lines;
+          if (self.stick) self.$nextTick(function () { self.toBottom(); });
+        })
+        .catch(function (e) { self.err = e.message; })
+        .finally(function () { if (!self.paused) self.timer = setTimeout(function () { self.load(); }, 3000); });
+    },
+    togglePause: function () { this.paused = !this.paused; if (!this.paused) this.load(); else clearTimeout(this.timer); },
+    get errCount() { return this.lines.filter(function (l) { return l.s === 'err'; }).length; },
+    get shown() {
+      var q = this.q.trim().toLowerCase(), only = this.only;
+      return this.lines.filter(function (l) { return (only === 'all' || l.s === only) && (!q || l.m.toLowerCase().indexOf(q) >= 0); });
+    },
+    // cuộn tay lên trên → ngừng tự cuộn xuống; về cuối → tự cuộn lại
+    onScroll: function () { var b = this.$refs.box; this.stick = b.scrollHeight - b.scrollTop - b.clientHeight < 30; },
+    toBottom: function () { var b = this.$refs.box; b.scrollTop = b.scrollHeight; this.stick = true; },
+    // giờ PM2 là UTC → hiển thị giờ VN
+    fmt: function (t) {
+      if (!t) return '        ';
+      var d = new Date(t + 'Z');
+      return isNaN(d) ? t : d.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: '2-digit', hour12: false });
+    },
+  };
+};
