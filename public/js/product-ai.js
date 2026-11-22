@@ -10,11 +10,15 @@ window.productAi = function () {
       el.dispatchEvent(new Event('input', { bubbles: true })); // để x-model (nếu có) nhận giá trị mới
     },
     // Tra cứu thông số thật trên Google + viết bài chi tiết
-    research: function () {
+    research: function (sure) {
       var self = this;
       var name = this.val('name_vi').trim();
       if (name.length < 3) { this.err = 'Nhập tên / model máy trước (VD: Dell Latitude 5420).'; return; }
-      if ((this.val('desc_vi').trim() || '') && !confirm('Thay mô tả hiện có bằng bài AI viết? (Cấu hình đã nhập sẽ được giữ làm gợi ý cho AI.)')) return;
+      if (!sure && this.val('desc_vi').trim()) {
+        uiConfirm('Thay mô tả hiện có bằng bài AI viết?\n(Cấu hình đã nhập sẽ được giữ làm gợi ý cho AI.)', { tone: 'warning', ok: 'Thay bằng bài AI' })
+          .then(function (ok) { if (ok) self.research(true); });
+        return;
+      }
       this.err = ''; this.sources = []; this.busy = 'research';
       var t0 = Date.now();
       api('/staff/api/ai/research', { method: 'POST', body: {

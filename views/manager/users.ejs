@@ -23,7 +23,7 @@
                 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <button title="<%= x.is_active ? 'Khóa' : 'Mở khóa' %>" class="rounded-md p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800"><%- icon(x.is_active ? 'lock' : 'unlock', 'h-4 w-4') %></button>
               </form>
-              <form method="post" action="/manager/users/<%= x.id %>/delete" class="inline" @submit="confirm('Xóa tài khoản <%= x.username %>? Lịch sử task/doanh thu vẫn được giữ.') || $event.preventDefault()">
+              <form method="post" action="/manager/users/<%= x.id %>/delete" class="inline" data-confirm="Xóa tài khoản <%= x.username %>? Lịch sử task/doanh thu vẫn được giữ.">
                 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <button title="Xóa" class="rounded-md p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"><%- icon('trash', 'h-4 w-4') %></button>
               </form>

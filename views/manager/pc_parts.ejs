@@ -110,7 +110,7 @@
               <td class="whitespace-nowrap text-right">
                 <% if (canEdit) { %>
                 <a href="/manager/pc-parts/<%= p.id %>" class="inline-grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-slate-800" title="Sửa"><%- icon('edit', 'h-4 w-4') %></a>
-                <form method="post" action="/manager/pc-parts/<%= p.id %>/delete" class="inline" x-data @submit="if (!confirm(<%= JSON.stringify('Xóa "' + p.name + (p.condition ? ' (' + p.condition + ')' : '') + '" khỏi bảng giá?\nCấu hình Build PC đã lưu vẫn giữ nguyên. Không thể hoàn tác.') %>)) $event.preventDefault()">
+                <form method="post" action="/manager/pc-parts/<%= p.id %>/delete" class="inline" data-confirm="<%= 'Xóa "' + p.name + (p.condition ? ' (' + p.condition + ')' : '') + '" khỏi bảng giá?\nCấu hình Build PC đã lưu vẫn giữ nguyên. Không thể hoàn tác.' %>">
                   <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                   <button class="inline-grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-slate-800" title="Xóa"><%- icon('trash', 'h-4 w-4') %></button>
                 </form>

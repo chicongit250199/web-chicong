@@ -124,9 +124,10 @@ window.offsiteBackup = function () {
       }).catch(function (e) { self.err = e.message; self.load(); }).finally(function () { self.busy = false; });
     },
     disconnect: function () {
-      if (!confirm('Ngắt kết nối Google Drive? Bản sao lưu đã có trên Drive vẫn giữ nguyên.')) return;
       var self = this;
-      api('/manager/system/offsite/disconnect', { method: 'POST' }).then(function (d) { self.s = d; self.msg = 'Đã ngắt kết nối.'; });
+      uiConfirm('Ngắt kết nối Google Drive?\nBản sao lưu đã có trên Drive vẫn giữ nguyên.', { ok: 'Ngắt kết nối' }).then(function (ok) {
+        if (ok) api('/manager/system/offsite/disconnect', { method: 'POST' }).then(function (d) { self.s = d; self.msg = 'Đã ngắt kết nối.'; });
+      });
     },
   };
 };
@@ -162,7 +163,8 @@ window.printerAdmin = function () {
         .catch(function (e) { self.err = e.message; }).finally(function () { self.busy = false; });
     },
     act: function (p, action, confirmText) {
-      if (confirmText && !confirm(confirmText)) return;
+      var self = this;
+      if (confirmText) { uiConfirm(confirmText).then(function (ok) { if (ok) self.act(p, action); }); return; }
       var msgs = { test: function (d) { return 'Đã gửi trang in thử' + (d.job ? ' (' + d.job + ')' : '') + '.'; }, default: 'Đã đặt ' + p.name + ' làm mặc định.', enable: 'Đã bật lại.', disable: 'Đã tạm dừng.', delete: 'Đã xóa ' + p.name + '.', 'cancel-all': 'Đã hủy các lệnh in.' };
       this.call('/manager/system/printers/' + encodeURIComponent(p.name) + '/' + action, {}, msgs[action]);
     },

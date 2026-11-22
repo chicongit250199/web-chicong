@@ -18,6 +18,15 @@
 
 [x-cloak] { display: none !important; }
 
+/* Hộp xác nhận (uiConfirm trong app.js): nền mờ dần, hộp bật lên, icon nảy nhẹ */
+.ui-confirm .ui-confirm-bg { animation: cf-fade .18s ease-out; }
+.ui-confirm .ui-confirm-box { animation: cf-pop .26s cubic-bezier(.2, 1.3, .4, 1); }
+.ui-confirm .ui-confirm-icon { animation: cf-bounce .5s .08s cubic-bezier(.3, 1.6, .5, 1) both; }
+.ui-confirm-out .ui-confirm-bg, .ui-confirm-out .ui-confirm-box { animation: cf-fade .16s ease-in reverse forwards; }
+@keyframes cf-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cf-pop { from { opacity: 0; transform: translateY(12px) scale(.92); } to { opacity: 1; transform: none; } }
+@keyframes cf-bounce { from { transform: scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
+
 /* Màu cho tab kiểu Chrome: --tab-page = màu nền trang (body bg-paper / dark:bg-slate-950), --tab-strip = dải tab */
 :root { --tab-page: #fdf6dc; --tab-strip: #efe3b8; }
 .dark { --tab-page: #020617; --tab-strip: #1e293b; }

@@ -181,6 +181,87 @@
     };
   };
 
+  // ---------- Hộp xác nhận giữa màn hình (thay confirm() mặc định của trình duyệt) ----------
+  // uiConfirm('Xóa ...?', { title, ok, tone: 'danger' | 'warning' | 'info' }) -> Promise<boolean>
+  // Khai báo trong HTML: <form data-confirm="Xóa ...?"> hoặc <button data-confirm="..."> (tùy chọn data-confirm-ok, data-confirm-tone)
+  var CF_ICON = {
+    danger: '<path d="M3 6h18M19 6l-1 14H6L5 6M9 6V4h6v2M10 11v6M14 11v6"/>',
+    warning: '<path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"/>',
+    info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+  };
+  var CF_TONE = {
+    danger: { ring: 'bg-red-100 text-red-600 ring-8 ring-red-50 dark:bg-red-950 dark:text-red-400 dark:ring-red-950/40', ok: 'bg-red-600 hover:bg-red-700 focus-visible:ring-red-500/40', bar: 'from-red-500 to-rose-500', title: 'Xác nhận xóa', okText: 'Xóa' },
+    warning: { ring: 'bg-amber-100 text-amber-600 ring-8 ring-amber-50 dark:bg-amber-950 dark:text-amber-400 dark:ring-amber-950/40', ok: 'bg-amber-500 hover:bg-amber-600 focus-visible:ring-amber-500/40', bar: 'from-amber-400 to-orange-500', title: 'Xác nhận', okText: 'Đồng ý' },
+    info: { ring: 'bg-brand-100 text-brand-600 ring-8 ring-brand-50 dark:bg-brand-950 dark:text-brand-300 dark:ring-brand-950/40', ok: 'bg-brand-600 hover:bg-brand-700 focus-visible:ring-brand-500/40', bar: 'from-brand-500 to-sky-500', title: 'Xác nhận', okText: 'Đồng ý' },
+  };
+  function guessTone(msg) { return /^\s*(xóa|xoá|hủy|huỷ|bỏ|ngắt|hoàn tác)/i.test(msg) ? 'danger' : 'warning'; }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  window.uiConfirm = function (message, opts) {
+    opts = opts || {};
+    var tone = CF_TONE[opts.tone] ? opts.tone : guessTone(message);
+    var t = CF_TONE[tone];
+    return new Promise(function (resolve) {
+      var prevFocus = document.activeElement;
+      var wrap = document.createElement('div');
+      wrap.className = 'ui-confirm fixed inset-0 z-[90] grid place-items-center p-4';
+      wrap.setAttribute('role', 'alertdialog'); wrap.setAttribute('aria-modal', 'true');
+      wrap.innerHTML =
+        '<div class="ui-confirm-bg absolute inset-0 bg-slate-950/55 backdrop-blur-sm" data-cancel></div>' +
+        '<div class="ui-confirm-box relative w-full max-w-md overflow-hidden rounded-2xl bg-white text-center shadow-2xl ring-1 ring-black/5 dark:bg-slate-900 dark:ring-white/10">' +
+          '<div class="h-1.5 bg-gradient-to-r ' + t.bar + '"></div>' +
+          '<div class="px-6 pb-6 pt-7">' +
+            '<div class="ui-confirm-icon mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full ' + t.ring + '">' +
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-8 w-8">' + CF_ICON[tone] + '</svg></div>' +
+            '<h3 class="text-lg font-bold text-slate-900 dark:text-white">' + esc(opts.title || t.title) + '</h3>' +
+            '<p class="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-600 dark:text-slate-300">' + esc(message) + '</p>' +
+            '<div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-center">' +
+              '<button type="button" data-cancel class="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:min-w-28 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">' + esc(opts.cancel || 'Hủy') + '</button>' +
+              '<button type="button" data-ok class="rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-lg outline-none focus-visible:ring-4 sm:min-w-28 ' + t.ok + '">' + esc(opts.ok || t.okText) + '</button>' +
+            '</div></div></div>';
+      function close(v) {
+        document.removeEventListener('keydown', onKey, true);
+        wrap.classList.add('ui-confirm-out');
+        setTimeout(function () { wrap.remove(); }, 160);
+        if (prevFocus && prevFocus.focus) try { prevFocus.focus(); } catch (e) {}
+        resolve(v);
+      }
+      function onKey(e) {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(false); }
+        else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); close(!(document.activeElement && document.activeElement.hasAttribute('data-cancel'))); }
+      }
+      wrap.addEventListener('click', function (e) {
+        if (e.target.closest('[data-ok]')) close(true);
+        else if (e.target.closest('[data-cancel]')) close(false);
+      });
+      document.addEventListener('keydown', onKey, true);
+      document.body.appendChild(wrap);
+      wrap.querySelector('[data-ok]').focus();
+    });
+  };
+  // Form / nút có data-confirm: chặn gửi, hỏi bằng hộp xác nhận, đồng ý thì gửi lại (giữ formaction của nút)
+  function askThen(el, form, submitter) {
+    uiConfirm(el.getAttribute('data-confirm'), { ok: el.getAttribute('data-confirm-ok') || undefined, tone: el.getAttribute('data-confirm-tone') || undefined })
+      .then(function (ok) {
+        if (!ok) return;
+        form._cfOk = true;
+        if (form.requestSubmit) form.requestSubmit(submitter || undefined); else form.submit();
+      });
+  }
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-confirm], input[type=submit][data-confirm]');
+    if (!btn || !btn.form) return;
+    if (btn.form._cfOk) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    askThen(btn, btn.form, btn);
+  }, true);
+  document.addEventListener('submit', function (e) {
+    var form = e.target;
+    if (form._cfOk) { form._cfOk = false; return; } // đã đồng ý -> cho gửi
+    if (!form.hasAttribute('data-confirm')) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    askThen(form, form, e.submitter);
+  }, true);
+
   window.formatVnd = function (n) {
     if (n === null || n === undefined || n === '') return '';
     var num = typeof n === 'number' ? n : Number(String(n).replace(/[^\d-]/g, '')) || 0;

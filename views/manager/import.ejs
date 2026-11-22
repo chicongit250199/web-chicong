@@ -74,7 +74,7 @@
           <td class="text-right tabular-nums"><%= fmt.num(b.total) %></td>
           <td class="text-sm"><%= b.user_name %></td>
           <td class="text-right">
-            <form method="post" action="/manager/import/batches/<%= b.id %>/delete" @submit="confirm('Xóa toàn bộ <%= b.remaining %> món của đợt <%= b.id %> khỏi kho để import lại? Không thể hoàn tác.') || $event.preventDefault()">
+            <form method="post" action="/manager/import/batches/<%= b.id %>/delete" data-confirm="Xóa toàn bộ <%= b.remaining %> món của đợt <%= b.id %> khỏi kho để import lại? Không thể hoàn tác.">
               <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="inline-grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950" title="Xóa cả đợt"><%- icon('trash', 'h-4 w-4') %></button></form>
           </td>
         </tr>

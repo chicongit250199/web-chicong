@@ -152,7 +152,7 @@
           <button type="button" @click="print('en', 'receipt')" :disabled="saving || !lines.length" class="btn-secondary text-sm">Receipt (EN)</button>
         </div>
         <template x-if="id">
-          <form method="post" :action="'/staff/build/' + id + '/delete'" class="text-right" @submit="if (!confirm('Xóa cấu hình này?')) $event.preventDefault(); else dirty = false">
+          <form method="post" :action="'/staff/build/' + id + '/delete'" class="text-right" data-confirm="Xóa cấu hình này?" @submit="dirty = false">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="text-xs text-red-600 hover:underline">Xóa cấu hình</button></form>
         </template>
       </div>

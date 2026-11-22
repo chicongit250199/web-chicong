@@ -164,7 +164,7 @@
       <% }) %>
       <span class="ml-auto flex gap-2">
         <form method="post" action="/manager/vat/reconcile"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn-primary px-3 py-1.5 text-xs"><%- icon('refresh', 'h-3.5 w-3.5') %>Đối chiếu</button></form>
-        <form method="post" action="/manager/vat/reconcile/reset" @submit="confirm('Bỏ toàn bộ kết quả đối chiếu tự động (giữ các lần chọn tay) rồi đối chiếu lại từ đầu?') || $event.preventDefault()"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn-secondary px-3 py-1.5 text-xs">Đối chiếu lại từ đầu</button></form>
+        <form method="post" action="/manager/vat/reconcile/reset" data-confirm="Bỏ toàn bộ kết quả đối chiếu tự động (giữ các lần chọn tay) rồi đối chiếu lại từ đầu?"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn-secondary px-3 py-1.5 text-xs">Đối chiếu lại từ đầu</button></form>
       </span>
     </div>
     <p class="mb-3 text-xs text-slate-500">Mỗi dòng hàng trên HĐ bán ra được trừ vào tồn kho VAT theo lô nhập sớm nhất (FIFO), ghép theo tên hàng / mã model. Tự chạy sau mỗi lần quét hóa đơn.</p>
@@ -209,7 +209,7 @@
                 <% } else if (r.note) { %><span class="block truncate text-xs italic text-slate-500"><%= r.note %></span><% } %></td>
               <td class="whitespace-nowrap text-right"><span class="font-semibold tabular-nums"><%= fmt.num(r.quantity) %></span> <span class="text-xs text-slate-500"><%= r.unit || '' %></span></td>
               <td class="hidden min-w-0 md:table-cell"><span class="block truncate"><%= r.buyer_name || '—' %></span><span class="font-mono text-xs text-slate-500"><%= r.buyer_tax_id || '' %></span></td>
-              <td class="text-right"><form method="post" action="/manager/vat/exports/<%= r.id %>/undo" @submit="confirm('Hoàn tác lần xuất này? Số lượng sẽ được cộng lại vào tồn kho VAT.') || $event.preventDefault()">
+              <td class="text-right"><form method="post" action="/manager/vat/exports/<%= r.id %>/undo" data-confirm="Hoàn tác lần xuất này? Số lượng sẽ được cộng lại vào tồn kho VAT.">
                 <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="inline-grid h-8 w-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" title="Hoàn tác"><%- icon('refresh', 'h-4 w-4') %></button></form></td>
             </tr>
           <% }) %>

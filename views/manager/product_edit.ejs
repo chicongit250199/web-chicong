@@ -18,7 +18,7 @@
             <% if (k === 0) { %><span class="absolute left-1 top-1 rounded bg-brand-600 px-1 text-[10px] font-bold text-white">★</span><% } %>
             <div class="absolute inset-x-0 bottom-0 flex justify-center gap-1 bg-slate-900/60 p-1 opacity-0 transition group-hover:opacity-100">
               <% if (k) { %><button formaction="/manager/products/<%= p.id %>/images/<%= img.id %>/cover?_csrf=<%= encodeURIComponent(csrfToken) %>" class="rounded bg-white/90 px-1.5 text-[11px] font-semibold text-slate-800" title="Đặt làm ảnh đại diện">★</button><% } %>
-              <button formaction="/manager/products/<%= p.id %>/images/<%= img.id %>/delete?_csrf=<%= encodeURIComponent(csrfToken) %>" class="rounded bg-red-600 px-1.5 text-[11px] font-semibold text-white" title="Xóa ảnh" @click="confirm('Xóa ảnh này?') || $event.preventDefault()">✕</button>
+              <button formaction="/manager/products/<%= p.id %>/images/<%= img.id %>/delete?_csrf=<%= encodeURIComponent(csrfToken) %>" class="rounded bg-red-600 px-1.5 text-[11px] font-semibold text-white" title="Xóa ảnh" data-confirm="Xóa ảnh này?">✕</button>
             </div>
           </div>
         <% }) %>
@@ -61,7 +61,7 @@
 
   <div class="flex flex-wrap items-center justify-between gap-2">
     <div class="flex gap-2">
-      <button formaction="/manager/products/<%= p.id %>/delete?_csrf=<%= encodeURIComponent(csrfToken) %>" class="btn-danger" @click="confirm('Xóa sản phẩm này?') || $event.preventDefault()"><%- icon('trash', 'h-4 w-4') %>Xóa</button>
+      <button formaction="/manager/products/<%= p.id %>/delete?_csrf=<%= encodeURIComponent(csrfToken) %>" class="btn-danger" data-confirm="Xóa sản phẩm này?"><%- icon('trash', 'h-4 w-4') %>Xóa</button>
       <% if (p.status === 'approved') { %><button formaction="/manager/products/<%= p.id %>/unapprove?_csrf=<%= encodeURIComponent(csrfToken) %>" class="btn-secondary">Gỡ khỏi trang chủ</button><% } %>
     </div>
     <div class="flex flex-wrap gap-2">

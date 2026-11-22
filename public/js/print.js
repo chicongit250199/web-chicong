@@ -37,8 +37,10 @@ window.printPage = function () {
     },
     cancel: function (j) {
       var self = this;
-      if (!confirm('Hủy lệnh in "' + (j.title || j.id) + '"?')) return;
-      api('/staff/print/jobs/' + encodeURIComponent(j.id) + '/cancel', { method: 'POST' }).then(function (d) { self.s = d; }).catch(function (e) { self.err = e.message; });
+      uiConfirm('Hủy lệnh in "' + (j.title || j.id) + '"?', { ok: 'Hủy lệnh in', cancel: 'Không' }).then(function (ok) {
+        if (!ok) return;
+        api('/staff/print/jobs/' + encodeURIComponent(j.id) + '/cancel', { method: 'POST' }).then(function (d) { self.s = d; }).catch(function (e) { self.err = e.message; });
+      });
     },
   };
 };

@@ -105,7 +105,7 @@
           <label class="block"><span class="label">Ghi chú</span><textarea name="note" x-model="edit.note" rows="2" class="input" placeholder="VD: thanh toán cuối tháng, giá sỉ..."></textarea></label>
           <div class="flex justify-end gap-2"><button type="button" @click="edit = null" class="btn-secondary">Hủy</button><button class="btn-primary">Lưu</button></div>
         </form>
-        <form method="post" :action="'/staff/partners/' + edit.id + '/delete'" class="border-t border-slate-200 pt-2 text-right dark:border-slate-800" @submit="if (!confirm('Xóa đối tác này? Task vẫn giữ nguyên, chỉ bỏ phân loại.')) $event.preventDefault()">
+        <form method="post" :action="'/staff/partners/' + edit.id + '/delete'" class="border-t border-slate-200 pt-2 text-right dark:border-slate-800" data-confirm="Xóa đối tác này? Task vẫn giữ nguyên, chỉ bỏ phân loại.">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="text-xs text-red-600 hover:underline">Xóa đối tác</button></form>
       </div>
     </div>

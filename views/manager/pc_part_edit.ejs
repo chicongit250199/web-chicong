@@ -77,6 +77,6 @@
   </div>
 </form>
 <% if (part.id) { %>
-  <form id="del-form" method="post" action="/manager/pc-parts/<%= part.id %>/delete" x-data @submit="if (!confirm('Xóa linh kiện này khỏi báo giá? Cấu hình đã lưu vẫn giữ nguyên.')) $event.preventDefault()"><input type="hidden" name="_csrf" value="<%= csrfToken %>"></form>
+  <form id="del-form" method="post" action="/manager/pc-parts/<%= part.id %>/delete" data-confirm="Xóa linh kiện này khỏi báo giá? Cấu hình đã lưu vẫn giữ nguyên."><input type="hidden" name="_csrf" value="<%= csrfToken %>"></form>
 <% } %>
 <%- include('../app/_bottom') %>

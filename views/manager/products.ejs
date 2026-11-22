@@ -2,7 +2,7 @@
 <div class="page-title">
   <h1><%- icon('upload', 'h-6 w-6 text-brand-600') %>Quản lý sản phẩm</h1>
   <div class="flex flex-wrap gap-2">
-    <form method="post" action="/manager/products/sync-inventory" @submit="confirm('Đưa các món đang tồn kho (chưa có trên web) lên trang chủ? Hàng cùng tên sẽ gộp thành 1 sản phẩm, tự xếp danh mục.') || $event.preventDefault()">
+    <form method="post" action="/manager/products/sync-inventory" data-confirm="Đưa các món đang tồn kho (chưa có trên web) lên trang chủ? Hàng cùng tên sẽ gộp thành 1 sản phẩm, tự xếp danh mục.">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn-secondary"><%- icon('archive', 'h-4 w-4') %>Đưa hàng tồn kho lên web</button></form>
     <a href="/staff/products/new" class="btn-primary"><%- icon('upload', 'h-4 w-4') %>Đăng sản phẩm</a>
   </div>

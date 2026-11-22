@@ -78,8 +78,12 @@
       remove: function (l) { this.lines = this.lines.filter(function (x) { return x !== l; }); },
       addCustom: function (name, price) { this.lines.push({ uid: ++uid, part_id: null, category: 'Khác', name: name || '', condition: '', price: String(price || 0), qty: 1, warranty_months: null, note: '' }); },
       setMoney: function (obj, key, e) { obj[key] = e.target.value.replace(/\D/g, '') || '0'; e.target.value = formatVnd(obj[key]); },
-      applyTemplate: function (t) {
-        if (this.lines.length && !confirm('Thay các linh kiện đang chọn bằng cấu hình mẫu "' + t.name + '"?')) return;
+      applyTemplate: function (t, sure) {
+        var self = this;
+        if (!sure && this.lines.length) {
+          uiConfirm('Thay các linh kiện đang chọn bằng cấu hình mẫu "' + t.name + '"?', { tone: 'warning', ok: 'Thay cấu hình' }).then(function (ok) { if (ok) self.applyTemplate(t, true); });
+          return;
+        }
         this.lines = t.items.map(function (it) { return toLine(it, true); });
         if (!this.name) this.name = t.name;
       },
@@ -176,9 +180,12 @@
         if (this.id && !this.dirty) return go();
         this.save().then(go).catch(function () { if (w) w.close(); });
       },
-      sell: function () {
+      sell: function (sure) {
         var self = this;
-        if (this.orderCount && !confirm(this.orderCount + ' món chưa có đủ trong kho (Hàng đặt) — vẫn chốt bán? Các món đó sẽ ghi là "hàng ngoài kho".')) return;
+        if (!sure && this.orderCount) {
+          uiConfirm(this.orderCount + ' món chưa có đủ trong kho (Hàng đặt) — vẫn chốt bán?\nCác món đó sẽ ghi là "hàng ngoài kho".', { tone: 'warning', ok: 'Vẫn chốt bán' }).then(function (ok) { if (ok) self.sell(true); });
+          return;
+        }
         this.save().then(function (d) { self.dirty = false; window.location = '/staff/sell?build=' + d.id; }).catch(function () {});
       },
     });
