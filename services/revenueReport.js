@@ -10,6 +10,7 @@ const nodemailer = require('nodemailer');
 const db = require('../db');
 const fmt = require('./format');
 const settings = require('./settings');
+const taskAlerts = require('./taskAlerts'); // đăng ký hàm SQL work_days
 
 const env = process.env;
 const cfg = () => ({
@@ -76,6 +77,58 @@ ${body}
 </div></body></html>`;
 }
 
+// ---------- Tiến độ công việc (task sửa máy) trong khoảng ngày from..to ----------
+const DAYQ = col => `date(${col}, '+7 hours') BETWEEN @from AND @to`;
+const TASK_COLS = `t.ticket_code, t.device_model, t.customer_name, t.status, t.final_price, t.estimated_price,
+  COALESCE(NULLIF(t.technician_name,''), u.full_name) AS tech, t.created_at, t.updated_at`;
+const TASK_FROM = 'FROM tasks t LEFT JOIN users u ON u.id = t.assigned_to';
+
+function taskTable(rows, cols) {
+  if (!rows.length) return '';
+  const head = cols.map(c => `<th style="${TH}${c.right ? 'text-align:right' : ''}">${c.h}</th>`).join('');
+  const body = rows.map(r => `<tr>${cols.map(c => `<td style="${c.right ? TDR : TD}">${c.v(r)}</td>`).join('')}</tr>`).join('');
+  return `<table style="border-collapse:collapse;width:100%;font-size:13px;margin-top:6px"><tr>${head}</tr>${body}</table>`;
+}
+const cTicket = { h: 'Phiếu', v: r => `<span style="white-space:nowrap">${esc(r.ticket_code)}</span>` };
+const cDevice = { h: 'Máy / khách', v: r => `${esc(r.device_model)}${r.customer_name ? `<br><span style="color:#64748b">${esc(r.customer_name)}</span>` : ''}` };
+const cTech = { h: 'Kỹ thuật', v: r => esc(r.tech || '—') };
+const cStatus = { h: 'Trạng thái', v: r => esc(fmt.status(r.status).label) };
+
+function taskSection(from, to) {
+  const p = { from, to };
+  const received = db.prepare(`SELECT ${TASK_COLS} ${TASK_FROM} WHERE ${DAYQ('t.created_at')} ORDER BY t.created_at`).all(p);
+  const finished = db.prepare(`SELECT ${TASK_COLS} ${TASK_FROM} WHERE t.status IN ('done','unrepairable') AND ${DAYQ('t.updated_at')} ORDER BY t.updated_at`).all(p);
+  const returned = db.prepare(`SELECT ${TASK_COLS} ${TASK_FROM} WHERE t.status = 'completed' AND ${DAYQ('t.completed_at')} ORDER BY t.completed_at`).all(p);
+  const open = Object.fromEntries(db.prepare(`SELECT status, COUNT(*) c FROM tasks WHERE status <> 'completed' GROUP BY status`).all().map(r => [r.status, r.c]));
+  const byTech = db.prepare(`SELECT COALESCE(NULLIF(t.technician_name,''), u.full_name, '(chưa ai nhận)') AS tech,
+      SUM(t.status = 'pending') pending, SUM(t.status = 'processing') processing,
+      SUM(t.status IN ('done','unrepairable') AND ${DAYQ('t.updated_at')}) finished
+    ${TASK_FROM} WHERE t.status IN ('pending','processing') OR (t.status IN ('done','unrepairable') AND ${DAYQ('t.updated_at')})
+    GROUP BY tech ORDER BY processing DESC, pending DESC`).all(p);
+  const overdue = db.prepare(`SELECT ${TASK_COLS}, ${taskAlerts.AGE} AS age ${TASK_FROM} WHERE ${taskAlerts.OVERDUE_WHERE} ORDER BY age DESC LIMIT 30`).all();
+
+  const stat = (label, n, color) => `<td style="padding:8px;text-align:center;border:1px solid #e2e8f0"><div style="font-size:20px;font-weight:bold;color:${color}">${esc(n || 0)}</div><div style="font-size:12px;color:#64748b">${label}</div></td>`;
+  const waitingReturn = (open.done || 0) + (open.unrepairable || 0);
+  const ageText = d => (d >= 1 ? `${Math.floor(d)} ngày` : `${Math.floor(d * 24)} giờ`);
+
+  return `<h3 style="margin:28px 0 0;font-size:16px;border-top:2px solid #e2e8f0;padding-top:16px">Tiến độ công việc</h3>
+<table style="border-collapse:collapse;width:100%;margin-top:8px"><tr>
+${stat('Nhận mới', received.length, '#1d4ed8')}${stat('Sửa xong / không sửa được', finished.length, '#047857')}${stat('Đã trả khách', returned.length, '#6d28d9')}
+</tr></table>
+<p style="margin:10px 0 0;font-size:13px;color:#475569">Đang tồn: <b>${esc(open.pending || 0)}</b> chờ xử lý · <b>${esc(open.processing || 0)}</b> đang sửa · <b>${esc(waitingReturn)}</b> chờ trả máy${overdue.length ? ` · <b style="color:#b91c1c">${esc(overdue.length)} quá hạn</b>` : ''}</p>
+${byTech.length ? `<h4 style="margin:16px 0 0;font-size:14px">Theo kỹ thuật viên</h4>
+<table style="border-collapse:collapse;width:100%;max-width:520px;font-size:13px;margin-top:6px"><tr><th style="${TH}">Kỹ thuật</th><th style="${TH}text-align:right">Chờ xử lý</th><th style="${TH}text-align:right">Đang sửa</th><th style="${TH}text-align:right">Xong hôm nay</th></tr>
+${byTech.map(r => `<tr><td style="${TD}">${esc(r.tech)}</td><td style="${TDR}">${esc(r.pending)}</td><td style="${TDR}">${esc(r.processing)}</td><td style="${TDR}">${esc(r.finished)}</td></tr>`).join('')}</table>` : ''}
+${overdue.length ? `<h4 style="margin:16px 0 0;font-size:14px;color:#b91c1c">Máy quá hạn (không tính Chủ nhật)</h4>
+${taskTable(overdue, [cTicket, cDevice, cTech, cStatus, { h: 'Đã chờ', right: true, v: r => `<b style="color:#b91c1c">${esc(ageText(r.age))}</b>` }])}` : ''}
+${finished.length ? `<h4 style="margin:16px 0 0;font-size:14px">Sửa xong / không sửa được — chờ khách lấy</h4>
+${taskTable(finished, [cTicket, cDevice, cTech, cStatus, { h: 'Giá', right: true, v: r => money(r.final_price ?? r.estimated_price) }])}` : ''}
+${received.length ? `<h4 style="margin:16px 0 0;font-size:14px">Máy nhận mới</h4>
+${taskTable(received, [cTicket, cDevice, cTech, cStatus])}` : ''}
+${returned.length ? `<h4 style="margin:16px 0 0;font-size:14px">Đã trả khách</h4>
+${taskTable(returned, [cTicket, cDevice, cTech, { h: 'Thu', right: true, v: r => money(r.final_price) }])}` : ''}`;
+}
+
 // ---------- Báo cáo ngày ----------
 // Thứ 2: gộp thêm Chủ nhật nếu hôm đó có giao dịch / chi phí
 function dailyReport(day = fmt.todayYmd()) {
@@ -111,6 +164,7 @@ ${multi ? '<p style="margin:0 0 12px;font-size:13px;color:#b45309">Chủ nhật 
 ${summaryTable(s, expense)}
 <p style="margin:12px 0 0;font-size:13px;color:#475569">Lũy kế tháng ${esc(day.slice(5, 7))}/${esc(day.slice(0, 4))} đến hôm nay: <b>${money(month.t)}</b> · ${esc(month.c)} giao dịch</p>
 <h3 style="margin:20px 0 0;font-size:15px">Chi tiết giao dịch</h3>${items}
+${taskSection(from, day)}
 <p style="font-size:12px;color:#94a3b8">Số liệu tính đến lúc gửi; giao dịch sau giờ này sẽ nằm trong báo cáo tháng / trang Thống kê.</p>`;
   return { subject: `[Chí Công] ${title}: ${fmt.money(s.total)}`, html: layout(title, body), total: s.total };
 }
