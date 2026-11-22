@@ -106,6 +106,16 @@ router.get('/system/report-email', (req, res) => res.set('Cache-Control', 'no-st
 router.post('/system/report-email/time', (req, res) => {
   try { res.json(revenueReport.setTime(req.body.at)); } catch (e) { res.status(e.status || 400).json({ error: e.message }); }
 });
+// ---------- Đồng bộ Google Sheet ----------
+const sheetSync = require('../../services/sheetSync');
+router.get('/system/gsheet', (req, res) => res.set('Cache-Control', 'no-store').json(sheetSync.status()));
+router.post('/system/gsheet', (req, res) => {
+  try { res.json(sheetSync.setConfig({ url: req.body.url, from: req.body.from, at: req.body.at })); } catch (e) { res.status(e.status || 400).json({ error: e.message }); }
+});
+router.post('/system/gsheet/sync', async (req, res) => {
+  try { const r = await sheetSync.sync('manual'); res.json({ ...sheetSync.status(), result: r }); } catch (e) { res.status(400).json({ error: e.message, ...sheetSync.status() }); }
+});
+
 // Xem trước nội dung mail trong trình duyệt
 router.get('/system/report-email/preview', (req, res) => {
   const r = req.query.kind === 'monthly' ? revenueReport.monthlyReport() : revenueReport.dailyReport();

@@ -220,6 +220,27 @@ window.reportEmail = function () {
   };
 };
 
+// Đồng bộ dữ liệu sang Google Sheet: link, doanh thu từ ngày, giờ tự đồng bộ, đồng bộ ngay
+window.gsheetSync = function () {
+  return {
+    s: {}, f: { url: '', from: '', at: '' }, busy: false, syncing: false, err: '', msg: '',
+    init: function () { var self = this; api('/manager/system/gsheet').then(function (d) { self.set(d); }).catch(function (e) { self.err = e.message; }); },
+    set: function (d) { this.s = d; this.f = { url: d.url || '', from: d.from, at: d.at }; },
+    get dirty() { return this.f.url !== (this.s.url || '') || this.f.from !== this.s.from || this.f.at !== this.s.at; },
+    save: function () {
+      var self = this; this.busy = true; this.err = ''; this.msg = '';
+      api('/manager/system/gsheet', { method: 'POST', body: this.f }).then(function (d) { self.set(d); self.msg = 'Đã lưu cài đặt.'; })
+        .catch(function (e) { self.err = e.message; }).finally(function () { self.busy = false; });
+    },
+    syncNow: function () {
+      var self = this; this.syncing = true; this.err = ''; this.msg = '';
+      api('/manager/system/gsheet/sync', { method: 'POST' }).then(function (d) { self.set(d); self.msg = 'Đã đồng bộ xong (' + d.result.seconds + ' giây).'; })
+        .catch(function (e) { self.err = e.message; self.init(); }).finally(function () { self.syncing = false; });
+    },
+    counts: function (c) { return c ? Object.keys(c).map(function (k) { return k + ' ' + c[k]; }).join(' · ') : ''; },
+  };
+};
+
 window.gitBackup = function () {
   return {
     s: {}, busy: false, err: '', msg: '', pass: '',

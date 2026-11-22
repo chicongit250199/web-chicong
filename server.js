@@ -100,6 +100,7 @@ const server = app.listen(config.port, config.host, () => {
   console.log(`[server] Chí Công Computer chạy tại http://${config.host}:${config.port} (${config.isProd ? 'production' : 'development'})`);
   require('./services/vatSync').scheduleAuto();
   require('./services/revenueReport').schedule();
+  require('./services/sheetSync').schedule();
 });
 
 // Giữ kết nối lâu hơn để trình duyệt dùng lại (nhiều người dùng LAN)
