@@ -26,7 +26,7 @@ router.get('/inventory', (req, res) => {
     .map(i => ({ ...i, warranty_end: inv.warrantyEnd(i.sold_date, i.warranty_out_months) }));
   const counts = Object.fromEntries(db.prepare('SELECT status, COUNT(*) c FROM inventory_items GROUP BY status').all().map(r => [r.status, r.c]));
   const stockValue = db.prepare(`SELECT COALESCE(SUM(tech_price),0) tech, COALESCE(SUM(retail_price),0) retail FROM inventory_items WHERE status = 'in_stock'`).get();
-  res.render('staff/inventory', { title: 'Xem kho', wide: true, tab, search: s, items, total, page, pages, counts, stockValue, today: fmt.todayYmd() });
+  res.render('staff/inventory', { title: 'Xem kho', tab, search: s, items, total, page, pages, counts, stockValue, today: fmt.todayYmd() });
 });
 
 // ---------- Nhập kho ----------
