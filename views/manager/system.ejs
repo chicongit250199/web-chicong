@@ -237,7 +237,7 @@
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h2 class="flex items-center gap-2 font-semibold"><%- icon('chart', 'h-5 w-5 text-brand-600') %>Báo cáo doanh thu qua email</h2>
-        <p class="mt-0.5 text-sm text-slate-500">Mỗi ngày lúc <b x-text="s.at || '20:00'"></b> gửi doanh thu trong ngày; ngày cuối tháng gửi thêm báo cáo cả tháng. Người nhận: <b x-text="s.to || '(chưa đặt)'"></b></p>
+        <p class="mt-0.5 text-sm text-slate-500">Mỗi ngày lúc <b x-text="s.at || '20:00'"></b> gửi doanh thu trong ngày (trừ Chủ nhật — có giao dịch thì gộp vào thứ 2); ngày cuối tháng gửi thêm báo cáo cả tháng. Người nhận: <b x-text="s.to || '(chưa đặt)'"></b></p>
       </div>
       <div class="flex flex-wrap gap-2">
         <a href="/manager/system/report-email/preview" target="_blank" class="btn-secondary px-3 py-1.5 text-sm">Xem trước</a>

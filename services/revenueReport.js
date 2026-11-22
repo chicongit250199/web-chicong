@@ -2,6 +2,8 @@
 // Báo cáo doanh thu qua email (Gmail SMTP):
 //  - Hằng ngày lúc REPORT_DAILY_AT (mặc định 20:00 giờ VN): doanh thu trong ngày
 //  - Ngày cuối tháng, cùng giờ: thêm báo cáo cả tháng
+// Chủ nhật cửa hàng nghỉ: không gửi; thứ 2 gộp luôn giao dịch Chủ nhật (nếu có). Ngày cuối tháng rơi vào
+// Chủ nhật -> báo cáo tháng gửi 20h thứ 2 (ngày 1 tháng sau).
 // Đã gửi thì ghi dấu vào bảng settings để khởi động lại không gửi trùng; server khởi động sau giờ gửi
 // mà hôm nay chưa gửi -> gửi bù.
 const nodemailer = require('nodemailer');
@@ -33,6 +35,9 @@ function addDays(ymd, n) {
 }
 const prevMonth = ym => { const [y, m] = ym.split('-').map(Number); return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`; };
 const isLastDayOfMonth = ymd => addDays(ymd, 1).slice(8) === '01';
+const weekday = ymd => new Date(ymd + 'T00:00:00Z').getUTCDay(); // 0 = Chủ nhật
+const WD = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+const WD_LONG = ['Chủ nhật', 'thứ 2', 'thứ 3', 'thứ 4', 'thứ 5', 'thứ 6', 'thứ 7'];
 
 // ---------- HTML ----------
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -72,22 +77,37 @@ ${body}
 }
 
 // ---------- Báo cáo ngày ----------
+// Thứ 2: gộp thêm Chủ nhật nếu hôm đó có giao dịch / chi phí
 function dailyReport(day = fmt.todayYmd()) {
-  const s = db.prepare(`SELECT ${SUMS} FROM revenues WHERE ${VN_DAY} = ?`).get(day);
-  const yesterday = db.prepare(`SELECT COALESCE(SUM(amount),0) t FROM revenues WHERE ${VN_DAY} = ?`).get(addDays(day, -1)).t;
+  let from = day;
+  if (weekday(day) === 1) {
+    const sun = addDays(day, -1);
+    const n = db.prepare(`SELECT (SELECT COUNT(*) FROM revenues WHERE ${VN_DAY} = ?) + (SELECT COUNT(*) FROM expenses WHERE expense_date = ?) n`).get(sun, sun).n;
+    if (n) from = sun;
+  }
+  // so với ngày làm việc trước đó (bỏ Chủ nhật)
+  let prevDay = addDays(from, -1);
+  if (weekday(prevDay) === 0) prevDay = addDays(prevDay, -1);
+
+  const s = db.prepare(`SELECT ${SUMS} FROM revenues WHERE ${VN_DAY} BETWEEN ? AND ?`).get(from, day);
+  const prev = db.prepare(`SELECT COALESCE(SUM(amount),0) t FROM revenues WHERE ${VN_DAY} = ?`).get(prevDay).t;
   const month = db.prepare(`SELECT COALESCE(SUM(amount),0) t, COUNT(*) c FROM revenues WHERE ${VN_DAY} BETWEEN ? AND ?`).get(day.slice(0, 7) + '-01', day);
-  const expense = db.prepare('SELECT COALESCE(SUM(amount),0) t FROM expenses WHERE expense_date = ?').get(day).t;
-  const list = db.prepare(`SELECT * FROM revenues WHERE ${VN_DAY} = ? ORDER BY created_at`).all(day);
+  const expense = db.prepare('SELECT COALESCE(SUM(amount),0) t FROM expenses WHERE expense_date BETWEEN ? AND ?').get(from, day).t;
+  const list = db.prepare(`SELECT * FROM revenues WHERE ${VN_DAY} BETWEEN ? AND ? ORDER BY created_at`).all(from, day);
+  const multi = from !== day;
+  const hhmm = iso => new Date(Date.parse(iso) + 7 * 3600e3).toISOString().slice(11, 16); // giờ VN
+  const when = r => (multi ? `${WD[weekday(fmt.todayYmd(new Date(r.created_at)))]} ` : '') + hhmm(r.created_at);
 
   const items = list.length ? `<table style="border-collapse:collapse;width:100%;font-size:13px;margin-top:8px">
 <tr><th style="${TH}">Giờ</th><th style="${TH}">Loại</th><th style="${TH}">Nội dung / khách</th><th style="${TH}">Thanh toán</th><th style="${TH}text-align:right">Số tiền</th></tr>
-${list.map(r => `<tr><td style="${TD}white-space:nowrap">${esc(fmt.datetime(r.created_at).slice(-5))}</td><td style="${TD}">${esc(fmt.REVENUE_TYPE[r.type])}</td>
+${list.map(r => `<tr><td style="${TD}white-space:nowrap">${esc(when(r))}</td><td style="${TD}">${esc(fmt.REVENUE_TYPE[r.type])}</td>
 <td style="${TD}">${esc(r.content)}${r.customer_name ? `<br><span style="color:#64748b">${esc(r.customer_name)}${r.customer_phone ? ' · ' + esc(r.customer_phone) : ''}</span>` : ''}${r.staff_name ? `<br><span style="color:#94a3b8;font-size:12px">NV: ${esc(r.staff_name)}</span>` : ''}</td>
 <td style="${TD}">${esc(fmt.payment(r.payment_method))}</td><td style="${TDR}">${money(r.amount)}</td></tr>`).join('')}
-</table>` : '<p style="color:#64748b">Hôm nay chưa có giao dịch nào.</p>';
+</table>` : '<p style="color:#64748b">Chưa có giao dịch nào.</p>';
 
-  const title = `Doanh thu ngày ${fmt.date(day)}`;
-  const body = `<p style="margin:0 0 16px;font-size:13px">${diff(s.total, yesterday, 'hôm qua')}</p>
+  const title = multi ? `Doanh thu Chủ nhật ${fmt.date(from).slice(0, 5)} + thứ 2 ${fmt.date(day)}` : `Doanh thu ngày ${fmt.date(day)}`;
+  const body = `<p style="margin:0 0 16px;font-size:13px">${diff(s.total, prev, `${WD_LONG[weekday(prevDay)]} ${fmt.date(prevDay).slice(0, 5)}`)}</p>
+${multi ? '<p style="margin:0 0 12px;font-size:13px;color:#b45309">Chủ nhật có phát sinh giao dịch nên gộp chung vào báo cáo thứ 2.</p>' : ''}
 ${summaryTable(s, expense)}
 <p style="margin:12px 0 0;font-size:13px;color:#475569">Lũy kế tháng ${esc(day.slice(5, 7))}/${esc(day.slice(0, 4))} đến hôm nay: <b>${money(month.t)}</b> · ${esc(month.c)} giao dịch</p>
 <h3 style="margin:20px 0 0;font-size:15px">Chi tiết giao dịch</h3>${items}
@@ -107,7 +127,6 @@ function monthlyReport(ym = fmt.todayYmd().slice(0, 7)) {
   const staff = db.prepare(`SELECT COALESCE(NULLIF(staff_name,''),'(không rõ)') name, COUNT(*) c, SUM(amount) t FROM revenues
     WHERE ${VN_DAY} BETWEEN ? AND ? GROUP BY name ORDER BY t DESC`).all(from, to);
 
-  const WD = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
   let dayRows = '';
   for (let d = from; d <= to; d = addDays(d, 1)) {
     const r = days.get(d) || { count: 0, total: 0, repair: 0, sale: 0 };
@@ -153,13 +172,23 @@ async function sendMonthly(ym, { mark = true } = {}) {
   if (mark) settings.set({ report_monthly_last: ym });
 }
 
-// Gửi những báo cáo của hôm nay còn thiếu
+// Tháng cần gửi báo cáo hôm nay (nếu có): ngày cuối tháng (trừ Chủ nhật), hoặc thứ 2 ngày 1 khi cuối tháng trước là Chủ nhật
+function monthDue(day) {
+  if (weekday(day) === 0) return null;
+  if (isLastDayOfMonth(day)) return day.slice(0, 7);
+  if (weekday(day) === 1 && day.slice(8) === '01') return addDays(day, -1).slice(0, 7);
+  return null;
+}
+
+// Gửi những báo cáo của hôm nay còn thiếu (Chủ nhật nghỉ, không gửi)
 async function runDue() {
   const day = fmt.todayYmd();
+  if (weekday(day) === 0) return;
   const done = [];
   try {
     if (settings.get('report_daily_last') !== day) { await sendDaily(day); done.push('ngày'); }
-    if (isLastDayOfMonth(day) && settings.get('report_monthly_last') !== day.slice(0, 7)) { await sendMonthly(day.slice(0, 7)); done.push('tháng'); }
+    const ym = monthDue(day);
+    if (ym && settings.get('report_monthly_last') !== ym) { await sendMonthly(ym); done.push(`tháng ${ym}`); }
     if (done.length) {
       state.last = { at: new Date().toISOString(), what: done.join(' + ') };
       console.log(`[report] đã gửi báo cáo doanh thu ${done.join(' + ')} ${day} tới ${cfg().to}`);
@@ -187,7 +216,9 @@ function schedule() {
   state.at = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
   const loop = () => {
     const t = nextDaily(hh, mm);
-    state.nextRunAt = new Date(t).toISOString();
+    let n = t; // bỏ qua Chủ nhật khi hiển thị lần gửi kế tiếp
+    if (weekday(fmt.todayYmd(new Date(n))) === 0) n += 24 * 3600e3;
+    state.nextRunAt = new Date(n).toISOString();
     setTimeout(() => runDue().finally(loop), t - Date.now()).unref();
   };
   loop();
@@ -202,4 +233,4 @@ function status() {
   return { ...state, configured: configured(), to: c.to, user: c.user, dailyLast: settings.get('report_daily_last') || null, monthlyLast: settings.get('report_monthly_last') || null };
 }
 
-module.exports = { dailyReport, monthlyReport, sendDaily, sendMonthly, runDue, schedule, status };
+module.exports = { monthDue, dailyReport, monthlyReport, sendDaily, sendMonthly, runDue, schedule, status };
