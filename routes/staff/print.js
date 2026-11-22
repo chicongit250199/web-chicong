@@ -23,6 +23,11 @@ router.post('/print', upload.array('files', 10), async (req, res) => {
   const files = req.files || [];
   if (!files.length) return res.status(400).json({ error: 'Chưa chọn file.' });
   const opts = { copies: req.body.copies, fit: req.body.fit !== '0', duplex: req.body.duplex === '1' };
+  // Máy in tắt / tạm dừng -> báo ngay cho người in, không gửi file nào
+  try { await printers.ensureOnline(req.body.printer); } catch (e) {
+    for (const f of files) f.buffer = null;
+    return res.status(e.status || 400).json({ error: e.message, ...(await view()) });
+  }
   const results = [];
   for (const f of files) {
     f.originalname = Buffer.from(f.originalname, 'latin1').toString('utf8'); // multer đọc tên file UTF-8 thành latin1
@@ -48,6 +53,7 @@ router.post('/print/page', async (req, res) => {
     const ready = st.printers.filter(p => p.state !== 'disabled');
     const name = req.body.printer && ready.some(p => p.name === req.body.printer) ? req.body.printer : (ready.find(p => p.isDefault) || ready[0] || {}).name;
     if (!name) throw new Error('Chưa có máy in nào sẵn sàng — báo quản lý.');
+    await printers.ensureOnline(name); // kiểm tra trước khi dựng PDF (mất vài giây)
     const pdf = await require('../../services/pagePdf').render(urlPath, req.get('cookie'));
     const title = `${String(req.body.title || 'Phiếu').slice(0, 80)} (${req.user.full_name})`;
     const job = await printers.printFile(name, { mimetype: 'application/pdf', buffer: Buffer.from(pdf), originalname: title }, { copies: req.body.copies, fit: false, title });

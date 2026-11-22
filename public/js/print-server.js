@@ -13,7 +13,7 @@
       body: JSON.stringify({ path: location.pathname + location.search, title: document.title, copies: copies ? copies.value : 1 }),
     }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('Lỗi ' + r.status)); return d; }); })
       .then(function (d) { msg.style.color = '#047857'; msg.textContent = '✓ Đã gửi ra máy in ' + d.printer + '.'; })
-      .catch(function (e) { msg.style.color = '#b91c1c'; msg.textContent = '✗ ' + e.message; })
+      .catch(function (e) { msg.style.color = '#b91c1c'; msg.textContent = '✗ ' + e.message; alert(e.message); })
       .finally(function () { btn.disabled = false; btn.textContent = label; });
   });
 })();

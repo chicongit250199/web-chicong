@@ -160,8 +160,58 @@ async function testPage(name) {
   checkName(name);
   const f = ['/usr/share/cups/data/testprint', '/usr/share/cups/data/default-testpage.pdf'].find(x => fs.existsSync(x));
   if (!f) throw new Error('Không tìm thấy trang in thử của CUPS');
+  await ensureOnline(name);
   const out = await run('lp', ['-d', name, '-t', 'Trang in thử', f]);
   return (out.match(/request id is (\S+)/) || [])[1] || '';
+}
+
+// ---------- Kiểm tra máy in còn bật trước khi gửi lệnh in ----------
+// CUPS không tự dò máy in: máy tắt vẫn báo "idle", lệnh in nằm chờ trong hàng đợi. Nên trước mỗi lần in kiểm tra nhanh:
+//  - usb://  : thiết bị có trên cổng USB của NUC không (đọc /sys, so serial / tên model)
+//  - socket/ipp/http/lpd://  : mở kết nối TCP tới máy in (2 giây)
+//  - loại khác (dnssd...) : không kiểm tra được -> cho in
+const usbDevices = () => {
+  const base = '/sys/bus/usb/devices';
+  let names = [];
+  try { names = fs.readdirSync(base); } catch { return null; }
+  const rd = (d, f) => { try { return fs.readFileSync(path.join(base, d, f), 'utf8').trim(); } catch { return ''; } };
+  return names.map(d => ({ product: rd(d, 'product'), serial: rd(d, 'serial'), maker: rd(d, 'manufacturer') })).filter(x => x.product);
+};
+function tcpOpen(host, port, ms = 2000) {
+  return new Promise(resolve => {
+    const sock = require('net').connect({ host, port });
+    const done = ok => { sock.destroy(); resolve(ok); };
+    sock.setTimeout(ms, () => done(false));
+    sock.once('connect', () => done(true));
+    sock.once('error', () => done(false));
+  });
+}
+async function deviceOnline(uri) {
+  let u;
+  try { u = new URL(uri); } catch { return true; }
+  const scheme = u.protocol.replace(':', '');
+  if (scheme === 'usb') {
+    const devs = usbDevices();
+    if (!devs) return true; // không đọc được /sys -> bỏ qua kiểm tra
+    const serial = u.searchParams.get('serial');
+    const model = decodeURIComponent(u.pathname.replace(/^\//, '')).toLowerCase();
+    return devs.some(d => (serial ? d.serial === serial : false) || (model && d.product.toLowerCase().includes(model)));
+  }
+  const port = Number(u.port) || { socket: 9100, ipp: 631, ipps: 631, http: 80, https: 443, lpd: 515 }[scheme];
+  if (!port || !u.hostname) return true;
+  return tcpOpen(u.hostname, port);
+}
+async function ensureOnline(name) {
+  checkName(name);
+  const p = await run('lpstat', ['-p', name]).catch(() => '');
+  if (!p.trim()) throw Object.assign(new Error(`Không tìm thấy máy in "${name}".`), { status: 400 });
+  if (/disabled/.test(p)) throw Object.assign(new Error(`Máy in ${name} đang tạm dừng — báo quản lý bật lại ở trang Hệ thống.`), { status: 409 });
+  const v = await run('lpstat', ['-v', name]).catch(() => '');
+  const uri = (v.match(/:\s*(\S+:\/\/\S+)/) || [])[1];
+  if (uri && !(await deviceOnline(uri))) {
+    const usb = uri.startsWith('usb:');
+    throw Object.assign(new Error(`Máy in ${name} đang tắt hoặc mất kết nối${usb ? ' (không thấy trên cổng USB của máy chủ)' : ' (không kết nối được qua mạng)'}. Bật máy in / kiểm tra dây cáp rồi in lại — lệnh in chưa được gửi.`), { status: 409, offline: true });
+  }
 }
 
 // In file tải lên (PDF, ảnh, văn bản): file nằm trong RAM -> đẩy thẳng vào lp qua stdin,
@@ -196,6 +246,7 @@ async function printFile(name, file, { copies = 1, fit = true, title = '', duple
   checkName(name);
   const type = typeOf(file);
   if (!type) throw Object.assign(new Error('Chỉ in được file PDF, JPG, PNG hoặc TXT'), { status: 400 });
+  await ensureOnline(name);
   const n = Math.min(99, Math.max(1, parseInt(copies, 10) || 1));
   const args = ['-d', name, '-n', String(n), '-t', String(title || file.originalname || 'file').slice(0, 100)];
   if (fit && type !== 'text/plain') args.push('-o', 'fit-to-page');
@@ -224,4 +275,4 @@ async function setPageSize(name, size) {
 const cancelJob = id => run('cancel', [checkJob(id)]);
 const cancelAll = name => run('cancel', ['-a', checkName(name)]);
 
-module.exports = { setPageSize, serverSharing, setShared, typeOf, available, status, discover, models, add, remove, setDefault, setEnabled, testPage, printFile, cancelJob, cancelAll, suggestName, PRINT_TYPES };
+module.exports = { ensureOnline, setPageSize, serverSharing, setShared, typeOf, available, status, discover, models, add, remove, setDefault, setEnabled, testPage, printFile, cancelJob, cancelAll, suggestName, PRINT_TYPES };
