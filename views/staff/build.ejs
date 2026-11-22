@@ -19,7 +19,7 @@
   <div class="grid gap-4 lg:grid-cols-5">
     <%# ---- Chọn linh kiện theo nhóm ---- %>
     <div class="lg:col-span-3">
-      <nav class="tabs sticky top-14 z-10 mb-3 bg-paper pt-1 dark:bg-slate-950" aria-label="Nhóm linh kiện">
+      <nav class="tabs lg:flex-wrap sticky top-14 z-10 mb-3 bg-paper pt-1 dark:bg-slate-950" aria-label="Nhóm linh kiện">
         <template x-for="c in cats" :key="c.category">
           <button type="button" @click="setTab(c.category)" class="tab flex items-center gap-1.5" :class="tab === c.category && 'tab-active'">
             <span x-text="c.category"></span>

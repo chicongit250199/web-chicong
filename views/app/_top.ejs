@@ -1,4 +1,4 @@
-<%- include('../partials/head') %>
+<%- include('../partials/head', { appUi: true }) %>
 <div x-data="{ menu: false, notifs: false }" @open-notifs.window="notifs = true">
 <%- include('../partials/app-header') %>
 

@@ -8,7 +8,7 @@
    const ticks = [0, 1, 2, 3, 4].map(i => (top / 4) * i).filter(t => t <= top);
    const short = n => n >= 1e9 ? (n / 1e9).toFixed(n % 1e9 ? 1 : 0) + ' tỷ' : n >= 1e6 ? (n / 1e6).toFixed(n % 1e6 ? 1 : 0) + ' tr' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n);
    const every = Math.ceil(bars.length / 12); %>
-<figure class="w-full" aria-label="<%= typeof chartTitle !== 'undefined' ? chartTitle : 'Biểu đồ doanh thu' %>">
+<figure class="w-full pt-3" aria-label="<%= typeof chartTitle !== 'undefined' ? chartTitle : 'Biểu đồ doanh thu' %>">
   <div class="flex gap-2">
     <div class="relative h-52 w-12 shrink-0 text-right text-[11px] tabular-nums text-slate-400">
       <% ticks.forEach(t => { %><span class="absolute right-0 -translate-y-1/2" style="bottom: <%= (t / top) * 100 %>%"><%= short(t) %></span><% }) %>

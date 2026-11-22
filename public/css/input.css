@@ -18,6 +18,13 @@
 
 [x-cloak] { display: none !important; }
 
+/* Trang nội bộ: cỡ chữ gốc co theo độ rộng màn hình máy tính — Tailwind tính bằng rem nên chữ, khoảng cách,
+   menu trái, thẻ, bảng... co giãn cùng tỉ lệ. Laptop 13" (1280–1440px) gọn như màn 24" (1920px).
+   Điện thoại / tablet (< 1024px) giữ 16px. */
+@media (min-width: 1024px) and (max-width: 1365.98px) { html.app-ui { font-size: 13.5px; } }
+@media (min-width: 1366px) and (max-width: 1679.98px) { html.app-ui { font-size: 14.5px; } }
+@media (min-width: 1680px) and (max-width: 1919.98px) { html.app-ui { font-size: 15.5px; } }
+
 /* Sidebar Staff thu gọn: ẩn chữ, badge thành chấm nhỏ cạnh icon */
 
 @layer components {
