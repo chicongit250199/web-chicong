@@ -1,0 +1,6 @@
+<%# Tab của mục Quản lý sản phẩm: danh sách đã đăng, chờ duyệt, sửa trang chủ. tab: tab đang mở %>
+<div class="tabs">
+  <a href="/manager/products?tab=approved" class="tab <%= tab === 'approved' ? 'tab-active' : '' %>">Sản phẩm đã đăng<% if (typeof counts !== 'undefined') { %> (<%= counts.approved || 0 %>)<% } %></a>
+  <a href="/manager/products?tab=pending" class="tab flex items-center gap-1.5 <%= tab === 'pending' ? 'tab-active' : '' %>">Chờ duyệt<% if (badges.productsPending) { %><span class="rounded-full bg-red-500 px-1.5 text-xs font-bold text-white"><%= badges.productsPending %></span><% } %></a>
+  <a href="/manager/homepage" class="tab flex items-center gap-1.5 <%= tab === 'homepage' ? 'tab-active' : '' %>"><%- icon('settings', 'h-4 w-4') %>Trang chủ</a>
+</div>

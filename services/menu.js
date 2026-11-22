@@ -15,14 +15,15 @@ const GROUPS = [
     title: 'Sửa chữa',
     items: [
       { key: 'task-new', href: '/staff/tasks/new', icon: 'inbox', label: 'Nhận máy', roles: ['staff', 'manager'] },
-      { key: 'tasks-pending', href: '/staff/tasks?view=pending', icon: 'list', label: 'Task chưa làm', badge: 'pending', roles: ['staff', 'manager'] },
-      { key: 'tasks-assigned', href: '/staff/tasks?view=assigned', icon: 'userCheck', label: 'Task được giao', badge: 'assigned', roles: ['staff', 'manager'] },
-      { key: 'tasks-processing', href: '/staff/tasks?view=processing', icon: 'wrench', label: 'Task đang làm', badge: 'processing', roles: ['staff', 'manager'] },
-      { key: 'tasks-overdue', href: '/staff/tasks?view=overdue', icon: 'alert', label: 'Task quá hạn', badge: 'overdue', roles: ['staff', 'manager'] },
+      // Quản lý: 1 mục gồm các tab Chưa làm / Được giao / Đang làm / Quá hạn / Đã trả / Tất cả / Phân task
+      { key: 'm-tasks', href: '/staff/tasks?view=pending', icon: 'list', label: 'Quản lý task', badge: 'pending', roles: ['manager'] },
+      { key: 'tasks-pending', href: '/staff/tasks?view=pending', icon: 'list', label: 'Task chưa làm', badge: 'pending', roles: ['staff'] },
+      { key: 'tasks-assigned', href: '/staff/tasks?view=assigned', icon: 'userCheck', label: 'Task được giao', badge: 'assigned', roles: ['staff'] },
+      { key: 'tasks-processing', href: '/staff/tasks?view=processing', icon: 'wrench', label: 'Task đang làm', badge: 'processing', roles: ['staff'] },
+      { key: 'tasks-overdue', href: '/staff/tasks?view=overdue', icon: 'alert', label: 'Task quá hạn', badge: 'overdue', roles: ['staff'] },
       { key: 'return', href: '/staff/return', icon: 'checkCircle', label: 'Trả máy', badge: 'ready', roles: ['staff', 'manager'] },
-      { key: 'completed', href: '/staff/tasks?view=completed', icon: 'checkSquare', label: 'Máy đã trả', roles: ['staff', 'manager'] },
+      { key: 'completed', href: '/staff/tasks?view=completed', icon: 'checkSquare', label: 'Máy đã trả', roles: ['staff'] },
       { key: 'partners', href: '/staff/partners', icon: 'users', label: 'Khách đối tác', roles: ['staff', 'manager'] },
-      { key: 'm-assign', href: '/manager/assign', icon: 'users', label: 'Phân task', badge: 'unassigned', roles: ['manager'] },
     ],
   },
   {
@@ -59,7 +60,6 @@ const GROUPS = [
       { key: 'product-new', href: '/staff/products/new', icon: 'upload', label: 'Đăng sản phẩm', roles: ['staff'] },
       // Quản lý: 1 mục gồm danh sách sửa (mặc định), Chờ duyệt, nút Đăng sản phẩm
       { key: 'm-products', href: '/manager/products', icon: 'upload', label: 'Quản lý sản phẩm', badge: 'productsPending', roles: ['manager'] },
-      { key: 'm-homepage', href: '/manager/homepage', icon: 'settings', label: 'Sửa trang chủ', roles: ['manager'] },
     ],
   },
   {

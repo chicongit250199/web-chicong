@@ -1,8 +1,9 @@
 <%- include('../app/_top') %>
 <div class="page-title">
-  <h1><%- icon('settings', 'h-6 w-6 text-brand-600') %>Sửa trang chủ</h1>
+  <h1><%- icon('upload', 'h-6 w-6 text-brand-600') %>Quản lý sản phẩm · Trang chủ</h1>
   <a href="/" target="_blank" class="btn-secondary"><%- icon('external', 'h-4 w-4') %>Xem trang chủ</a>
 </div>
+<%- include('_product_tabs', { tab: 'homepage' }) %>
 
 <form method="post" action="/manager/homepage/settings?_csrf=<%= encodeURIComponent(csrfToken) %>" enctype="multipart/form-data" class="card mb-6 space-y-4">
   <h2 class="font-semibold">Thông tin & hình ảnh</h2>

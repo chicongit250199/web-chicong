@@ -7,10 +7,7 @@
     <a href="/staff/products/new" class="btn-primary"><%- icon('upload', 'h-4 w-4') %>Đăng sản phẩm</a>
   </div>
 </div>
-<div class="tabs">
-  <a href="?tab=approved" class="tab <%= tab === 'approved' ? 'tab-active' : '' %>">Sản phẩm đã đăng (<%= counts.approved || 0 %>)</a>
-  <a href="?tab=pending" class="tab flex items-center gap-1.5 <%= tab === 'pending' ? 'tab-active' : '' %>">Chờ duyệt<% if (counts.pending) { %><span class="rounded-full bg-red-500 px-1.5 text-xs font-bold text-white"><%= counts.pending %></span><% } else { %> (0)<% } %></a>
-</div>
+<%- include('_product_tabs') %>
 <form class="mb-3 flex gap-2"><input type="hidden" name="tab" value="<%= tab %>"><input name="q" value="<%= search %>" class="input" placeholder="Tìm tên sản phẩm..."><button class="btn-primary"><%- icon('search', 'h-4 w-4') %></button></form>
 <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
   <% products.forEach(p => { %>

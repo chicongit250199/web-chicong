@@ -1,0 +1,9 @@
+<%# Tab chuyển nhóm task — dùng ở trang danh sách task và trang Phân task (quản lý). view: tab đang mở %>
+<% const q = typeof search !== 'undefined' && search ? '&q=' + encodeURIComponent(search) : '';
+   const tabCount = { pending: badges.pending, processing: badges.processing, overdue: badges.overdue, ready: badges.ready }; %>
+<div class="tabs lg:flex-wrap">
+  <% [['pending','Chưa làm'],['assigned','Được giao'],['processing','Đang làm'],['overdue','⚠ Quá hạn'],['ready','Chờ trả máy'],['completed','Đã trả'],['all','Tất cả']].forEach(([k, l]) => { %>
+    <a href="/staff/tasks?view=<%= k %><%= q %>" class="tab flex items-center gap-1.5 <%= view === k ? 'tab-active' : '' %>"><%= l %><% if (tabCount[k]) { %><span class="rounded-full px-1.5 text-xs font-bold <%= k === 'overdue' ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200' %>"><%= tabCount[k] %></span><% } %></a>
+  <% }) %>
+  <% if (isManager) { %><a href="/manager/assign" class="tab flex items-center gap-1.5 <%= view === 'assign' ? 'tab-active' : '' %>"><%- icon('users', 'h-4 w-4') %>Phân task</a><% } %>
+</div>

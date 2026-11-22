@@ -118,7 +118,8 @@ router.get('/tasks', (req, res) => {
   const view = VIEW_TITLES[req.query.view] ? req.query.view : 'all';
   const search = String(req.query.q || '').trim();
   const [title, nav] = VIEW_TITLES[view];
-  res.locals.nav = nav;
+  // Quản lý: mọi nhóm task nằm chung mục "Quản lý task" (trừ Chờ trả máy = mục Trả máy)
+  res.locals.nav = req.user.role === 'manager' && view !== 'ready' ? 'm-tasks' : nav;
   res.render('staff/tasks', { title, view, search, tasks: listTasks(view, req.user, search) });
 });
 

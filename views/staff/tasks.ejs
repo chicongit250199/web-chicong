@@ -8,11 +8,7 @@
   </form>
 </div>
 <% if (typeof returnMode === 'undefined') { %>
-  <div class="tabs">
-    <% [['pending','Chưa làm'],['assigned','Được giao'],['processing','Đang làm'],['overdue','⚠ Quá hạn'],['ready','Chờ trả máy'],['completed','Đã trả'],['all','Tất cả']].forEach(([k, l]) => { %>
-      <a href="?view=<%= k %><%= search ? '&q=' + encodeURIComponent(search) : '' %>" class="tab <%= view === k ? 'tab-active' : '' %>"><%= l %></a>
-    <% }) %>
-  </div>
+  <%- include('_task_tabs') %>
 <% } else { %>
   <p class="mb-3 text-sm text-slate-500">Các máy đã sửa xong hoặc không sửa được, đang chờ khách nhận. Bấm vào máy để <strong>Hoàn thành</strong> hoặc <strong>Sửa lại</strong>.</p>
 <% } %>

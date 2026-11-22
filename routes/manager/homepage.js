@@ -9,7 +9,7 @@ const { imageUpload, saveImage, removeImage } = require('../../services/upload')
 const router = express.Router();
 
 router.get('/homepage', (req, res) => {
-  res.locals.nav = 'm-homepage';
+  res.locals.nav = 'm-products'; // nằm trong mục Quản lý sản phẩm
   const categories = db.prepare(`SELECT c.*, (SELECT COUNT(*) FROM products p WHERE p.category_id = c.id AND p.status = 'approved') AS n
                                  FROM categories c ORDER BY c.sort_order, c.id`).all();
   const products = db.prepare(`SELECT p.*, c.name_vi AS cat_name FROM products p LEFT JOIN categories c ON c.id = p.category_id

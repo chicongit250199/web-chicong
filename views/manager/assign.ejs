@@ -1,5 +1,6 @@
 <%- include('../app/_top') %>
 <div class="page-title"><h1><%- icon('userCheck', 'h-6 w-6 text-brand-600') %>Phân task cho nhân viên</h1></div>
+<%- include('../staff/_task_tabs', { view: 'assign', search: '' }) %>
 <div class="mb-4 flex flex-wrap gap-2">
   <% staff.forEach(s => { %>
     <span class="card flex items-center gap-2 px-3 py-2 text-sm"><strong><%= s.full_name %></strong>

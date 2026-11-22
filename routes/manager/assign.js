@@ -6,7 +6,7 @@ const { notify } = require('../../services/events');
 const router = express.Router();
 
 router.get('/assign', (req, res) => {
-  res.locals.nav = 'm-assign';
+  res.locals.nav = 'm-tasks'; // nằm trong mục Quản lý task
   const tasks = db.prepare(`SELECT t.*, u.full_name AS assigned_name FROM tasks t LEFT JOIN users u ON u.id = t.assigned_to
                             WHERE t.status IN ('pending','processing') ORDER BY t.status, t.assigned_to IS NOT NULL, t.created_at`).all();
   const staff = db.prepare(`SELECT u.id, u.full_name, u.role,
