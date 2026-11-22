@@ -14,10 +14,10 @@ const GROUPS = [
   {
     title: 'Sửa chữa',
     items: [
-      { key: 'task-new', href: '/staff/tasks/new', icon: 'inbox', label: 'Nhận máy', roles: ['staff', 'manager'] },
+      // Nhận - Trả: tab Nhận máy / Trả máy
+      { key: 'm-intake', also: ['task-new', 'return'], href: '/staff/tasks/new', icon: 'inbox', label: 'Nhận - Trả', badge: 'ready', roles: ['staff', 'manager'] },
       // 1 mục gồm các tab Chưa làm / Được giao / Đang làm / Quá hạn / Chờ trả / Đã trả / Tất cả (+ Phân task cho quản lý)
       { key: 'm-tasks', href: '/staff/tasks?view=pending', icon: 'list', label: 'Quản lý task', badge: 'taskMenu', roles: ['staff', 'manager'] },
-      { key: 'return', href: '/staff/return', icon: 'checkCircle', label: 'Trả máy', badge: 'ready', roles: ['staff', 'manager'] },
       { key: 'partners', href: '/staff/partners', icon: 'users', label: 'Khách đối tác', roles: ['staff', 'manager'] },
     ],
   },

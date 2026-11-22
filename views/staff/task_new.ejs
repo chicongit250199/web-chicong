@@ -4,6 +4,7 @@
   <h1><%- icon('inbox', 'h-6 w-6 text-brand-600') %>Nhận máy</h1>
   <span class="text-sm text-slate-500">Người nhận: <strong><%= user.full_name %></strong></span>
 </div>
+<%- include('_intake_tabs', { ioTab: 'new' }) %>
 <% if (error) { %><div class="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-200 dark:bg-red-950 dark:text-red-200 dark:ring-red-900"><%= error %></div><% } %>
 <form method="post" action="/staff/tasks" class="card space-y-4" x-data x-ref="form">
   <input type="hidden" name="_csrf" value="<%= csrfToken %>">

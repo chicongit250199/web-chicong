@@ -1,0 +1,5 @@
+<%# Tab của mục Nhận - Trả: nhận máy mới / trả máy cho khách. ioTab: 'new' | 'return' %>
+<div class="tabs">
+  <a href="/staff/tasks/new" class="tab flex items-center gap-1.5 <%= ioTab === 'new' ? 'tab-active' : '' %>"><%- icon('inbox', 'h-4 w-4') %>Nhận máy</a>
+  <a href="/staff/return" class="tab flex items-center gap-1.5 <%= ioTab === 'return' ? 'tab-active' : '' %>"><%- icon('checkCircle', 'h-4 w-4') %>Trả máy<% if (badges.ready) { %><span class="rounded-full bg-red-500 px-1.5 text-xs font-bold text-white"><%= badges.ready %></span><% } %></a>
+</div>

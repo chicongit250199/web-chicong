@@ -10,6 +10,7 @@
 <% if (typeof returnMode === 'undefined') { %>
   <%- include('_task_tabs') %>
 <% } else { %>
+  <%- include('_intake_tabs', { ioTab: 'return' }) %>
   <p class="mb-3 text-sm text-slate-500">Các máy đã sửa xong hoặc không sửa được, đang chờ khách nhận. Bấm vào máy để <strong>Hoàn thành</strong> hoặc <strong>Sửa lại</strong>.</p>
 <% } %>
 <div class="grid gap-2 md:grid-cols-2">

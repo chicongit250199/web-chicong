@@ -118,8 +118,7 @@ router.get('/tasks', (req, res) => {
   const view = VIEW_TITLES[req.query.view] ? req.query.view : 'all';
   const search = String(req.query.q || '').trim();
   const [title, nav] = VIEW_TITLES[view];
-  // Mọi nhóm task nằm chung mục "Quản lý task" (trừ Chờ trả máy = mục Trả máy)
-  res.locals.nav = view !== 'ready' ? 'm-tasks' : nav;
+  res.locals.nav = 'm-tasks'; // mọi nhóm task nằm chung mục "Quản lý task"
   res.render('staff/tasks', { title, view, search, tasks: listTasks(view, req.user, search) });
 });
 
@@ -134,7 +133,7 @@ router.get('/return', (req, res) => {
 router.get('/tasks/:id', (req, res, next) => {
   const task = q.get.get(req.params.id);
   if (!task) return next();
-  res.locals.nav = { pending: 'tasks-pending', processing: 'tasks-processing', done: 'return', unrepairable: 'return' }[task.status] || '';
+  res.locals.nav = { done: 'return', unrepairable: 'return' }[task.status] || 'm-tasks'; // chờ trả -> Nhận - Trả, còn lại -> Quản lý task
   res.render('staff/task_detail', {
     title: task.ticket_code, task, histories: q.histories.all(task.id), staffList: q.staff.all(),
     revenues: q.revenue.all(task.id), extras: extrasOf(task.id), canWork: canWork(task, req.user), canDelete: canDelete(task, req.user), warrantyOptions: v.WARRANTY_OPTIONS,
