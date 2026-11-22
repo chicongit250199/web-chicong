@@ -9,6 +9,7 @@ const pc = require('../../services/pcParts');
 const settings = require('../../services/settings');
 const { notify } = require('../../services/events');
 
+const publisher = require('../../services/pcBuildPublish');
 const router = express.Router();
 const nav = (req, res, next) => { res.locals.nav = 'build'; next(); };
 const parseJson = (s, d) => { try { return s ? JSON.parse(s) : d; } catch { return d; } };
@@ -32,7 +33,7 @@ router.get('/build', nav, (req, res) => {
   const builds = db.prepare(`SELECT * FROM pc_builds ${where} ORDER BY updated_at DESC LIMIT 100`).all({ s: `%${q}%`, v: `%${db.vn(q)}%` });
   const templates = db.prepare('SELECT * FROM pc_builds WHERE is_template = 1 ORDER BY total').all();
   const partCount = db.prepare('SELECT COUNT(*) n FROM pc_parts WHERE hidden = 0').get().n;
-  res.render('staff/build_list', { title: 'Build PC', builds, templates, q, partCount, parseJson });
+  res.render('staff/build_list', { title: 'Build PC', builds, templates, q, partCount, parseJson, published: publisher.publishedMap() });
 });
 
 // ---------- Trình build ----------
@@ -111,12 +112,29 @@ router.post('/api/build', (req, res) => {
         VALUES (@code, @name, @customer_name, @customer_phone, @customer_addr, @note, @items, @discount, @deposit, @total, @is_template, @staff_name)`).run(row).lastInsertRowid;
   }
   const b = db.prepare('SELECT id, code FROM pc_builds WHERE id = ?').get(id);
+  publisher.refresh(b.id); // mẫu đang trên trang chủ -> cập nhật tên / giá / cấu hình (bỏ mẫu -> gỡ)
   res.json({ ok: true, id: b.id, code: b.code, message: `Đã lưu ${data.is_template ? 'cấu hình mẫu' : 'cấu hình'} ${b.code}` });
+});
+
+// Quản lý: đưa cấu hình mẫu lên / gỡ khỏi danh mục PC trang chủ
+router.post('/build/:id/publish', (req, res) => {
+  if (req.user.role !== 'manager') { req.flash('error', 'Chỉ quản lý được đưa cấu hình lên trang chủ.'); return res.redirect('/staff/build'); }
+  try {
+    const p = publisher.publish(Number(req.params.id), req.user.id);
+    req.flash('success', `Đã đưa "${p.name_vi}" lên danh mục PC trang chủ. Thêm ảnh ở Quản lý sản phẩm cho đẹp.`);
+  } catch (e) { req.flash('error', e.message); }
+  res.redirect('/staff/build');
+});
+router.post('/build/:id/unpublish', (req, res) => {
+  if (req.user.role !== 'manager') { req.flash('error', 'Chỉ quản lý được gỡ.'); return res.redirect('/staff/build'); }
+  const p = publisher.unpublish(Number(req.params.id));
+  req.flash('success', p ? `Đã gỡ "${p.name_vi}" khỏi trang chủ.` : 'Cấu hình này chưa có trên trang chủ.');
+  res.redirect('/staff/build');
 });
 
 router.post('/build/:id/delete', (req, res) => {
   const b = db.prepare('SELECT * FROM pc_builds WHERE id = ?').get(req.params.id);
-  if (b) db.prepare('DELETE FROM pc_builds WHERE id = ?').run(b.id);
+  if (b) { publisher.unpublish(b.id); db.prepare('DELETE FROM pc_builds WHERE id = ?').run(b.id); }
   req.flash('success', b ? `Đã xóa cấu hình ${b.code}${b.name ? ' — ' + b.name : ''}.` : 'Cấu hình không còn.');
   res.redirect('/staff/build');
 });
