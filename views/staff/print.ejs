@@ -1,0 +1,64 @@
+<%- include('../app/_top') %>
+<div class="page-title"><h1><%- icon('printer', 'h-6 w-6 text-brand-600') %>In tài liệu</h1></div>
+<script type="application/json" id="print-data"><%- JSON.stringify(p).replace(/</g, '\\u003c') %></script>
+<div x-data="printPage()" class="mx-auto max-w-3xl space-y-4">
+  <template x-if="!s.available || !s.printers.length">
+    <p class="card text-sm text-amber-700 dark:text-amber-400" x-text="!s.available ? 'Máy chủ chưa cài hệ thống in — báo quản lý.' : (s.all && s.all.length ? 'Máy in đang tạm dừng — báo quản lý bật lại ở trang Hệ thống.' : 'Chưa có máy in nào — quản lý thêm máy in ở trang Hệ thống.')"></p>
+  </template>
+
+  <form x-show="s.printers.length" @submit.prevent="send()" class="card space-y-4">
+    <label class="block text-sm">
+      <span class="mb-1 block font-medium">Máy in</span>
+      <select x-model="printer" class="input w-full">
+        <template x-for="pr in s.printers" :key="pr.name"><option :value="pr.name" :selected="pr.name === printer" x-text="(pr.info || pr.name) + (pr.isDefault ? ' (mặc định)' : '') + (pr.state === 'printing' ? ' — đang in' : '')"></option></template>
+      </select>
+    </label>
+
+    <div @dragover.prevent="drag = true" @dragleave.prevent="drag = false" @drop.prevent="drag = false; add($event.dataTransfer.files)"
+         @click="$refs.file.click()" :class="drag ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/30' : 'border-slate-300 dark:border-slate-700'"
+         class="cursor-pointer rounded-xl border-2 border-dashed p-6 text-center text-sm text-slate-500">
+      <%- icon('upload', 'mx-auto mb-2 h-8 w-8 text-slate-400') %>
+      Bấm để chọn file hoặc kéo thả vào đây<br><span class="text-xs">PDF, JPG, PNG, TXT · tối đa 10 file, mỗi file 30 MB</span>
+      <input type="file" x-ref="file" multiple class="hidden" accept=".pdf,.jpg,.jpeg,.png,.txt,application/pdf,image/jpeg,image/png,text/plain" @change="add($event.target.files); $event.target.value = ''">
+    </div>
+    <p class="-mt-2 text-xs text-slate-500">File Word / Excel: mở ra rồi chọn <b>In → Lưu dưới dạng PDF</b> (Save as PDF) trước khi tải lên.</p>
+
+    <ul x-show="files.length" class="divide-y divide-slate-100 rounded-lg border border-slate-200 text-sm dark:divide-slate-800 dark:border-slate-700">
+      <template x-for="(f, i) in files" :key="i">
+        <li class="flex items-center gap-2 px-3 py-2">
+          <span class="badge-gray" x-text="ext(f)"></span>
+          <span class="min-w-0 flex-1 truncate" x-text="f.name"></span>
+          <span class="text-xs text-slate-500" x-text="(f.size / 1048576).toFixed(1) + ' MB'"></span>
+          <button type="button" @click="files.splice(i, 1)" class="text-red-600 hover:underline">Bỏ</button>
+        </li>
+      </template>
+    </ul>
+
+    <div class="flex flex-wrap items-end gap-4 text-sm">
+      <label class="block"><span class="mb-1 block font-medium">Số bản</span>
+        <input type="number" min="1" max="99" x-model="copies" class="input w-24"></label>
+      <label class="flex items-center gap-2 pb-2"><input type="checkbox" x-model="fit"> Thu vừa trang giấy</label>
+      <button type="submit" :disabled="busy || !files.length || !printer" class="btn-primary ml-auto px-4 py-2"><%- icon('printer', 'h-4 w-4') %><span x-text="busy ? 'Đang gửi...' : 'In ' + (files.length || '') + ' file'"></span></button>
+    </div>
+    <p x-show="err" x-cloak class="text-sm text-red-600" x-text="err"></p>
+    <ul x-show="results.length" x-cloak class="space-y-1 text-sm">
+      <template x-for="r in results" :key="r.file + r.job">
+        <li :class="r.ok ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600'" x-text="(r.ok ? '✓ Đã gửi lệnh in: ' : '✗ Lỗi: ') + r.file + (r.ok ? '' : ' — ' + r.error)"></li>
+      </template>
+    </ul>
+    <p class="text-xs text-slate-500">File chỉ dùng để in, in xong không lưu lại trên máy chủ.</p>
+  </form>
+
+  <section x-show="s.jobs && s.jobs.length" x-cloak class="card">
+    <h2 class="mb-2 font-semibold">Đang chờ in</h2>
+    <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+      <template x-for="j in s.jobs" :key="j.id">
+        <li class="flex items-center gap-2 py-2">
+          <span class="min-w-0 flex-1"><span class="block truncate" x-text="j.title || j.id"></span><span class="text-xs text-slate-500" x-text="j.printer + ' · ' + j.time"></span></span>
+          <button type="button" @click="cancel(j)" class="text-red-600 hover:underline">Hủy</button>
+        </li>
+      </template>
+    </ul>
+  </section>
+</div>
+<%- include('../app/_bottom') %>

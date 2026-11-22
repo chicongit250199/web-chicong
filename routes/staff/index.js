@@ -13,5 +13,6 @@ router.use(require('./inventory'));
 router.use(require('./products'));
 router.use(require('./build'));
 router.use(require('./partners'));
+router.use(require('./print'));
 
 module.exports = router;

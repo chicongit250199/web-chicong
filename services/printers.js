@@ -6,7 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
 
 const ENV = { ...process.env, LANG: 'C', LC_ALL: 'C' };
 function run(cmd, args, { timeout = 15000 } = {}) {
@@ -30,6 +30,14 @@ const NAME_RE = /^[A-Za-z0-9_.-]{1,64}$/;
 const URI_RE = /^(ipp|ipps|http|https|socket|lpd|usb|dnssd|ippusb|smb|implicitclass):\/\/\S{1,500}$/;
 function checkName(n) { if (!NAME_RE.test(n || '')) throw Object.assign(new Error('Tên máy in chỉ gồm chữ không dấu, số, - _ .'), { status: 400 }); return n; }
 function checkJob(id) { if (!/^[A-Za-z0-9_.-]{1,64}-\d+$/.test(id || '')) throw Object.assign(new Error('Mã lệnh in không hợp lệ'), { status: 400 }); return id; }
+
+// Giờ trong lpstat (theo múi giờ server) -> giờ VN dễ đọc
+function vnTime(s) {
+  const t = Date.parse(s);
+  if (!Number.isFinite(t)) return s;
+  const d = new Date(t + 7 * 3600e3).toISOString(); // giờ VN
+  return `${d.slice(11, 16)} ${d.slice(8, 10)}/${d.slice(5, 7)}`;
+}
 
 // Tên gợi ý từ tên model: "HP LaserJet Pro M404" -> "HP_LaserJet_Pro_M404"
 const suggestName = s => String(s || 'MayIn').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[đĐ]/g, 'd')
@@ -71,10 +79,18 @@ async function status() {
     pr.location = get('printer-location');
     pr.reasons = get('printer-state-reasons');
     pr.connection = /^usb:|^ippusb:/.test(pr.uri) ? 'USB' : pr.uri ? 'Mạng' : '';
+    pr.shared = get('printer-is-shared') === 'true';
   }));
 
-  const jobs = [...o.matchAll(/^(\S+)-(\d+)\s+(\S+)\s+(\d+)\s+(.+)$/gm)].map(m => ({ id: `${m[1]}-${m[2]}`, printer: m[1], user: m[3], size: Number(m[4]), time: m[5].trim() }));
-  return { available: true, running: true, printers, jobs };
+  const jobs = [...o.matchAll(/^(\S+)-(\d+)\s+(\S+)\s+(\d+)\s+(.+)$/gm)].map(m => ({ id: `${m[1]}-${m[2]}`, printer: m[1], user: m[3], size: Number(m[4]), time: vnTime(m[5].trim()) }));
+  // Tên tài liệu (lpstat -o không có) -> lấy từ lpq của từng máy đang có lệnh in
+  const titles = {};
+  await Promise.all([...new Set(jobs.map(j => j.printer))].map(async name => {
+    const q = await run('lpq', ['-P', name]).catch(() => '');
+    for (const m of q.matchAll(/^\S+\s+\S+\s+(\d+)\s+(.+?)\s+\d+ bytes\s*$/gm)) titles[`${name}-${m[1]}`] = m[2].trim();
+  }));
+  for (const j of jobs) j.title = titles[j.id] || '';
+  return { available: true, running: true, printers, jobs, sharing: await serverSharing(), host: os.hostname() };
 }
 
 // Tìm máy in: cắm USB + mạng LAN (Bonjour / IPP). Cần quyền lpadmin.
@@ -143,28 +159,55 @@ async function testPage(name) {
   return (out.match(/request id is (\S+)/) || [])[1] || '';
 }
 
-// In file tải lên (PDF, ảnh, văn bản)
-const PRINT_TYPES = { 'application/pdf': '.pdf', 'image/jpeg': '.jpg', 'image/png': '.png', 'text/plain': '.txt' };
-async function printFile(name, file, { copies = 1, fit = true, title = '' } = {}) {
-  checkName(name);
-  const ext = PRINT_TYPES[file && file.mimetype];
-  if (!ext) throw Object.assign(new Error('Chỉ in được file PDF, JPG, PNG hoặc TXT'), { status: 400 });
-  const tmp = path.join(os.tmpdir(), `chicong-print-${crypto.randomBytes(6).toString('hex')}${ext}`);
-  await fs.promises.writeFile(tmp, file.buffer);
-  try {
-    const n = Math.min(99, Math.max(1, parseInt(copies, 10) || 1));
-    const args = ['-d', name, '-n', String(n), '-t', String(title || file.originalname || 'file').slice(0, 100)];
-    if (fit && ext !== '.txt') args.push('-o', 'fit-to-page');
-    args.push(tmp);
-    const out = await run('lp', args, { timeout: 60000 });
-    return (out.match(/request id is (\S+)/) || [])[1] || '';
-  } finally {
-    // CUPS đã chép file vào hàng đợi khi lp trả về
-    fs.promises.unlink(tmp).catch(() => {});
-  }
+// In file tải lên (PDF, ảnh, văn bản): file nằm trong RAM -> đẩy thẳng vào lp qua stdin,
+// KHÔNG ghi ra ổ cứng server. CUPS cấu hình PreserveJobFiles=No nên in xong cũng xóa bản trong hàng đợi.
+const PRINT_TYPES = { 'application/pdf': 'PDF', 'image/jpeg': 'JPG', 'image/png': 'PNG', 'text/plain': 'TXT' };
+const PRINT_EXT = /\.(pdf|jpe?g|png|txt)$/i;
+function typeOf(file) {
+  if (!file) return null;
+  if (PRINT_TYPES[file.mimetype]) return file.mimetype;
+  // một số trình duyệt gửi application/octet-stream -> đoán theo đuôi
+  const m = String(file.originalname || '').match(PRINT_EXT);
+  return m ? { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', txt: 'text/plain' }[m[1].toLowerCase()] : null;
 }
+function lpStdin(args, buffer) {
+  return new Promise((resolve, reject) => {
+    const child = spawn('lp', args, { env: ENV });
+    let out = '', err = '';
+    const timer = setTimeout(() => child.kill('SIGKILL'), 60000);
+    child.stdout.on('data', d => { out += d; });
+    child.stderr.on('data', d => { err += d; });
+    child.on('error', e => { clearTimeout(timer); reject(e); });
+    child.on('close', code => {
+      clearTimeout(timer);
+      if (code === 0) resolve(out);
+      else reject(new Error((err.trim() || `lp lỗi (mã ${code})`).replace(/^\w+: /, '')));
+    });
+    child.stdin.on('error', () => {}); // lp thoát sớm -> lỗi đã có ở stderr
+    child.stdin.end(buffer);
+  });
+}
+async function printFile(name, file, { copies = 1, fit = true, title = '', duplex = false } = {}) {
+  checkName(name);
+  const type = typeOf(file);
+  if (!type) throw Object.assign(new Error('Chỉ in được file PDF, JPG, PNG hoặc TXT'), { status: 400 });
+  const n = Math.min(99, Math.max(1, parseInt(copies, 10) || 1));
+  const args = ['-d', name, '-n', String(n), '-t', String(title || file.originalname || 'file').slice(0, 100)];
+  if (fit && type !== 'text/plain') args.push('-o', 'fit-to-page');
+  if (duplex) args.push('-o', 'sides=two-sided-long-edge');
+  args.push('-'); // đọc từ stdin
+  const out = await lpStdin(args, file.buffer);
+  return (out.match(/request id is (\S+)/) || [])[1] || '';
+}
+
+// Chia sẻ máy in trong mạng LAN (Mac / Windows / điện thoại in thẳng, không qua web)
+async function serverSharing() {
+  const out = await run('cupsctl', []).catch(() => '');
+  return /_share_printers=1/.test(out);
+}
+const setShared = (name, on) => run('lpadmin', ['-p', checkName(name), '-o', `printer-is-shared=${on ? 'true' : 'false'}`]);
 
 const cancelJob = id => run('cancel', [checkJob(id)]);
 const cancelAll = name => run('cancel', ['-a', checkName(name)]);
 
-module.exports = { available, status, discover, models, add, remove, setDefault, setEnabled, testPage, printFile, cancelJob, cancelAll, suggestName, PRINT_TYPES };
+module.exports = { serverSharing, setShared, typeOf, available, status, discover, models, add, remove, setDefault, setEnabled, testPage, printFile, cancelJob, cancelAll, suggestName, PRINT_TYPES };

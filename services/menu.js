@@ -42,6 +42,12 @@ const GROUPS = [
     ],
   },
   {
+    title: 'Tiện ích',
+    items: [
+      { key: 'print', href: '/staff/print', icon: 'printer', label: 'In tài liệu', roles: ['staff', 'manager'] },
+    ],
+  },
+  {
     title: 'Hóa đơn VAT',
     items: [
       { key: 'm-vat', href: '/manager/vat', icon: 'receipt', label: 'Kho hóa đơn VAT', roles: ['manager'] },

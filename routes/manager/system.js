@@ -73,6 +73,8 @@ router.post('/system/printers/:name/:action', pr(async req => {
     case 'disable': await printers.setEnabled(n, false); break;
     case 'delete': await printers.remove(n); break;
     case 'cancel-all': await printers.cancelAll(n); break;
+    case 'share': await printers.setShared(n, true); break;
+    case 'unshare': await printers.setShared(n, false); break;
     case 'test': return { job: await printers.testPage(n), ...(await printers.status()) };
     default: throw Object.assign(new Error('Không rõ thao tác'), { status: 404 });
   }

@@ -256,7 +256,7 @@
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h2 class="flex items-center gap-2 font-semibold"><%- icon('printer', 'h-5 w-5 text-brand-600') %>Máy in</h2>
-        <p class="mt-0.5 text-sm text-slate-500">Máy in cắm USB vào máy chủ NUC hoặc máy in trong mạng LAN.</p>
+        <p class="mt-0.5 text-sm text-slate-500">Máy in cắm USB vào máy chủ NUC hoặc máy in trong mạng LAN. Nhân viên in file ở mục <a href="/staff/print" class="text-brand-600 hover:underline">In tài liệu</a>; file in xong không lưu lại trên server.</p>
       </div>
       <div class="flex flex-wrap gap-2" x-show="s.running">
         <button type="button" @click="load()" :disabled="busy" class="btn-secondary px-3 py-1.5 text-sm"><%- icon('refresh', 'h-4 w-4') %>Làm mới</button>
@@ -273,6 +273,14 @@
 
     <template x-if="s.running">
       <div class="mt-3 space-y-3">
+        <div x-show="!s.sharing" class="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+          Máy tính khác trong mạng chưa in thẳng được (chưa chia sẻ máy in). Chạy 1 lần trên NUC: <code class="select-all font-mono">sudo bash scripts/setup-printer-share.sh</code>
+        </div>
+        <div x-show="s.sharing && s.printers.some(function (p) { return p.shared; })" class="rounded-lg border border-slate-200 p-3 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">
+          <b>In thẳng từ máy tính khác:</b> Mac / iPhone tự thấy máy in (AirPrint). Windows: Settings → Printers → Add → “The printer that I want isn't listed” → nhập
+          <template x-for="p in s.printers.filter(function (p) { return p.shared; })" :key="p.name"><code class="mx-1 select-all font-mono text-xs" x-text="'http://192.168.1.199:631/printers/' + p.name"></code></template>
+          rồi chọn driver “Microsoft PCL6 Class Driver” hoặc driver của hãng.
+        </div>
         <p x-show="!s.printers.length" class="rounded-lg border border-dashed border-slate-300 p-4 text-center text-sm text-slate-500 dark:border-slate-700">Chưa có máy in nào — bấm “Thêm máy in”.</p>
         <template x-for="p in s.printers" :key="p.name">
           <div class="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
@@ -281,6 +289,7 @@
               <span x-show="p.isDefault" class="badge-blue">Mặc định</span>
               <span :class="p.state === 'disabled' ? 'badge-red' : p.state === 'printing' ? 'badge-amber' : 'badge-green'" x-text="p.state === 'disabled' ? 'Tạm dừng' : p.state === 'printing' ? 'Đang in' : 'Sẵn sàng'"></span>
               <span class="badge-gray" x-text="p.connection" x-show="p.connection"></span>
+              <span x-show="p.shared && s.sharing" class="badge-green">Chia sẻ LAN</span>
             </div>
             <p class="mt-1 break-all text-xs text-slate-500"><span x-text="p.name"></span><span x-show="p.model"> · <span x-text="p.model"></span></span><span x-show="p.location"> · <span x-text="p.location"></span></span> · <span x-text="p.uri"></span></p>
             <p x-show="p.reason || (p.reasons && p.reasons !== 'none')" class="mt-1 text-xs text-amber-700 dark:text-amber-400" x-text="p.reason || p.reasons"></p>
@@ -290,6 +299,7 @@
               <button type="button" x-show="!p.isDefault" @click="act(p, 'default')" :disabled="busy" class="btn-secondary px-2.5 py-1 text-xs">Đặt mặc định</button>
               <button type="button" @click="act(p, p.state === 'disabled' ? 'enable' : 'disable')" :disabled="busy" class="btn-secondary px-2.5 py-1 text-xs" x-text="p.state === 'disabled' ? 'Bật lại' : 'Tạm dừng'"></button>
               <button type="button" x-show="jobsOf(p).length" @click="act(p, 'cancel-all', 'Hủy hết lệnh in đang chờ của ' + p.name + '?')" :disabled="busy" class="btn-secondary px-2.5 py-1 text-xs">Hủy hết lệnh in</button>
+              <button type="button" x-show="s.sharing" @click="act(p, p.shared ? 'unshare' : 'share')" :disabled="busy" class="btn-secondary px-2.5 py-1 text-xs" x-text="p.shared ? 'Ngừng chia sẻ LAN' : 'Chia sẻ LAN'"></button>
               <button type="button" @click="act(p, 'delete', 'Xóa máy in ' + p.name + ' khỏi hệ thống?')" :disabled="busy" class="btn-secondary px-2.5 py-1 text-xs text-red-600">Xóa</button>
             </div>
             <ul x-show="jobsOf(p).length" class="mt-2 divide-y divide-slate-100 rounded border border-slate-100 text-xs dark:divide-slate-800 dark:border-slate-800">
