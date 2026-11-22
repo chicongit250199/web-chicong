@@ -38,6 +38,28 @@ router.post('/print', upload.array('files', 10), async (req, res) => {
   res.json({ results, ...(await view()) });
 });
 
+// In phiếu (nhận máy / thanh toán - bảo hành / báo giá) ra máy in NUC: Chrome headless dựng trang thành PDF -> CUPS
+const PRINTABLE = /^\/staff\/(tasks\/\d+\/print|sell\/receipt\/[\w-]{1,40}|build\/\d+\/print)(\?(lang=(vi|en)|doc=(quote|receipt))(&(lang=(vi|en)|doc=(quote|receipt)))*)?$/;
+router.post('/print/page', async (req, res) => {
+  const urlPath = String(req.body.path || '');
+  if (!PRINTABLE.test(urlPath)) return res.status(400).json({ error: 'Trang này không in ra máy in cửa hàng được.' });
+  try {
+    const st = await printers.status();
+    const ready = st.printers.filter(p => p.state !== 'disabled');
+    const name = req.body.printer && ready.some(p => p.name === req.body.printer) ? req.body.printer : (ready.find(p => p.isDefault) || ready[0] || {}).name;
+    if (!name) throw new Error('Chưa có máy in nào sẵn sàng — báo quản lý.');
+    const pdf = await require('../../services/pagePdf').render(urlPath, req.get('cookie'));
+    const title = `${String(req.body.title || 'Phiếu').slice(0, 80)} (${req.user.full_name})`;
+    const job = await printers.printFile(name, { mimetype: 'application/pdf', buffer: Buffer.from(pdf), originalname: title }, { copies: req.body.copies, fit: false, title });
+    console.log(`[print] ${req.user.full_name} in phiếu ${urlPath} ra ${name}`);
+    const pr = st.printers.find(p => p.name === name);
+    res.json({ ok: true, job, printer: (pr && pr.info) || name });
+  } catch (e) {
+    console.error('[print] in phiếu lỗi:', e.message);
+    res.status(400).json({ error: e.message });
+  }
+});
+
 router.post('/print/jobs/:id/cancel', async (req, res) => {
   try { await printers.cancelJob(req.params.id); res.json(await view()); } catch (e) { res.status(e.status || 400).json({ error: e.message }); }
 });

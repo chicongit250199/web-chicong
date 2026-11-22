@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="vi">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8"><meta name="csrf-token" content="<%= csrfToken %>"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Phiếu <%= task.ticket_code %></title>
   <style>
     body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #111; background: #fff; margin: 0; }
@@ -13,10 +13,13 @@
     .sign div { width: 45%; } .sign p { margin-top: 56px; } .code { font-size: 16px; font-weight: 700; letter-spacing: 1px; }
     .actions { text-align: center; margin: 16px; } @media print { .actions { display: none; } }
     button { padding: 8px 16px; font-size: 14px; cursor: pointer; }
+    .actions .primary { background: #c00; color: #fff; border: 1px solid #a00; border-radius: 4px; font-weight: 600; }
+    .actions .copies { font-size: 13px; margin: 0 6px; } .actions .copies input { width: 48px; padding: 4px; }
+    .psmsg { font-size: 13px; margin-top: 6px; min-height: 1em; }
   </style>
 </head>
 <body>
-  <div class="actions"><button type="button" id="print-btn">In phiếu</button></div>
+  <div class="actions"><button type="button" id="print-server-btn" class="primary">🖨 In ra máy in cửa hàng</button><label class="copies">Số bản <input type="number" id="print-server-copies" min="1" max="20" value="1"></label> <button type="button" id="print-btn">In bằng máy này</button><div id="print-server-msg" class="psmsg"></div></div>
   <div class="sheet">
     <div class="center"><strong><%= settings.legal_name %></strong><br><span class="muted"><%= settings.address %> · ĐT <%= settings.phone %></span></div>
     <h1>PHIẾU NHẬN MÁY</h1>
@@ -35,5 +38,6 @@
     <div class="sign"><div><strong>Khách hàng</strong><p>&nbsp;</p></div><div><strong>Nhân viên nhận</strong><p><%= task.received_name || '' %></p></div></div>
   </div>
   <script nonce="<%= nonce %>">document.getElementById('print-btn').onclick = function () { window.print(); };</script>
+  <script src="/js/print-server.js" defer></script>
 </body>
 </html>

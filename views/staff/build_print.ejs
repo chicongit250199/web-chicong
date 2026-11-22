@@ -9,7 +9,7 @@
 }; const n = x => fmt.num(x); %><!doctype html>
 <html lang="<%= en ? 'en' : 'vi' %>">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8"><meta name="csrf-token" content="<%= csrfToken %>"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title><%= b.code %><%= b.customer_name ? ' - ' + b.customer_name : '' %></title>
   <style>
     @page { size: A4; margin: 12mm; }
@@ -34,14 +34,19 @@
     .sign { display: flex; justify-content: space-around; margin-top: 18px; text-align: center; }
     .sign p { margin: 0; } .sign .space { height: 64px; }
     .actions { text-align: center; margin: 14px; } .actions a, .actions button { margin: 0 4px; padding: 7px 14px; font-size: 14px; cursor: pointer; }
+    .actions .primary { background: #c00; color: #fff; border: 1px solid #a00; border-radius: 4px; font-weight: 600; }
+    .actions .copies { font-size: 13px; margin: 0 6px; } .actions .copies input { width: 48px; padding: 4px; }
+    .psmsg { font-size: 13px; margin-top: 6px; min-height: 1em; }
     @media print { .actions { display: none; } .sheet { padding: 0; } }
   </style>
 </head>
 <body>
   <div class="actions">
-    <button type="button" id="print-btn"><%= en ? 'Print' : 'In phiếu' %></button>
+    <button type="button" id="print-server-btn" class="primary">🖨 In ra máy in cửa hàng</button><label class="copies">Số bản <input type="number" id="print-server-copies" min="1" max="20" value="1"></label>
+    <button type="button" id="print-btn">In bằng máy này</button>
     <% if (typeof docToggle === 'undefined' || docToggle) { %><a href="?lang=<%= en ? 'en' : 'vi' %>&doc=<%= doc === 'receipt' ? 'quote' : 'receipt' %>"><%= doc === 'receipt' ? (en ? 'Quotation' : 'Báo giá') : (en ? 'Receipt' : 'Phiếu thanh toán - bảo hành') %></a><% } %>
     <a href="?lang=<%= en ? 'vi' : 'en' %>&doc=<%= doc %>"><%= en ? 'Tiếng Việt' : 'English' %></a>
+    <div id="print-server-msg" class="psmsg"></div>
   </div>
   <div class="sheet">
     <div class="head">
@@ -95,5 +100,6 @@
     </div>
   </div>
   <script nonce="<%= nonce %>">document.getElementById('print-btn').onclick = function () { window.print(); };</script>
+  <script src="/js/print-server.js" defer></script>
 </body>
 </html>
