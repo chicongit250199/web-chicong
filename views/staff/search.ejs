@@ -1,5 +1,6 @@
 <%- include('../app/_top') %>
-<div class="page-title"><h1><%- icon('search', 'h-6 w-6 text-brand-600') %>Tìm kiếm</h1></div>
+<div class="page-title"><h1><%- icon('search', 'h-6 w-6 text-brand-600') %>Tra cứu bảo hành</h1></div>
+<%- include('_inv_tabs', { invTab: 'search', counts: null, search: '' }) %>
 <form class="mb-5 flex gap-2">
   <input name="q" value="<%= search %>" class="input text-base" placeholder="Nhập SĐT khách hàng, số Serial, mã phiếu hoặc model máy..." autofocus>
   <button class="btn-primary"><%- icon('search', 'h-4 w-4') %>Tìm</button>

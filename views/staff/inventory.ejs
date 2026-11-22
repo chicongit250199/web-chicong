@@ -9,10 +9,7 @@
   <div class="stat"><p class="stat-label">Giá trị tồn (giá KT)</p><p class="stat-value text-lg"><%= fmt.money(stockValue.tech) %></p></div>
   <div class="stat"><p class="stat-label">Giá trị tồn (bán lẻ)</p><p class="stat-value text-lg"><%= fmt.money(stockValue.retail) %></p></div>
 </div>
-<div class="tabs">
-  <a href="?tab=in_stock<%= search ? '&q=' + encodeURIComponent(search) : '' %>" class="tab <%= tab === 'in_stock' ? 'tab-active' : '' %>">Kho hàng tồn kho (<%= counts.in_stock || 0 %>)</a>
-  <a href="?tab=sold<%= search ? '&q=' + encodeURIComponent(search) : '' %>" class="tab <%= tab === 'sold' ? 'tab-active' : '' %>">Kho hàng đã bán (<%= counts.sold || 0 %>)</a>
-</div>
+<%- include('_inv_tabs', { invTab: tab }) %>
 <form class="mb-3 flex gap-2">
   <input type="hidden" name="tab" value="<%= tab %>">
   <input name="q" value="<%= search %>" class="input" placeholder="Tên hàng, mã hàng, Serial, NPP<%= tab === 'sold' ? ', khách hàng, SĐT' : '' %>...">

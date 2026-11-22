@@ -1,6 +1,7 @@
 <%- include('../app/_top') %>
 <% const val = k => values[k] == null ? '' : values[k]; %>
 <div class="page-title"><h1><%- icon('plusSquare', 'h-6 w-6 text-brand-600') %>Nhập kho</h1></div>
+<%- include('_inv_tabs', { invTab: 'new', counts: null }) %>
 <% if (error) { %><div class="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-200 dark:bg-red-950 dark:text-red-200 dark:ring-red-900"><%= error %></div><% } %>
 <form method="post" action="/staff/inventory" class="card space-y-4" x-data="{ serials: <%= JSON.stringify(val('serials')) %> }">
   <input type="hidden" name="_csrf" value="<%= csrfToken %>">

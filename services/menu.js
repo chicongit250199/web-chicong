@@ -30,9 +30,11 @@ const GROUPS = [
     title: 'Bán hàng & Kho',
     items: [
       { key: 'sell', href: '/staff/sell', icon: 'cart', label: 'Bán hàng / Dịch vụ', roles: ['staff', 'manager'] },
-      { key: 'inventory', href: '/staff/inventory', icon: 'archive', label: 'Xem kho', roles: ['staff', 'manager'] },
-      { key: 'inventory-new', href: '/staff/inventory/new', icon: 'plusSquare', label: 'Nhập kho', roles: ['staff', 'manager'] },
-      { key: 'search', href: '/staff/search', icon: 'search', label: 'Tra cứu bảo hành', roles: ['staff', 'manager'] },
+      // Quản lý: 1 mục gồm tab Tồn kho / Đã bán / Nhập kho / Tra cứu bảo hành (also: các trang con vẫn sáng mục này)
+      { key: 'm-inventory', also: ['inventory', 'inventory-new', 'search'], href: '/staff/inventory', icon: 'archive', label: 'Quản lý kho', roles: ['manager'] },
+      { key: 'inventory', href: '/staff/inventory', icon: 'archive', label: 'Xem kho', roles: ['staff'] },
+      { key: 'inventory-new', href: '/staff/inventory/new', icon: 'plusSquare', label: 'Nhập kho', roles: ['staff'] },
+      { key: 'search', href: '/staff/search', icon: 'search', label: 'Tra cứu bảo hành', roles: ['staff'] },
     ],
   },
   {
