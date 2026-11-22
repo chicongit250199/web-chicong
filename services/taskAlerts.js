@@ -1,11 +1,23 @@
 'use strict';
 // Cảnh báo task quá lâu không thay đổi (KHÔNG tính ngày Chủ nhật, theo giờ VN):
-//  - Chưa làm (pending) quá PENDING_DAYS ngày kể từ lần thay đổi gần nhất
-//  - Đang làm (processing) quá PROCESSING_DAYS ngày
+//  - Chưa làm (pending) quá N ngày kể từ lần thay đổi gần nhất
+//  - Đang làm (processing) quá M ngày
+// N, M do quản lý chỉnh ở trang Hệ thống (bảng settings), mặc định lấy từ .env hoặc 3 / 1.
 const db = require('../db');
+const settings = require('./settings');
 
-const PENDING_DAYS = Number(process.env.TASK_PENDING_ALERT_DAYS) || 3;
-const PROCESSING_DAYS = Number(process.env.TASK_PROCESSING_ALERT_DAYS) || 1;
+const DEF_PENDING = Number(process.env.TASK_PENDING_ALERT_DAYS) || 3;
+const DEF_PROCESSING = Number(process.env.TASK_PROCESSING_ALERT_DAYS) || 1;
+const num = (v, d) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : d; };
+function thresholds() {
+  return { pending: num(settings.get('task_pending_alert_days'), DEF_PENDING), processing: num(settings.get('task_processing_alert_days'), DEF_PROCESSING) };
+}
+function setThresholds({ pending, processing }) {
+  const ok = v => Number.isFinite(v) && v >= 0.5 && v <= 60;
+  if (!ok(pending) || !ok(processing)) throw new Error('Số ngày phải từ 0,5 đến 60');
+  settings.set({ task_pending_alert_days: pending, task_processing_alert_days: processing });
+  return thresholds();
+}
 
 const DAY = 86400e3, WEEK = 7 * DAY, OFF = 7 * 3600e3; // giờ VN = UTC+7
 
@@ -33,17 +45,21 @@ function workDays(sinceMs, nowMs = Date.now()) {
 // Hàm SQL work_days(thời_điểm_ISO): số ngày làm việc tính tới hiện tại (không cố định -> không deterministic)
 db.function('work_days', s => (s ? workDays(Date.parse(s)) : 0));
 
+// Ngưỡng hiện tại theo trạng thái (đọc lúc chạy câu lệnh -> đổi cài đặt có hiệu lực ngay, không cần prepare lại)
+db.function('task_alert_days', st => { const t = thresholds(); return st === 'pending' ? t.pending : st === 'processing' ? t.processing : null; });
+
 // Biểu thức SQL dùng chung (t = bảng tasks)
 const AGE = `work_days(COALESCE(t.updated_at, t.created_at))`;
-const OVERDUE_WHERE = `((t.status = 'pending' AND ${AGE} > ${PENDING_DAYS}) OR (t.status = 'processing' AND ${AGE} > ${PROCESSING_DAYS}))`;
+const OVERDUE_WHERE = `(t.status IN ('pending','processing') AND ${AGE} > task_alert_days(t.status))`;
 
 // Mức cảnh báo cho 1 task (dùng trong thẻ task)
 function level(t, now = Date.now()) {
   const since = Date.parse(t.updated_at || t.created_at);
   if (!since) return null;
   const days = workDays(since, now);
-  if (t.status === 'pending' && days > PENDING_DAYS) return { kind: 'pending', days, label: `Chờ ${fmtAge(days)} chưa xử lý` };
-  if (t.status === 'processing' && days > PROCESSING_DAYS) return { kind: 'processing', days, label: `Đang sửa ${fmtAge(days)}` };
+  const th = thresholds();
+  if (t.status === 'pending' && days > th.pending) return { kind: 'pending', days, label: `Chờ ${fmtAge(days)} chưa xử lý` };
+  if (t.status === 'processing' && days > th.processing) return { kind: 'processing', days, label: `Đang sửa ${fmtAge(days)}` };
   return null;
 }
 function fmtAge(days) {
@@ -62,4 +78,4 @@ function forUser(user) {
   return rows.map(t => ({ ...t, alert: level(t, now) }));
 }
 
-module.exports = { PENDING_DAYS, PROCESSING_DAYS, OVERDUE_WHERE, AGE, level, forUser, workDays };
+module.exports = { thresholds, setThresholds, OVERDUE_WHERE, AGE, level, forUser, workDays };

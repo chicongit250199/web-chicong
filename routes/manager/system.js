@@ -5,6 +5,9 @@ const vatSync = require('../../services/vatSync');
 const offsite = require('../../services/offsiteBackup');
 const gitBackup = require('../../services/gitBackup');
 const revenueReport = require('../../services/revenueReport');
+const taskAlerts = require('../../services/taskAlerts');
+const printers = require('../../services/printers');
+const { fileUpload } = require('../../services/upload');
 const serverLog = require('../../services/serverLog');
 const db = require('../../db');
 const { backup } = require('../../services/backup');
@@ -13,7 +16,7 @@ const router = express.Router();
 
 router.get('/system', (req, res) => {
   res.locals.nav = 'm-system';
-  res.render('manager/system', { title: 'Hệ thống', scripts: ['/js/system.js'] });
+  res.render('manager/system', { title: 'Hệ thống', scripts: ['/js/system.js'], sysUser: require('os').userInfo().username });
 });
 
 router.get('/system.json', (req, res) => {
@@ -35,6 +38,51 @@ router.post('/system/speedtest', (req, res) => {
   systemInfo.runSpeedTest(); // không chờ
   res.json(systemInfo.speedStatus());
 });
+
+// ---------- Cảnh báo task quá hạn ----------
+router.get('/system/task-alerts', (req, res) => res.set('Cache-Control', 'no-store').json(taskAlerts.thresholds()));
+router.post('/system/task-alerts', (req, res) => {
+  try {
+    const t = taskAlerts.setThresholds({ pending: Number(req.body.pending), processing: Number(req.body.processing) });
+    res.json(t);
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+// ---------- Máy in (CUPS) ----------
+// Lỗi từ lệnh CUPS -> trả thông báo cho trang (thường là thiếu quyền / máy in không phản hồi)
+const pr = fn => async (req, res) => {
+  try { res.set('Cache-Control', 'no-store').json(await fn(req)); } catch (e) {
+    let msg = e.message || 'Lỗi máy in';
+    if (/Forbidden|not authorized|Unauthorized/i.test(msg)) msg = 'Web chưa có quyền quản trị máy in — chạy: sudo usermod -aG lpadmin ' + require('os').userInfo().username;
+    res.status(e.status || 400).json({ error: msg });
+  }
+};
+router.get('/system/printers', pr(() => printers.status()));
+router.post('/system/printers/discover', pr(() => printers.discover()));
+router.get('/system/printers/models', pr(req => printers.models(req.query.q)));
+router.post('/system/printers/add', pr(async req => {
+  const b = req.body;
+  await printers.add({ name: b.name, uri: String(b.uri || '').trim(), driver: b.driver, info: b.info, location: b.location, makeDefault: !!b.makeDefault });
+  return printers.status();
+}));
+router.post('/system/printers/:name/:action', pr(async req => {
+  const n = req.params.name;
+  switch (req.params.action) {
+    case 'default': await printers.setDefault(n); break;
+    case 'enable': await printers.setEnabled(n, true); break;
+    case 'disable': await printers.setEnabled(n, false); break;
+    case 'delete': await printers.remove(n); break;
+    case 'cancel-all': await printers.cancelAll(n); break;
+    case 'test': return { job: await printers.testPage(n), ...(await printers.status()) };
+    default: throw Object.assign(new Error('Không rõ thao tác'), { status: 404 });
+  }
+  return printers.status();
+}));
+router.post('/system/print-jobs/:id/cancel', pr(async req => { await printers.cancelJob(req.params.id); return printers.status(); }));
+router.post('/system/print-file', fileUpload(30).single('file'), pr(async req => {
+  const job = await printers.printFile(req.body.printer, req.file, { copies: req.body.copies, fit: req.body.fit !== '0', title: `${req.file && req.file.originalname} (${req.user.full_name})` });
+  return { job, ...(await printers.status()) };
+}));
 
 // ---------- Báo cáo doanh thu qua email ----------
 router.get('/system/report-email', (req, res) => res.set('Cache-Control', 'no-store').json(revenueReport.status()));

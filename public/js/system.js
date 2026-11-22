@@ -132,6 +132,75 @@ window.offsiteBackup = function () {
 };
 
 // Sao lưu ra ngoài máy lên GitHub (mã hóa)
+window.taskAlertCfg = function () {
+  return {
+    pending: '', processing: '', busy: false, msg: '', err: '',
+    init: function () { var self = this; api('/manager/system/task-alerts').then(function (d) { self.pending = d.pending; self.processing = d.processing; }); },
+    save: function () {
+      var self = this; this.busy = true; this.msg = ''; this.err = '';
+      api('/manager/system/task-alerts', { method: 'POST', body: { pending: Number(this.pending), processing: Number(this.processing) } })
+        .then(function (d) { self.pending = d.pending; self.processing = d.processing; self.msg = 'Đã lưu.'; })
+        .catch(function (e) { self.err = e.message; }).finally(function () { self.busy = false; });
+    },
+  };
+};
+
+window.printerAdmin = function () {
+  var blank = function () { return { uri: '', name: '', info: '', driverMode: 'everywhere', model: '', makeDefault: false }; };
+  return {
+    s: { printers: [], jobs: [] }, loaded: false, busy: false, err: '', msg: '',
+    adding: false, finding: false, found: [], foundNone: false, form: blank(), modelQ: '', modelList: [], printTo: '',
+    init: function () { this.load(); },
+    load: function () {
+      var self = this;
+      return api('/manager/system/printers').then(function (d) { self.s = d; self.loaded = true; }).catch(function (e) { self.err = e.message; self.loaded = true; });
+    },
+    jobsOf: function (p) { return (this.s.jobs || []).filter(function (j) { return j.printer === p.name; }); },
+    call: function (url, body, okMsg) {
+      var self = this; this.busy = true; this.err = ''; this.msg = '';
+      return api(url, { method: 'POST', body: body || {} }).then(function (d) { if (d.printers) self.s = d; self.msg = typeof okMsg === 'function' ? okMsg(d) : okMsg || ''; return d; })
+        .catch(function (e) { self.err = e.message; }).finally(function () { self.busy = false; });
+    },
+    act: function (p, action, confirmText) {
+      if (confirmText && !confirm(confirmText)) return;
+      var msgs = { test: function (d) { return 'Đã gửi trang in thử' + (d.job ? ' (' + d.job + ')' : '') + '.'; }, default: 'Đã đặt ' + p.name + ' làm mặc định.', enable: 'Đã bật lại.', disable: 'Đã tạm dừng.', delete: 'Đã xóa ' + p.name + '.', 'cancel-all': 'Đã hủy các lệnh in.' };
+      this.call('/manager/system/printers/' + encodeURIComponent(p.name) + '/' + action, {}, msgs[action]);
+    },
+    cancelJob: function (j) { this.call('/manager/system/print-jobs/' + encodeURIComponent(j.id) + '/cancel', {}, 'Đã hủy lệnh ' + j.id + '.'); },
+    printFile: function (ev) {
+      var file = ev.target.files[0]; ev.target.value = '';
+      if (!file) return;
+      var copies = prompt('In "' + file.name + '" ra ' + this.printTo + ' — số bản:', '1');
+      if (copies === null) return;
+      var fd = new FormData(); fd.append('printer', this.printTo); fd.append('copies', copies); fd.append('file', file);
+      this.call('/manager/system/print-file', fd, function (d) { return 'Đã gửi lệnh in' + (d.job ? ' (' + d.job + ')' : '') + '.'; });
+    },
+    openAdd: function () { this.adding = true; this.form = blank(); this.found = []; this.foundNone = false; this.err = ''; this.msg = ''; this.discover(); },
+    discover: function () {
+      var self = this; this.finding = true; this.foundNone = false; this.err = '';
+      api('/manager/system/printers/discover', { method: 'POST' }).then(function (d) { self.found = d; self.foundNone = !d.length; })
+        .catch(function (e) { self.err = e.message; }).finally(function () { self.finding = false; });
+    },
+    pick: function (f) {
+      this.form.uri = f.uri;
+      if (!this.form.name) this.form.name = f.suggested;
+      if (!this.form.info) this.form.info = f.label;
+    },
+    searchModels: function () {
+      var self = this;
+      if (!this.modelQ.trim()) { this.modelList = []; return; }
+      api('/manager/system/printers/models?q=' + encodeURIComponent(this.modelQ)).then(function (d) { self.modelList = d; }).catch(function (e) { self.err = e.message; });
+    },
+    add: function () {
+      var f = this.form, self = this;
+      var driver = f.driverMode === 'model' ? f.model : f.driverMode;
+      if (!driver) { this.err = 'Chọn driver trong danh sách.'; return; }
+      this.call('/manager/system/printers/add', { name: f.name, uri: f.uri, info: f.info, driver: driver, makeDefault: f.makeDefault }, 'Đã thêm máy in ' + f.name + ' — bấm “In thử” để kiểm tra.')
+        .then(function (d) { if (d && d.printers) self.adding = false; });
+    },
+  };
+};
+
 window.reportEmail = function () {
   return {
     s: {}, busy: false, err: '', msg: '',

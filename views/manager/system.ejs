@@ -232,6 +232,125 @@
     </div>
   </template>
 
+  <%# ---- Cảnh báo task quá hạn ---- %>
+  <section class="card mt-4" x-data="taskAlertCfg()">
+    <h2 class="flex items-center gap-2 font-semibold"><%- icon('clock', 'h-5 w-5 text-brand-600') %>Cảnh báo task quá hạn</h2>
+    <p class="mt-0.5 text-sm text-slate-500">Task không thay đổi quá số ngày dưới đây sẽ hiện cảnh báo đầu trang và trong mail báo cáo. Không tính Chủ nhật; nhập 0,5 = nửa ngày.</p>
+    <form @submit.prevent="save()" class="mt-3 flex flex-wrap items-end gap-3 text-sm">
+      <label class="block">
+        <span class="mb-1 block text-slate-600 dark:text-slate-300">Chờ xử lý quá</span>
+        <span class="flex items-center gap-2"><input type="number" min="0.5" max="60" step="0.5" x-model="pending" required class="input w-24"> ngày</span>
+      </label>
+      <label class="block">
+        <span class="mb-1 block text-slate-600 dark:text-slate-300">Đang sửa quá</span>
+        <span class="flex items-center gap-2"><input type="number" min="0.5" max="60" step="0.5" x-model="processing" required class="input w-24"> ngày</span>
+      </label>
+      <button type="submit" :disabled="busy" class="btn-primary px-3 py-1.5 text-sm" x-text="busy ? 'Đang lưu...' : 'Lưu'"></button>
+      <span x-show="msg" x-cloak class="text-emerald-700 dark:text-emerald-400" x-text="msg"></span>
+      <span x-show="err" x-cloak class="text-red-600" x-text="err"></span>
+    </form>
+  </section>
+
+  <%# ---- Máy in ---- %>
+  <section class="card mt-4" x-data="printerAdmin()">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h2 class="flex items-center gap-2 font-semibold"><%- icon('printer', 'h-5 w-5 text-brand-600') %>Máy in</h2>
+        <p class="mt-0.5 text-sm text-slate-500">Máy in cắm USB vào máy chủ NUC hoặc máy in trong mạng LAN.</p>
+      </div>
+      <div class="flex flex-wrap gap-2" x-show="s.running">
+        <button type="button" @click="load()" :disabled="busy" class="btn-secondary px-3 py-1.5 text-sm"><%- icon('refresh', 'h-4 w-4') %>Làm mới</button>
+        <button type="button" @click="openAdd()" class="btn-primary px-3 py-1.5 text-sm">+ Thêm máy in</button>
+      </div>
+    </div>
+
+    <p x-show="!loaded" class="mt-3 text-sm text-slate-500">Đang đọc danh sách máy in...</p>
+    <div x-show="loaded && !s.available" x-cloak class="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+      Máy chủ chưa cài hệ thống in (CUPS). Chạy 1 lần trên NUC:
+      <code class="mt-1 block select-all break-all rounded bg-white/70 px-2 py-1 font-mono text-xs dark:bg-black/30">sudo apt install -y cups cups-client cups-bsd avahi-utils && sudo usermod -aG lpadmin <%= sysUser %></code>
+    </div>
+    <p x-show="loaded && s.available && !s.running" x-cloak class="mt-3 text-sm text-red-600">Dịch vụ in (CUPS) đang tắt — chạy <code>sudo systemctl enable --now cups</code>.</p>
+
+    <template x-if="s.running">
+      <div class="mt-3 space-y-3">
+        <p x-show="!s.printers.length" class="rounded-lg border border-dashed border-slate-300 p-4 text-center text-sm text-slate-500 dark:border-slate-700">Chưa có máy in nào — bấm “Thêm máy in”.</p>
+        <template x-for="p in s.printers" :key="p.name">
+          <div class="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="font-semibold" x-text="p.info || p.name"></span>
+              <span x-show="p.isDefault" class="badge-blue">Mặc định</span>
+              <span :class="p.state === 'disabled' ? 'badge-red' : p.state === 'printing' ? 'badge-amber' : 'badge-green'" x-text="p.state === 'disabled' ? 'Tạm dừng' : p.state === 'printing' ? 'Đang in' : 'Sẵn sàng'"></span>
+              <span class="badge-gray" x-text="p.connection" x-show="p.connection"></span>
+            </div>
+            <p class="mt-1 break-all text-xs text-slate-500"><span x-text="p.name"></span><span x-show="p.model"> · <span x-text="p.model"></span></span><span x-show="p.location"> · <span x-text="p.location"></span></span> · <span x-text="p.uri"></span></p>
+            <p x-show="p.reason || (p.reasons && p.reasons !== 'none')" class="mt-1 text-xs text-amber-700 dark:text-amber-400" x-text="p.reason || p.reasons"></p>
+            <div class="mt-2 flex flex-wrap gap-2 text-sm">
+              <button type="button" @click="act(p, 'test')" :disabled="busy" class="btn-secondary px-2.5 py-1 text-xs">In thử</button>
+              <button type="button" @click="printTo = p.name; $refs.pf.click()" :disabled="busy" class="btn-secondary px-2.5 py-1 text-xs">In file...</button>
+              <button type="button" x-show="!p.isDefault" @click="act(p, 'default')" :disabled="busy" class="btn-secondary px-2.5 py-1 text-xs">Đặt mặc định</button>
+              <button type="button" @click="act(p, p.state === 'disabled' ? 'enable' : 'disable')" :disabled="busy" class="btn-secondary px-2.5 py-1 text-xs" x-text="p.state === 'disabled' ? 'Bật lại' : 'Tạm dừng'"></button>
+              <button type="button" x-show="jobsOf(p).length" @click="act(p, 'cancel-all', 'Hủy hết lệnh in đang chờ của ' + p.name + '?')" :disabled="busy" class="btn-secondary px-2.5 py-1 text-xs">Hủy hết lệnh in</button>
+              <button type="button" @click="act(p, 'delete', 'Xóa máy in ' + p.name + ' khỏi hệ thống?')" :disabled="busy" class="btn-secondary px-2.5 py-1 text-xs text-red-600">Xóa</button>
+            </div>
+            <ul x-show="jobsOf(p).length" class="mt-2 divide-y divide-slate-100 rounded border border-slate-100 text-xs dark:divide-slate-800 dark:border-slate-800">
+              <template x-for="j in jobsOf(p)" :key="j.id">
+                <li class="flex items-center gap-2 px-2 py-1.5"><span class="font-mono" x-text="j.id"></span><span class="flex-1 text-slate-500" x-text="j.time + ' · ' + Math.ceil(j.size / 1024) + ' KB'"></span>
+                  <button type="button" @click="cancelJob(j)" class="text-red-600 hover:underline">Hủy</button></li>
+              </template>
+            </ul>
+          </div>
+        </template>
+        <input type="file" x-ref="pf" class="hidden" accept=".pdf,.jpg,.jpeg,.png,.txt,application/pdf,image/jpeg,image/png,text/plain" @change="printFile($event)">
+      </div>
+    </template>
+
+    <%# Hộp thêm máy in %>
+    <div x-show="adding" x-cloak class="mt-4 rounded-lg border border-brand-200 bg-brand-50/40 p-3 dark:border-brand-900 dark:bg-brand-950/20">
+      <div class="flex flex-wrap items-center gap-2">
+        <h3 class="mr-auto font-semibold">Thêm máy in</h3>
+        <button type="button" @click="discover()" :disabled="finding" class="btn-secondary px-3 py-1.5 text-sm" x-text="finding ? 'Đang tìm (~10 giây)...' : 'Tìm máy in'"></button>
+        <button type="button" @click="adding = false" class="btn-secondary px-3 py-1.5 text-sm">Đóng</button>
+      </div>
+      <template x-if="found.length">
+        <ul class="mt-2 max-h-60 divide-y divide-slate-200 overflow-auto rounded border border-slate-200 bg-white text-sm dark:divide-slate-700 dark:border-slate-700 dark:bg-slate-900">
+          <template x-for="f in found" :key="f.uri">
+            <li><button type="button" @click="pick(f)" class="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800" :class="form.uri === f.uri && 'bg-brand-50 dark:bg-brand-950/40'">
+              <span class="badge-gray" x-text="f.connection"></span><span class="flex-1"><span x-text="f.label"></span><span class="block break-all text-xs text-slate-500" x-text="f.uri"></span></span>
+            </button></li>
+          </template>
+        </ul>
+      </template>
+      <p x-show="foundNone" x-cloak class="mt-2 text-sm text-slate-500">Không tìm thấy máy in nào. Kiểm tra máy in đã bật/cắm cáp, hoặc nhập địa chỉ IP bên dưới.</p>
+      <form @submit.prevent="add()" class="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+        <label class="block sm:col-span-2"><span class="mb-1 block text-slate-600 dark:text-slate-300">Địa chỉ máy in (URI)</span>
+          <input x-model="form.uri" required class="input w-full font-mono text-xs" placeholder="ipp://192.168.1.50/ipp/print   hoặc   socket://192.168.1.50:9100">
+          <span class="mt-1 block text-xs text-slate-500">Máy in mạng nhập IP: hầu hết máy đời mới dùng <code>ipp://IP/ipp/print</code>; máy in bill/tem mạng thường là <code>socket://IP:9100</code>.</span></label>
+        <label class="block"><span class="mb-1 block text-slate-600 dark:text-slate-300">Tên hệ thống (không dấu)</span>
+          <input x-model="form.name" required pattern="[A-Za-z0-9_.\-]{1,64}" class="input w-full" placeholder="HP_Quay"></label>
+        <label class="block"><span class="mb-1 block text-slate-600 dark:text-slate-300">Tên hiển thị</span>
+          <input x-model="form.info" class="input w-full" placeholder="Máy in quầy thu ngân"></label>
+        <label class="block sm:col-span-2"><span class="mb-1 block text-slate-600 dark:text-slate-300">Driver</span>
+          <select x-model="form.driverMode" class="input w-full">
+            <option value="everywhere">Tự động — không cần driver (máy in đời mới, hỗ trợ AirPrint / IPP)</option>
+            <option value="raw">Raw — gửi thẳng (máy in bill / tem nhiệt)</option>
+            <option value="model">Chọn driver theo model...</option>
+          </select></label>
+        <div x-show="form.driverMode === 'model'" class="sm:col-span-2">
+          <input x-model="modelQ" @input.debounce.400ms="searchModels()" class="input w-full" placeholder="Gõ tên model, vd: hp laserjet 1020">
+          <select x-model="form.model" size="6" class="input mt-2 w-full text-xs">
+            <template x-for="m in modelList" :key="m.id"><option :value="m.id" x-text="m.name"></option></template>
+          </select>
+          <p x-show="modelQ && !modelList.length" class="mt-1 text-xs text-slate-500">Không có driver phù hợp đã cài. Có thể cần cài thêm gói driver của hãng (vd HP: <code>sudo apt install hplip</code>).</p>
+        </div>
+        <label class="flex items-center gap-2 sm:col-span-2"><input type="checkbox" x-model="form.makeDefault"> Đặt làm máy in mặc định</label>
+        <div class="sm:col-span-2"><button type="submit" :disabled="busy" class="btn-primary px-3 py-1.5 text-sm" x-text="busy ? 'Đang thêm...' : 'Thêm máy in'"></button></div>
+      </form>
+    </div>
+
+    <p x-show="err" x-cloak class="mt-2 text-sm text-red-600" x-text="err"></p>
+    <p x-show="msg" x-cloak class="mt-2 text-sm text-emerald-700 dark:text-emerald-400" x-text="msg"></p>
+  </section>
+
   <%# ---- Báo cáo doanh thu qua email ---- %>
   <section class="card mt-4" x-data="reportEmail()">
     <div class="flex flex-wrap items-start justify-between gap-3">

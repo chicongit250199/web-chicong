@@ -10,6 +10,7 @@ Người dùng xem giao diện trên Mac/điện thoại trong mạng LAN; NUC *
   - log: `logs/out-0.log`, `logs/error-0.log`
 - Trước khi restart: kiểm tra không có lượt quét VAT đang chạy (`GET /manager/vat/sync/status`), restart sẽ ngắt (tự quét mỗi ngày lúc 0h00 giờ VN — `VAT_AUTO_SYNC_AT`; bị ngắt thì bấm cập nhật tay ở trang VAT).
 - Báo cáo doanh thu qua Gmail (`services/revenueReport.js`): mỗi ngày `REPORT_DAILY_AT` (20:00) trừ Chủ nhật (CN gộp vào thứ 2), ngày cuối tháng thêm báo cáo tháng (cuối tháng là CN → gửi thứ 2); cấu hình `SMTP_*`, `REPORT_EMAIL_TO` trong `.env`; gửi thử/xem trước ở trang Hệ thống. Server thử có `BACKUP_DISABLED=true` thì không gửi.
+- Máy in: CUPS trên NUC (`services/printers.js`, gọi lpstat/lpadmin/lp), quản lý ở trang Hệ thống; user chạy web cần thuộc nhóm `lpadmin`. Ngưỡng task quá hạn chỉnh ở trang Hệ thống (bảng settings `task_*_alert_days`).
 - Địa chỉ LAN: http://chicongcomputer.local (hoặc http://192.168.1.199:3000) (ufw chỉ mở cho 192.168.1.0/24).
 - DB: SQLite `data/chicong.db` (WAL). Migration: thêm file `db/migrations/NNN_ten.sql` (tự chạy khi khởi động). Sao lưu: `npm run backup` → `data/backups/`.
 
