@@ -18,8 +18,9 @@ const router = express.Router();
 router.get('/system', (req, res) => {
   res.locals.nav = 'm-system';
   const DEF = require('./pcParts');
+  const tab = ['printers', 'settings', 'backup'].includes(req.query.tab) ? req.query.tab : 'overview';
   res.render('manager/system', {
-    title: 'Hệ thống', scripts: ['/js/system.js'], sysUser: require('os').userInfo().username,
+    title: 'Hệ thống', tab, scripts: ['/js/system.js'], sysUser: require('os').userInfo().username,
     printNote: { vi: settings.get('pc_print_note_vi') || DEF.DEFAULT_NOTE_VI, en: settings.get('pc_print_note_en') || DEF.DEFAULT_NOTE_EN },
   });
 });
@@ -28,7 +29,7 @@ router.get('/system', (req, res) => {
 router.post('/system/print-note', (req, res) => {
   settings.set({ pc_print_note_vi: String(req.body.note_vi || '').slice(0, 3000), pc_print_note_en: String(req.body.note_en || '').slice(0, 3000) });
   req.flash('success', 'Đã lưu lưu ý in trên phiếu.');
-  res.redirect('/manager/system#print-note');
+  res.redirect('/manager/system?tab=printers#print-note');
 });
 
 router.get('/system.json', (req, res) => {

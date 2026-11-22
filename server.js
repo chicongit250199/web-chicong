@@ -23,6 +23,7 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 // CSP với nonce cho script inline; Alpine.js cần 'unsafe-eval'
+app.use(require('./services/reqStats').middleware); // đếm request (trang Hệ thống)
 app.use((req, res, next) => { res.locals.nonce = crypto.randomBytes(16).toString('base64'); next(); });
 app.use(helmet({
   contentSecurityPolicy: {

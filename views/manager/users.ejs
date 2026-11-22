@@ -1,9 +1,10 @@
 <%- include('../app/_top') %>
 <div x-data="{ m: null, u: {} }" @keydown.escape.window="m = null">
   <div class="page-title">
-    <h1><%- icon('users', 'h-6 w-6 text-brand-600') %>Tài khoản nhân viên</h1>
+    <h1><%- icon('cpu', 'h-6 w-6 text-brand-600') %>Hệ thống</h1>
     <button type="button" @click="m = 'create'" class="btn-primary"><%- icon('plusSquare', 'h-4 w-4') %>Thêm tài khoản</button>
   </div>
+  <%- include('_system_tabs', { sysTab: 'users' }) %>
   <div class="tbl-wrap"><table class="tbl">
     <thead><tr><th>Họ tên</th><th>Tên đăng nhập</th><th>Vai trò</th><th>Trạng thái</th><th class="text-right">Task đang mở</th><th>Tạo lúc</th><th class="text-right">Thao tác</th></tr></thead>
     <tbody>

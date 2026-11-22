@@ -60,8 +60,7 @@ const GROUPS = [
     title: 'Quản trị',
     items: [
       { key: 'm-import', href: '/manager/import', icon: 'fileSheet', label: 'Import Excel', roles: ['manager'] },
-      { key: 'm-users', href: '/manager/users', icon: 'key', label: 'Tài khoản nhân viên', roles: ['manager'] },
-      { key: 'm-system', href: '/manager/system', icon: 'cpu', label: 'Hệ thống', roles: ['manager'] },
+      { key: 'm-system', also: ['m-users'], href: '/manager/system', icon: 'cpu', label: 'Hệ thống', roles: ['manager'] },
     ],
   },
 ];

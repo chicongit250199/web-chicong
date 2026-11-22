@@ -159,6 +159,35 @@ function network(rates) {
 }
 
 // ---- Lịch sử 10 phút (lấy mẫu mỗi 10 giây, chạy nền, rất nhẹ) ----
+// ---------- Điện năng CPU (Intel RAPL) ----------
+// /sys/class/powercap/intel-rapl:0/energy_uj mặc định chỉ root đọc được -> chạy scripts/setup-power.sh (sudo) 1 lần.
+// Đo phần CPU (package: nhân + GPU tích hợp + bộ nhớ đệm), chưa gồm ổ cứng / RAM / mainboard / adapter.
+const RAPL = '/sys/class/powercap/intel-rapl:0';
+const power = { available: false, watts: null, avg: null, wh: 0, since: Date.now(), last: null, maxRange: Number(read(RAPL + '/max_energy_range_uj', 0)) || 0, reason: '' };
+function readPower() {
+  const e = read(RAPL + '/energy_uj');
+  if (e == null) {
+    power.available = false;
+    power.reason = fs.existsSync(RAPL) ? 'no-permission' : 'unsupported';
+    return null;
+  }
+  const now = Date.now(), uj = Number(e);
+  power.available = true; power.reason = '';
+  if (power.last) {
+    let d = uj - power.last.uj;
+    if (d < 0 && power.maxRange) d += power.maxRange; // bộ đếm quay vòng
+    const dt = (now - power.last.t) / 1000;
+    if (d >= 0 && dt > 0.5) {
+      power.watts = Math.round(d / 1e6 / dt * 100) / 100;
+      power.wh += d / 3.6e9;
+      const hours = (now - power.since) / 3.6e6;
+      power.avg = hours > 0 ? Math.round(power.wh / hours * 100) / 100 : power.watts;
+    }
+  } else power.since = now;
+  power.last = { uj, t: now };
+  return power.watts;
+}
+
 const HISTORY = 60;
 const history = [];
 function gateway() {
@@ -207,11 +236,12 @@ function sample(record = true) {
   const fanList = fans();
   const cpuTemp = Math.max(...temps.filter(t => t.chip === 'coretemp').map(t => t.value), ...(temps.length ? [] : [0]));
   const net = Object.values(netRates());
+  const w = record ? readPower() : power.watts;
   if (record) {
     history.push({
       t: Date.now(), cpu: c.total, temp: Number.isFinite(cpuTemp) && cpuTemp > 0 ? cpuTemp : null,
       fan: fanList.length ? Math.max(...fanList.map(f => f.rpm)) : null,
-      rx: net.reduce((s, n) => s + n.rx, 0), tx: net.reduce((s, n) => s + n.tx, 0),
+      rx: net.reduce((s, n) => s + n.rx, 0), tx: net.reduce((s, n) => s + n.tx, 0), w,
     });
     if (history.length > HISTORY) history.shift();
   }
@@ -250,6 +280,8 @@ function snapshot() {
       manager: process.env.pm_id !== undefined ? 'PM2' : 'thủ công', env: config.isProd ? 'production' : 'development',
       db, uploads: dirSize(config.uploadDir), backups,
     },
+    power: { available: power.available, reason: power.reason, watts: power.watts, avg: power.avg, wh: Math.round(power.wh * 100) / 100, since: new Date(power.since).toISOString() },
+    requests: require('./reqStats').stats(),
     history,
   };
 }

@@ -21,7 +21,7 @@ const createSchema = v.z.object({
 });
 
 router.get('/users', (req, res) => {
-  res.locals.nav = 'm-users';
+  res.locals.nav = 'm-users'; // tab trong trang Hệ thống
   res.render('manager/users', { title: 'Tài khoản nhân viên', users: q.list.all() });
 });
 
