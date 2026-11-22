@@ -5,6 +5,8 @@ const appShell = require('../../middleware/appShell');
 
 const router = express.Router();
 router.use(requireRole('staff')); // manager cũng dùng được
+// Thông báo (SSE / JSON) không cần dữ liệu khung trang
+router.use(require('./notifications'));
 router.use(appShell);
 
 router.use(require('./tasks'));

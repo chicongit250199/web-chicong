@@ -76,7 +76,7 @@ router.post('/inventory', (req, res) => {
         data.warranty_in_months, data.tech_price, data.retail_price, data.warranty_out_months, data.note);
     }
   })();
-  notify('inventory', `${req.user.full_name} nhập kho ${count} × ${data.name}`, `/staff/inventory?q=${encodeURIComponent(itemCode)}`, req.user.full_name);
+  notify('inventory', `${req.user.full_name} nhập kho ${count} × ${data.name}`, `/staff/inventory?q=${encodeURIComponent(itemCode)}`, req.user.full_name, 'all');
   req.flash('success', `Đã nhập ${count} × ${data.name} (mã ${itemCode}).`);
   res.redirect('/staff/inventory/new');
 });

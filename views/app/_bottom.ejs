@@ -1,9 +1,9 @@
   </main>
 </div>
 
-<% if (isManager) { %>
-  <%# Cột phải: thông báo real-time (SSE) %>
-  <script type="application/json" id="notif-data"><%- JSON.stringify({ items: notifications, unread: unreadCount, me: user.full_name }).replace(/</g, '\\u003c') %></script>
+<%# Cột phải: thông báo real-time (SSE) — quản lý thấy tất cả, nhân viên thấy việc cùng cấp %>
+<% if (typeof notifBase !== 'undefined') { %>
+  <script type="application/json" id="notif-data"><%- JSON.stringify({ items: notifications, unread: unreadCount, me: user.full_name, base: notifBase }).replace(/</g, '\\u003c') %></script>
   <div x-data="notifPanel()" x-init="init()" @keydown.escape.window="open = false">
     <%# Banner thông báo mới kiểu iPhone: trượt lên từ góc dưới phải, 5 giây sau thu vào nút chuông %>
     <div class="pointer-events-none fixed bottom-[9.5rem] right-4 z-[60] flex w-[22rem] max-w-[calc(100vw-2rem)] flex-col gap-2 lg:bottom-24" aria-live="polite">

@@ -177,7 +177,7 @@ router.post('/pc-parts/:id/receive', (req, res) => {
     pc.link(part.name, part.id);
   })();
   const stock = pc.stockInfo().byPart.get(part.id)?.qty || 0;
-  notify('inventory', `${req.user.full_name} nhập kho ${count} × ${pc.displayName(part)} (hàng đặt đã về)`, '/staff/inventory?q=' + encodeURIComponent(part.name), req.user.full_name);
+  notify('inventory', `${req.user.full_name} nhập kho ${count} × ${pc.displayName(part)} (hàng đặt đã về)`, '/staff/inventory?q=' + encodeURIComponent(part.name), req.user.full_name, 'all');
   res.json({ ok: true, stock, message: `Đã nhập ${count} cái vào kho` });
 });
 

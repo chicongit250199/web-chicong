@@ -144,12 +144,7 @@ router.post('/revenues/:id/delete', (req, res) => {
 
 // ---------- Thông báo real-time ----------
 router.get('/events', events.stream);
-router.get('/notifications.json', (req, res) => {
-  res.json({
-    items: db.prepare('SELECT * FROM notifications ORDER BY id DESC LIMIT 40').all(),
-    unread: db.prepare('SELECT COUNT(*) c FROM notifications WHERE is_read = 0').get().c,
-  });
-});
+router.get('/notifications.json', (req, res) => res.json(require('../../middleware/appShell').notifData(req.user)));
 router.post('/notifications/read', (req, res) => {
   db.prepare('UPDATE notifications SET is_read = 1 WHERE is_read = 0').run();
   res.json({ ok: true });

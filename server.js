@@ -41,7 +41,7 @@ app.use(helmet({
 }));
 
 // Nén gzip phản hồi (HTML/CSS/JS/JSON nhỏ đi 5-10 lần) — bỏ qua luồng SSE thông báo
-app.use(compression({ level: 6, threshold: 1024, filter: (req, res) => req.path !== '/manager/events' && compression.filter(req, res) }));
+app.use(compression({ level: 6, threshold: 1024, filter: (req, res) => req.path !== '/manager/events' && req.path !== '/staff/events' && compression.filter(req, res) }));
 
 // Phiên bản tài nguyên tĩnh: đổi khi build lại CSS/JS => trình duyệt tự lấy bản mới, còn lại cache lâu
 const assetVersion = (() => {

@@ -34,7 +34,7 @@
     return data;
   };
 
-  // Bảng thông báo real-time cho Manager (SSE)
+  // Bảng thông báo real-time (SSE) — base /manager (quản lý) hoặc /staff (nhân viên)
   var TYPE = {
     task_new: ['bg-blue-500', 'inbox'], task_processing: ['bg-amber-500', 'wrench'], task_done: ['bg-emerald-500', 'check'],
     task_unrepairable: ['bg-red-500', 'alert'], task_completed: ['bg-violet-500', 'checkCircle'], task_redo: ['bg-orange-500', 'refresh'],
@@ -82,10 +82,10 @@
 
   window.notifPanel = function () {
     return {
-      items: [], unread: 0, live: false, toasts: [], open: false, ring: false, pop: false, me: '', sound: true,
+      items: [], unread: 0, live: false, toasts: [], open: false, ring: false, pop: false, me: '', base: '/manager', sound: true,
       init: function () {
         var self = this;
-        try { var d = JSON.parse(document.getElementById('notif-data').textContent); self.items = d.items; self.unread = d.unread; self.me = d.me || ''; } catch (e) {}
+        try { var d = JSON.parse(document.getElementById('notif-data').textContent); self.items = d.items; self.unread = d.unread; self.me = d.me || ''; self.base = d.base || '/manager'; } catch (e) {}
         try { self.sound = localStorage.getItem('notifSound') !== 'off'; } catch (e) {}
         // Trình duyệt chỉ cho phát âm thanh sau khi người dùng đã bấm / gõ phím trên trang -> "mở khóa" ở lần tương tác đầu
         var unlock = function () { chime.unlock(); window.removeEventListener('pointerdown', unlock); window.removeEventListener('keydown', unlock); };
@@ -95,7 +95,7 @@
         // mở nhiều tab mà tab nào cũng giữ SSE thì trang mới sẽ bị treo.
         var connect = function () {
           if (self.es) return;
-          var es = new EventSource('/manager/events');
+          var es = new EventSource(self.base + '/events');
           self.es = es;
           es.onopen = function () { self.live = true; };
           es.onerror = function () { self.live = false; };
@@ -115,7 +115,7 @@
         };
         var disconnect = function () { if (self.es) { self.es.close(); self.es = null; self.live = false; } };
         var refresh = function () {
-          api('/manager/notifications.json').then(function (d) { self.items = d.items; self.unread = d.unread; }).catch(function () {});
+          api(self.base + '/notifications.json').then(function (d) { self.items = d.items; self.unread = d.unread; }).catch(function () {});
         };
         document.addEventListener('visibilitychange', function () {
           if (document.hidden) disconnect(); else { refresh(); connect(); }
@@ -151,7 +151,7 @@
       },
       markRead: function () {
         var self = this;
-        api('/manager/notifications/read', { method: 'POST' }).then(function () {
+        api(this.base + '/notifications/read', { method: 'POST' }).then(function () {
           self.unread = 0; self.items = self.items.map(function (n) { return Object.assign({}, n, { is_read: 1 }); });
         });
       },
