@@ -27,6 +27,8 @@ const config = {
   uploadDir: path.join(__dirname, 'public', 'uploads'),
 
   geminiApiKey: env.GEMINI_API_KEY || '',
+  // Danh sách key: key 1 hết lượt / quá tải -> tự chuyển sang key 2
+  geminiApiKeys: [...new Set([env.GEMINI_API_KEY, env.GEMINI_API_KEY_2].map(s => (s || '').trim()).filter(Boolean))],
   geminiModel: env.GEMINI_MODEL || 'gemini-3.8-flash',
   // Dùng khi model chính quá tải / hết lượt (phân tách bằng dấu phẩy)
   geminiFallbackModels: (env.GEMINI_FALLBACK_MODELS || 'gemini-2.5-flash,gemini-3.5-flash-lite').split(',').map(s => s.trim()).filter(Boolean),

@@ -2,46 +2,50 @@
 // Gemini AI: viết mô tả sản phẩm, dịch đa ngôn ngữ, bóc tách hóa đơn VAT (PDF/ảnh/XML lạ)
 const config = require('../config');
 
-let client = null;
-function ai() {
-  if (!config.geminiApiKey) {
-    const e = new Error('Chưa cấu hình GEMINI_API_KEY trong file .env');
-    e.status = 400; e.expose = true;
-    throw e;
+// Mỗi key 1 client (nạp thư viện khi cần để tiết kiệm RAM lúc khởi động)
+const clients = new Map();
+function clientFor(key) {
+  if (!clients.has(key)) {
+    const { GoogleGenAI } = require('@google/genai');
+    clients.set(key, new GoogleGenAI({ apiKey: key, httpOptions: { apiVersion: 'v1beta' } }));
   }
-  if (!client) {
-    const { GoogleGenAI } = require('@google/genai'); // nạp khi cần để tiết kiệm RAM lúc khởi động
-    client = new GoogleGenAI({ apiKey: config.geminiApiKey, httpOptions: { apiVersion: 'v1beta' } });
-  }
-  return client;
+  return clients.get(key);
 }
 
-function isEnabled() { return Boolean(config.geminiApiKey); }
+function isEnabled() { return config.geminiApiKeys.length > 0; }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const busy = e => [429, 500, 503].includes(Number(e.status || e.code || (String(e.message).match(/\b(429|500|503)\b/) || [])[1]));
 
-// Model chính bận (503 quá tải / 429 hết lượt) -> chuyển ngay sang model dự phòng;
-// tất cả đều bận -> chờ rồi thử lại cả vòng (tối đa 3 vòng)
-// Nhớ model vừa chạy được trong 10 phút để không phải thử lại model đang quá tải mỗi lần
+// Thứ tự thử: key 1 (model chính -> dự phòng) -> key 2 (model chính -> dự phòng).
+// Lỗi bận (503 quá tải / 429 hết lượt) -> thử cặp tiếp theo ngay; tất cả đều bận -> chờ rồi thử lại cả vòng (tối đa 3 vòng).
+// Nhớ cặp key+model vừa chạy được trong 10 phút để không phải thử lại cặp đang bận mỗi lần.
 let preferred = null; let preferredUntil = 0;
+const keyName = k => 'key ' + (config.geminiApiKeys.indexOf(k) + 1);
 
 async function withFallback(call) {
-  let models = [...new Set([config.geminiModel, ...config.geminiFallbackModels])];
-  if (preferred && Date.now() < preferredUntil) models = [preferred, ...models.filter(m => m !== preferred)];
+  if (!isEnabled()) {
+    const e = new Error('Chưa cấu hình GEMINI_API_KEY trong file .env');
+    e.status = 400; e.expose = true;
+    throw e;
+  }
+  const models = [...new Set([config.geminiModel, ...config.geminiFallbackModels])];
+  let pairs = config.geminiApiKeys.flatMap(key => models.map(model => ({ key, model, id: key + '|' + model })));
+  const first = pairs[0].id;
   for (let round = 1; ; round++) {
+    if (preferred && Date.now() < preferredUntil) pairs = [...pairs.filter(p => p.id === preferred), ...pairs.filter(p => p.id !== preferred)];
     let lastErr;
-    for (const model of models) {
+    for (const p of pairs) {
       try {
-        const r = await call(model);
-        if (model !== config.geminiModel) { preferred = model; preferredUntil = Date.now() + 10 * 60 * 1000; } else preferred = null;
+        const r = await call(p.model, clientFor(p.key));
+        if (p.id !== first) { preferred = p.id; preferredUntil = Date.now() + 10 * 60 * 1000; } else preferred = null;
         return r;
       } catch (e) {
         if (!busy(e)) throw e;
         lastErr = e;
-        if (model === preferred) preferred = null;
-        console.warn(`[ai] ${model} bận (${e.status || e.code}), thử model khác`);
+        if (p.id === preferred) preferred = null;
+        console.warn(`[ai] ${p.model} (${keyName(p.key)}) bận (${e.status || e.code}), thử tiếp`);
       }
     }
     if (round >= 3) throw lastErr;
@@ -50,7 +54,7 @@ async function withFallback(call) {
 }
 
 async function generateJson(parts, schema, systemInstruction) {
-  const res = await withFallback(model => ai().models.generateContent({
+  const res = await withFallback((model, ai) => ai.models.generateContent({
     model,
     contents: [{ role: 'user', parts }],
     config: {
@@ -99,7 +103,7 @@ async function researchProduct({ name, specs, category, price, condition }) {
     '- description: bài giới thiệu tiếng Việt 250-400 từ, chuẩn SEO, giọng chuyên nghiệp thân thiện, gồm: đoạn mở đầu; các phần có tiêu đề ngắn viết HOA ở đầu dòng (THIẾT KẾ, HIỆU NĂNG, MÀN HÌNH, PIN & KẾT NỐI — chọn phần phù hợp loại sản phẩm); 3-5 gạch đầu dòng điểm nổi bật bắt đầu bằng "• "; đoạn "PHÙ HỢP VỚI" nói rõ đối tượng; câu kết mời liên hệ Chí Công Computer (Đà Nẵng). Văn bản thuần, không markdown, không dấu *, không link.',
   ].filter(Boolean).join('\n');
 
-  const res = await withFallback(model => ai().models.generateContent({
+  const res = await withFallback((model, ai) => ai.models.generateContent({
     model,
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     config: {
@@ -138,7 +142,7 @@ async function researchPcPart({ name, category, condition, fields }) {
     '- summary: 1-2 câu tiếng Việt giới thiệu điểm nổi bật và phù hợp nhu cầu gì (văn bản thuần, không markdown).',
     '- maker_url: link trang sản phẩm trên web hãng nếu tìm thấy, không có thì "".',
   ].filter(Boolean).join('\n');
-  const res = await withFallback(model => ai().models.generateContent({
+  const res = await withFallback((model, ai) => ai.models.generateContent({
     model,
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     config: { tools: [{ googleSearch: {} }], temperature: 0.1, systemInstruction: 'Bạn là kỹ thuật viên phần cứng máy tính. Chỉ dùng thông tin tìm được từ nguồn đáng tin; không chắc thì để trống.' },
