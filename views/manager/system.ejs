@@ -373,14 +373,19 @@
         <p class="mt-0.5 text-sm text-slate-500">Mỗi ngày lúc <b x-text="s.at || '20:00'"></b> gửi doanh thu trong ngày (trừ Chủ nhật — có giao dịch thì gộp vào thứ 2); ngày cuối tháng gửi thêm báo cáo cả tháng. Người nhận: <b x-text="s.to || '(chưa đặt)'"></b></p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <a href="/manager/system/report-email/preview" target="_blank" class="btn-secondary px-3 py-1.5 text-sm">Xem trước</a>
-        <button type="button" @click="test('daily')" :disabled="busy || !s.configured" class="btn-primary px-3 py-1.5 text-sm" x-text="busy ? 'Đang gửi...' : 'Gửi thử (ngày)'"></button>
-        <button type="button" @click="test('monthly')" :disabled="busy || !s.configured" class="btn-secondary px-3 py-1.5 text-sm">Gửi thử (tháng)</button>
+        <a href="/manager/system/report-email/preview" target="_blank" class="btn-secondary px-3 py-1.5 text-sm">Xem trước (ngày)</a>
+        <a href="/manager/system/report-email/preview?kind=monthly" target="_blank" class="btn-secondary px-3 py-1.5 text-sm">Xem trước (tháng)</a>
       </div>
     </div>
     <dl class="mt-3 grid grid-cols-[9rem_1fr] gap-x-4 gap-y-1.5 text-sm">
       <dt class="text-slate-500">Trạng thái</dt>
       <dd x-text="!s.configured ? 'Chưa cấu hình — thêm SMTP_USER, SMTP_PASS (mật khẩu ứng dụng Gmail), REPORT_EMAIL_TO vào .env rồi khởi động lại' : (s.enabled ? 'Đang bật · gửi từ ' + s.user : 'Đã tắt')"></dd>
+      <dt class="text-slate-500 pt-1.5">Giờ gửi</dt>
+      <dd><form @submit.prevent="saveTime()" class="flex flex-wrap items-center gap-2">
+        <input type="time" x-model="at" required class="input w-32 py-1">
+        <button type="submit" :disabled="busy || at === s.at" class="btn-primary px-3 py-1 text-sm" x-text="busy ? 'Đang lưu...' : 'Lưu giờ gửi'"></button>
+        <span class="text-xs text-slate-500">giờ VN · Chủ nhật không gửi</span>
+      </form></dd>
       <dt class="text-slate-500">Lần gửi kế tiếp</dt>
       <dd x-text="s.nextRunAt ? new Date(s.nextRunAt).toLocaleString('vi-VN') : '—'"></dd>
       <dt class="text-slate-500">Đã gửi gần nhất</dt>

@@ -204,12 +204,12 @@ window.printerAdmin = function () {
 
 window.reportEmail = function () {
   return {
-    s: {}, busy: false, err: '', msg: '',
-    init: function () { var self = this; api('/manager/system/report-email').then(function (d) { self.s = d; }).catch(function (e) { self.err = e.message; }); },
-    test: function (kind) {
+    s: {}, at: '', busy: false, err: '', msg: '',
+    init: function () { var self = this; api('/manager/system/report-email').then(function (d) { self.s = d; self.at = d.at; }).catch(function (e) { self.err = e.message; }); },
+    saveTime: function () {
       var self = this; this.busy = true; this.err = ''; this.msg = '';
-      api('/manager/system/report-email/test', { method: 'POST', body: { kind: kind } }).then(function (d) {
-        self.s = d; self.msg = 'Đã gửi mail thử tới ' + d.to + '.';
+      api('/manager/system/report-email/time', { method: 'POST', body: { at: this.at } }).then(function (d) {
+        self.s = d; self.at = d.at; self.msg = 'Đã đổi giờ gửi thành ' + d.at + '.';
       }).catch(function (e) { self.err = e.message; }).finally(function () { self.busy = false; });
     },
   };

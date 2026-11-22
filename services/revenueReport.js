@@ -19,7 +19,7 @@ const cfg = () => ({
   user: (env.SMTP_USER || '').trim(),
   pass: (env.SMTP_PASS || '').replace(/\s+/g, ''), // mật khẩu ứng dụng Gmail hay chép kèm dấu cách
   to: (env.REPORT_EMAIL_TO || '').trim(),
-  at: (env.REPORT_DAILY_AT || '20:00').trim(),
+  at: (settings.get('report_daily_at') || env.REPORT_DAILY_AT || '20:00').trim(), // đổi ở trang Hệ thống
 });
 
 const VN_DAY = `date(created_at, '+7 hours')`;
@@ -261,30 +261,51 @@ function nextDaily(hh, mm, now = Date.now()) {
   return t;
 }
 
-function schedule() {
-  if (env.REPORT_EMAIL_DISABLED === 'true' || env.BACKUP_DISABLED === 'true') return; // server chạy thử: không gửi
-  if (!configured()) { console.log('[report] chưa cấu hình SMTP — tắt báo cáo doanh thu qua mail'); return; }
-  const hm = cfg().at.match(/^(\d{1,2}):(\d{2})$/) || [null, '20', '00'];
-  const hh = Math.min(23, Number(hm[1])), mm = Math.min(59, Number(hm[2]));
-  state.enabled = true;
+let timer = null, catchUp = null;
+function parseAt(at) {
+  const hm = String(at || '').match(/^(\d{1,2}):(\d{2})$/) || [null, '20', '00'];
+  return [Math.min(23, Number(hm[1])), Math.min(59, Number(hm[2]))];
+}
+// Đặt (lại) hẹn giờ theo giờ gửi hiện tại. Đã qua giờ gửi mà hôm nay chưa gửi -> gửi bù sau 1 phút
+function arm() {
+  clearTimeout(timer); clearTimeout(catchUp);
+  const [hh, mm] = parseAt(cfg().at);
   state.at = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
   const loop = () => {
     const t = nextDaily(hh, mm);
     let n = t; // bỏ qua Chủ nhật khi hiển thị lần gửi kế tiếp
     if (weekday(fmt.todayYmd(new Date(n))) === 0) n += 24 * 3600e3;
     state.nextRunAt = new Date(n).toISOString();
-    setTimeout(() => runDue().finally(loop), t - Date.now()).unref();
+    timer = setTimeout(() => runDue().finally(loop), t - Date.now());
+    timer.unref();
   };
   loop();
-  // Khởi động lại sau giờ gửi mà hôm nay chưa gửi -> gửi bù sau 1 phút
   const vn = new Date(Date.now() + 7 * 3600e3);
-  if (vn.getUTCHours() * 60 + vn.getUTCMinutes() >= hh * 60 + mm) setTimeout(runDue, 60e3).unref();
+  if (vn.getUTCHours() * 60 + vn.getUTCMinutes() >= hh * 60 + mm) { catchUp = setTimeout(runDue, 60e3); catchUp.unref(); }
+}
+
+function schedule() {
+  if (env.REPORT_EMAIL_DISABLED === 'true' || env.BACKUP_DISABLED === 'true') return; // server chạy thử: không gửi
+  if (!configured()) { console.log('[report] chưa cấu hình SMTP — tắt báo cáo doanh thu qua mail'); return; }
+  state.enabled = true;
+  arm();
   console.log(`[report] gửi báo cáo doanh thu mỗi ngày lúc ${state.at} (giờ VN) tới ${cfg().to}`);
+}
+
+// Quản lý đổi giờ gửi (HH:MM giờ VN) -> lưu settings, hẹn giờ lại ngay
+function setTime(at) {
+  const m = String(at || '').trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) throw Object.assign(new Error('Giờ không hợp lệ (HH:MM)'), { status: 400 });
+  const v = `${m[1].padStart(2, '0')}:${m[2]}`;
+  settings.set({ report_daily_at: v });
+  if (state.enabled) arm(); else state.at = v;
+  console.log(`[report] đổi giờ gửi báo cáo thành ${v}`);
+  return status();
 }
 
 function status() {
   const c = cfg();
-  return { ...state, configured: configured(), to: c.to, user: c.user, dailyLast: settings.get('report_daily_last') || null, monthlyLast: settings.get('report_monthly_last') || null };
+  return { ...state, at: state.at || cfg().at, configured: configured(), to: c.to, user: c.user, dailyLast: settings.get('report_daily_last') || null, monthlyLast: settings.get('report_monthly_last') || null };
 }
 
-module.exports = { monthDue, dailyReport, monthlyReport, sendDaily, sendMonthly, runDue, schedule, status };
+module.exports = { monthDue, dailyReport, monthlyReport, sendDaily, sendMonthly, runDue, schedule, status, setTime };
