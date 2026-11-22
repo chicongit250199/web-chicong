@@ -4,6 +4,7 @@
   <h1><%- icon('trending', 'h-6 w-6 text-brand-600') %>Thống kê doanh thu</h1>
   <a href="/manager/revenue.csv?<%= qs %>" class="btn-secondary"><%- icon('download', 'h-4 w-4') %>Xuất Excel (CSV)</a>
 </div>
+<%- include('_revenue_tabs', { revTab: 'stats' }) %>
 <form class="card mb-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
   <label class="block"><span class="label">Gom theo</span>
     <select name="group" class="input" @change="$el.form.from.value = ''; $el.form.to.value = ''; $el.form.submit()">

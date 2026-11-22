@@ -1,0 +1,5 @@
+<%# Tab của mục Doanh thu: hôm nay / thống kê. revTab: 'today' | 'stats' %>
+<nav class="tabs" aria-label="Doanh thu">
+  <a href="/manager" class="tab flex items-center gap-1.5 <%= revTab === 'today' ? 'tab-active' : '' %>"><%- icon('chart', 'h-4 w-4') %>Hôm nay</a>
+  <a href="/manager/revenue" class="tab flex items-center gap-1.5 <%= revTab === 'stats' ? 'tab-active' : '' %>"><%- icon('trending', 'h-4 w-4') %>Thống kê</a>
+</nav>

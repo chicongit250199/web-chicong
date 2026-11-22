@@ -1,8 +1,8 @@
 <%- include('../app/_top') %>
 <div class="page-title">
   <h1><%- icon('chart', 'h-6 w-6 text-brand-600') %>Doanh thu hôm nay <span class="text-base font-normal text-slate-500"><%= fmt.date(today) %></span></h1>
-  <a href="/manager/revenue" class="btn-secondary"><%- icon('trending', 'h-4 w-4') %>Thống kê chi tiết</a>
 </div>
+<%- include('_revenue_tabs', { revTab: 'today' }) %>
 <div class="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
   <div class="stat col-span-2 xl:col-span-1">
     <p class="stat-label">Tổng hôm nay</p>
