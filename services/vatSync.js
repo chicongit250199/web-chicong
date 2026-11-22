@@ -168,7 +168,9 @@ function resetErrors() {
   return db.prepare(`DELETE FROM vat_drive_files WHERE status = 'error'`).run().changes;
 }
 
-// ---- Tự động quét: đầu vào rồi bán ra, mỗi VAT_AUTO_SYNC_MINUTES phút ----
+// ---- Tự động quét: đầu vào rồi bán ra ----
+// VAT_AUTO_SYNC_AT=HH:MM (giờ VN) -> quét 1 lần/ngày vào giờ đó (mặc định 00:00).
+// VAT_AUTO_SYNC_MINUTES=N (khi không đặt VAT_AUTO_SYNC_AT) -> quét mỗi N phút. VAT_AUTO_SYNC_MINUTES=0 -> tắt hẳn (dùng khi chạy thử).
 async function runAll() {
   auto.lastRunAt = new Date().toISOString();
   for (const dir of ['in', 'out']) {
@@ -179,14 +181,41 @@ async function runAll() {
   }
 }
 
+// Thời điểm HH:MM giờ VN kế tiếp (sau "now")
+function nextDaily(hh, mm, now = Date.now()) {
+  const vn = new Date(now + 7 * 3600e3);
+  let t = Date.UTC(vn.getUTCFullYear(), vn.getUTCMonth(), vn.getUTCDate(), hh, mm) - 7 * 3600e3;
+  if (t <= now + 1000) t += 24 * 3600e3;
+  return t;
+}
+
 function scheduleAuto() {
   const minutes = parseInt(process.env.VAT_AUTO_SYNC_MINUTES, 10);
-  const m = Number.isFinite(minutes) ? minutes : 60;
-  if (m <= 0 || !drive.status().credentials || !(config.driveVatInputFolderId || config.driveVatOutputFolderId)) return;
-  auto = { enabled: true, minutes: m, lastRunAt: null, nextRunAt: null };
+  if (minutes === 0) return; // tắt
+  if (!drive.status().credentials || !(config.driveVatInputFolderId || config.driveVatOutputFolderId)) return;
+  const at = (process.env.VAT_AUTO_SYNC_AT ?? (Number.isFinite(minutes) ? '' : '00:00')).trim();
+  const hm = at.match(/^(\d{1,2}):(\d{2})$/);
+  const run = () => runAll().catch(e => console.error('[vat] auto', e.message));
+
+  if (hm) {
+    const hh = Math.min(23, Number(hm[1])), mm = Math.min(59, Number(hm[2]));
+    const label = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+    auto = { enabled: true, daily: label, minutes: null, lastRunAt: null, nextRunAt: null };
+    const loop = () => {
+      const t = nextDaily(hh, mm);
+      auto.nextRunAt = new Date(t).toISOString();
+      setTimeout(() => run().finally(loop), t - Date.now()).unref();
+    };
+    loop();
+    console.log(`[vat] tự động quét hóa đơn mỗi ngày lúc ${label} (giờ VN)`);
+    return;
+  }
+
+  const m = Number.isFinite(minutes) && minutes > 0 ? minutes : 60;
+  auto = { enabled: true, daily: null, minutes: m, lastRunAt: null, nextRunAt: null };
   const loop = delay => {
     auto.nextRunAt = new Date(Date.now() + delay).toISOString();
-    setTimeout(() => runAll().catch(e => console.error('[vat] auto', e.message)).finally(() => loop(m * 60 * 1000)), delay).unref();
+    setTimeout(() => run().finally(() => loop(m * 60 * 1000)), delay).unref();
   };
   loop(60 * 1000); // khởi động xong 1 phút thì quét (nối tiếp lượt bị ngắt nếu có)
   console.log(`[vat] tự động quét hóa đơn mỗi ${m} phút`);

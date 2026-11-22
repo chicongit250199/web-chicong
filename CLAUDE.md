@@ -8,7 +8,7 @@ Người dùng xem giao diện trên Mac/điện thoại trong mạng LAN; NUC *
 - Web chạy bằng **PM2**, tên `chicong-web`, chế độ production, KHÔNG tự theo dõi file:
   - sửa code / `.env` → `npm run build:css` (nếu đổi giao diện) rồi `pm2 restart chicong-web`
   - log: `logs/out-0.log`, `logs/error-0.log`
-- Trước khi restart: kiểm tra không có lượt quét VAT đang chạy (`GET /manager/vat/sync/status`), restart sẽ ngắt (tự chạy tiếp sau 1 phút).
+- Trước khi restart: kiểm tra không có lượt quét VAT đang chạy (`GET /manager/vat/sync/status`), restart sẽ ngắt (tự quét mỗi ngày lúc 0h00 giờ VN — `VAT_AUTO_SYNC_AT`; bị ngắt thì bấm cập nhật tay ở trang VAT).
 - Địa chỉ LAN: http://chicongcomputer.local (hoặc http://192.168.1.199:3000) (ufw chỉ mở cho 192.168.1.0/24).
 - DB: SQLite `data/chicong.db` (WAL). Migration: thêm file `db/migrations/NNN_ten.sql` (tự chạy khi khởi động). Sao lưu: `npm run backup` → `data/backups/`.
 

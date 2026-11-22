@@ -49,7 +49,7 @@
 
   <div x-show="err" x-cloak class="mb-4 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-200 dark:bg-red-950 dark:text-red-200 dark:ring-red-900"><%- icon('alert', 'h-5 w-5') %><span x-text="err"></span></div>
   <p x-show="auto && auto.enabled" x-cloak class="-mt-2 mb-3 flex items-center gap-1.5 text-xs text-slate-500"><%- icon('clock', 'h-3.5 w-3.5') %>
-    <span x-text="'Tự động quét Drive mỗi ' + auto.minutes + ' phút' + (auto.nextRunAt && !running ? ' · lần tới ' + new Date(auto.nextRunAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '') + ' · chỉ đọc file mới, bỏ qua file đã có'"></span></p>
+    <span x-text="(auto.daily ? 'Tự động quét Drive mỗi ngày lúc ' + auto.daily : 'Tự động quét Drive mỗi ' + auto.minutes + ' phút') + (auto.nextRunAt && !running ? ' · lần tới ' + new Date(auto.nextRunAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '') + ' · chỉ đọc file mới, bỏ qua file đã có'"></span></p>
   <%# Tiến độ quét chạy nền %>
   <template x-if="job">
     <div class="mb-4 rounded-lg px-4 py-3 text-sm ring-1"
