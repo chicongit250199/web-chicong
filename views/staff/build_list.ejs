@@ -2,14 +2,14 @@
 <div class="page-title">
   <h1><%- icon('desktop', 'h-6 w-6 text-brand-600') %>Build PC</h1>
   <div class="flex flex-wrap gap-2">
-    <% if (user.role === 'manager') { %><a href="/manager/pc-parts" class="btn-secondary"><%- icon('cpu', 'h-4 w-4') %>Báo giá linh kiện</a><% } %>
+    <% if (user.role === 'manager') { %><a href="/manager/pc-parts" class="btn-secondary"><%- icon('cpu', 'h-4 w-4') %>Giá Linh Kiện</a><% } %>
     <a href="/staff/build/new" class="btn-primary"><%- icon('plusSquare', 'h-4 w-4') %>Build cấu hình mới</a>
   </div>
 </div>
 
 <% if (!partCount) { %>
   <p class="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:ring-amber-900">
-    Chưa có báo giá linh kiện. <% if (user.role === 'manager') { %><a href="/manager/import/pc-parts" class="font-semibold underline">Nhập file Excel báo giá</a> trước.<% } else { %>Nhờ quản lý nhập file báo giá trước.<% } %></p>
+    Chưa có bảng giá linh kiện. <% if (user.role === 'manager') { %><a href="/manager/import/pc-parts" class="font-semibold underline">Nhập file Excel báo giá</a> trước.<% } else { %>Nhờ quản lý nhập file báo giá trước.<% } %></p>
 <% } %>
 
 <% if (templates.length) { %>

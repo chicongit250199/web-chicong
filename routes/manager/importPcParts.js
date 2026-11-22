@@ -45,7 +45,7 @@ router.get('/import/pc-parts', nav, (req, res) => {
   const d = data ? diff(data.rows) : null;
   const batches = db.prepare(`SELECT * FROM import_batches WHERE kind = 'pc_parts' ORDER BY created_at DESC LIMIT 10`).all();
   const count = db.prepare('SELECT COUNT(*) n FROM pc_parts').get().n;
-  res.render('manager/import_pc_parts', { title: 'Import báo giá linh kiện', data, d, batches, count });
+  res.render('manager/import_pc_parts', { title: 'Import giá linh kiện', data, d, batches, count });
 });
 
 router.post('/import/pc-parts', fileUpload(15).single('file'), (req, res) => {
@@ -87,7 +87,7 @@ router.post('/import/pc-parts/confirm', (req, res) => {
   const linked = pc.autoLink();
   fs.rmSync(tmpFile(req.session.pcImportToken), { force: true });
   delete req.session.pcImportToken;
-  notify('inventory', `${req.user.full_name} cập nhật báo giá linh kiện "${data.fileName}": +${c.added} mới, ${c.changed} thay đổi`, '/manager/pc-parts', req.user.full_name);
+  notify('inventory', `${req.user.full_name} cập nhật giá linh kiện "${data.fileName}": +${c.added} mới, ${c.changed} thay đổi`, '/manager/pc-parts', req.user.full_name);
   req.flash('success', `Đã cập nhật báo giá: ${c.added} món mới, ${c.changed} món thay đổi${c.removed ? `, xóa ${c.removed} món` : ''}${linked ? `, tự ghép ${linked} món kho` : ''}.`);
   res.redirect('/manager/pc-parts');
 });

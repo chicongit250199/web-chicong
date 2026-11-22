@@ -7,7 +7,7 @@
   <form method="post" action="/manager/import/pc-parts?_csrf=<%= encodeURIComponent(csrfToken) %>" enctype="multipart/form-data" class="card space-y-4" x-data="{ busy: false, name: '' }" @submit="busy = true">
     <label class="grid cursor-pointer place-items-center gap-2 rounded-xl border-2 border-dashed border-slate-300 px-4 py-10 text-center hover:border-brand-500 dark:border-slate-700">
       <%- icon('upload', 'h-10 w-10 text-brand-600') %>
-      <span class="font-medium" x-text="name || 'Chọn file báo giá linh kiện (.xlsx)'"></span>
+      <span class="font-medium" x-text="name || 'Chọn file giá linh kiện (.xlsx)'"></span>
       <span class="text-xs text-slate-500">Hiện có <%= count %> linh kiện trên web · nhập file sẽ <strong>cập nhật</strong>, không xóa sạch</span>
       <input type="file" name="file" accept=".xlsx,.xls,.xlsm" required class="sr-only" @change="name = $event.target.files[0]?.name || ''">
     </label>

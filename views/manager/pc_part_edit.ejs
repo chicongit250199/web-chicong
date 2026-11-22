@@ -1,7 +1,7 @@
 <%- include('../app/_top') %>
 <div class="page-title">
   <h1><%- icon(part.id ? 'edit' : 'plusSquare', 'h-6 w-6 text-brand-600') %><%= part.id ? 'Sửa linh kiện' : 'Thêm linh kiện' %></h1>
-  <a href="/manager/pc-parts<%= part.category ? '?cat=' + encodeURIComponent(part.category) : '' %>" class="btn-secondary"><%- icon('arrowLeft', 'h-4 w-4') %>Báo giá linh kiện</a>
+  <a href="/manager/pc-parts<%= part.category ? '?cat=' + encodeURIComponent(part.category) : '' %>" class="btn-secondary"><%- icon('arrowLeft', 'h-4 w-4') %>Giá Linh Kiện</a>
 </div>
 <% if (typeof invName !== 'undefined' && invName) { %>
   <p class="mb-3 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:bg-blue-950 dark:text-blue-200">Thêm từ hàng kho <strong><%= invName %></strong> — lưu xong sẽ tự ghép món kho này với linh kiện mới. Nhớ chọn <strong>nhóm</strong>.</p>

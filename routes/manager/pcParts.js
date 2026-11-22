@@ -38,7 +38,7 @@ router.get('/pc-parts', nav, (req, res) => {
     g.items.push(p);
   }
   res.render('manager/pc_parts', {
-    title: 'Báo giá linh kiện', groups, f, totals, cats: categories(), catCounts, unlinkedCount: unlinked.length,
+    title: 'Giá Linh Kiện', groups, f, totals, cats: categories(), catCounts, unlinkedCount: unlinked.length,
     aiEnabled: ai.isEnabled(), aiStatus: pcAi.status(), fieldsByType: pc.FIELDS, typeOf: pc.typeOf,
     printNote: { vi: settings.get('pc_print_note_vi') || DEFAULT_NOTE_VI, en: settings.get('pc_print_note_en') || DEFAULT_NOTE_EN },
     scripts: ['/js/pc-parts.js'],
