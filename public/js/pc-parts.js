@@ -79,6 +79,22 @@
     };
   };
 
+  // Nhân viên gửi yêu cầu nhập hàng (trang Giá Linh Kiện chỉ xem) -> món chuyển "Chờ nhập kho"
+  window.partRequest = function () {
+    return {
+      rq: null, qty: 1, note: '', busy: false, err: '',
+      ask: function (part) { this.rq = part; this.qty = 1; this.note = ''; this.err = ''; },
+      send: function () {
+        var self = this;
+        if (!this.rq) return;
+        this.busy = true; this.err = '';
+        api('/staff/pc-parts/' + this.rq.id + '/request', { method: 'POST', body: { qty: this.qty, note: this.note } })
+          .then(function () { window.location.reload(); })
+          .catch(function (e) { self.err = e.message; self.busy = false; });
+      },
+    };
+  };
+
   // Nhập kho cho món "Hàng đặt" (dùng ở Báo giá linh kiện và Build PC). onDone(newQty) để cập nhật nhãn.
   window.receiveStock = function () {
     return {

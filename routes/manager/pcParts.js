@@ -15,22 +15,28 @@ const nav = (req, res, next) => { res.locals.nav = 'm-pc-parts'; next(); };
 const parseJson = (s, d) => { try { return s ? JSON.parse(s) : d; } catch { return d; } };
 const categories = () => db.prepare('SELECT category, MIN(sort) s FROM pc_parts GROUP BY category ORDER BY s').all().map(r => r.category);
 
-// ---------- Danh sách ----------
-router.get('/pc-parts', nav, (req, res) => {
+// ---------- Danh sách (quản lý: sửa được; nhân viên: chỉ xem + gửi yêu cầu nhập hàng) ----------
+const clearReq = db.prepare('UPDATE pc_parts SET req_at = NULL, req_by = NULL, req_qty = NULL, req_note = NULL, req_stock = NULL WHERE id = ?');
+function renderList(req, res, canEdit) {
   const f = {
     q: String(req.query.q || '').trim(),
     cat: String(req.query.cat || ''),
     stock: ['in', 'out'].includes(req.query.stock) ? req.query.stock : '',
     info: ['none', 'has'].includes(req.query.info) ? req.query.info : '',
+    req: req.query.req === '1',
   };
   const { byPart, unlinked } = pc.stockInfo();
   let parts = db.prepare('SELECT * FROM pc_parts ORDER BY sort, id').all().map(p => ({ ...p, stock: byPart.get(p.id)?.qty || 0, specsObj: parseJson(p.specs, {}) }));
+  // Yêu cầu nhập hàng đã xong (tồn kho tăng so với lúc yêu cầu) -> tự gỡ "Chờ nhập kho"
+  for (const p of parts) if (p.req_at && p.stock > (p.req_stock || 0)) { clearReq.run(p.id); p.req_at = null; }
+  if (!canEdit) parts = parts.filter(p => !p.hidden); // nhân viên không thấy món đang ẩn
   const catCounts = parts.reduce((m, p) => { m[p.category] = (m[p.category] || 0) + 1; return m; }, {});
-  const totals = { all: parts.length, in: parts.filter(p => p.stock).length, noInfo: parts.filter(p => !p.ai_at).length, noPrice: parts.filter(p => p.price == null).length };
+  const totals = { all: parts.length, in: parts.filter(p => p.stock).length, noInfo: parts.filter(p => !p.ai_at).length, noPrice: parts.filter(p => p.price == null).length, req: parts.filter(p => p.req_at).length };
   if (f.q) { const q = pc.vn(f.q); parts = parts.filter(p => pc.vn(`${p.name} ${p.category} ${p.condition || ''}`).includes(q)); }
   if (f.cat) parts = parts.filter(p => p.category === f.cat);
   if (f.stock) parts = parts.filter(p => (f.stock === 'in' ? p.stock > 0 : !p.stock));
   if (f.info) parts = parts.filter(p => (f.info === 'none' ? !p.ai_at : p.ai_at));
+  if (f.req) parts = parts.filter(p => p.req_at);
   const groups = [];
   for (const p of parts) {
     let g = groups[groups.length - 1];
@@ -38,11 +44,20 @@ router.get('/pc-parts', nav, (req, res) => {
     g.items.push(p);
   }
   res.render('manager/pc_parts', {
-    title: 'Giá Linh Kiện', groups, f, totals, cats: categories(), catCounts, unlinkedCount: unlinked.length,
+    title: 'Giá Linh Kiện', canEdit, base: canEdit ? '/manager/pc-parts' : '/staff/pc-parts', groups, f, totals, cats: categories(), catCounts, unlinkedCount: unlinked.length,
     aiEnabled: ai.isEnabled(), aiStatus: pcAi.status(), fieldsByType: pc.FIELDS, typeOf: pc.typeOf,
     printNote: { vi: settings.get('pc_print_note_vi') || DEFAULT_NOTE_VI, en: settings.get('pc_print_note_en') || DEFAULT_NOTE_EN },
     scripts: ['/js/pc-parts.js'],
   });
+}
+router.get('/pc-parts', nav, (req, res) => renderList(req, res, true));
+
+// Quản lý hủy yêu cầu nhập hàng
+router.post('/pc-parts/:id/request/cancel', (req, res) => {
+  const p = db.prepare('SELECT * FROM pc_parts WHERE id = ?').get(req.params.id);
+  if (p) clearReq.run(p.id);
+  req.flash('success', p ? `Đã hủy yêu cầu nhập "${pc.displayName(p)}".` : 'Linh kiện không còn.');
+  res.redirect(req.get('Referrer') || '/manager/pc-parts');
 });
 
 // ---------- Thêm / sửa ----------
@@ -118,7 +133,10 @@ router.post('/pc-parts/:id/delete', (req, res) => {
   const p = db.prepare('SELECT * FROM pc_parts WHERE id = ?').get(req.params.id);
   if (p) db.prepare('DELETE FROM pc_parts WHERE id = ?').run(p.id); // liên kết kho tự xóa theo (ON DELETE CASCADE); cấu hình đã lưu giữ bản chụp
   req.flash('success', p ? `Đã xóa "${pc.displayName(p)}".` : 'Linh kiện không còn.');
-  res.redirect(`/manager/pc-parts${p ? '?cat=' + encodeURIComponent(p.category) : ''}`);
+  // Xóa từ danh sách -> về đúng trang danh sách đang xem (giữ bộ lọc); xóa từ trang sửa -> về nhóm của món đó
+  let back = `/manager/pc-parts${p ? '?cat=' + encodeURIComponent(p.category) : ''}`;
+  try { const u = new URL(req.get('Referrer') || '', 'http://x'); if (u.pathname === '/manager/pc-parts') back = u.pathname + u.search; } catch {}
+  res.redirect(back);
 });
 
 // Sửa giá nhanh trên danh sách (JSON)
@@ -197,5 +215,6 @@ router.post('/pc-parts/print-note', (req, res) => {
 });
 
 module.exports = router;
+module.exports.renderList = renderList;
 module.exports.DEFAULT_NOTE_VI = DEFAULT_NOTE_VI;
 module.exports.DEFAULT_NOTE_EN = DEFAULT_NOTE_EN;

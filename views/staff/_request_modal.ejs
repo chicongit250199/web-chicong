@@ -1,0 +1,19 @@
+<%# Popup nhân viên gửi yêu cầu nhập hàng (Giá Linh Kiện). Đặt BÊN TRONG phần tử có x-data="partRequest()" (public/js/pc-parts.js) %>
+<template x-if="rq">
+  <div class="modal-backdrop" @click.self="rq = null" @keydown.escape.window="rq = null">
+    <form class="modal space-y-3" @submit.prevent="send()">
+      <h3 class="flex items-center gap-2 text-lg font-semibold"><%- icon('clock', 'h-5 w-5 text-fuchsia-600') %>Yêu cầu nhập hàng</h3>
+      <p class="rounded-lg bg-slate-50 px-3 py-2 text-sm font-medium dark:bg-slate-800/60" x-text="rq.name"></p>
+      <div class="grid grid-cols-3 gap-3">
+        <label class="block"><span class="label">Số lượng</span><input type="number" min="1" max="100" x-model.number="qty" class="input"></label>
+        <label class="col-span-2 block"><span class="label">Ghi chú <span class="font-normal text-slate-400">(khách đặt, cần gấp...)</span></span><input x-model="note" maxlength="300" class="input" autocomplete="off"></label>
+      </div>
+      <p class="text-xs text-slate-500">Quản lý sẽ nhận thông báo. Món này hiện <strong>Chờ nhập kho</strong> cho tới khi hàng về.</p>
+      <p x-show="err" class="text-sm text-red-600" x-text="err"></p>
+      <div class="flex justify-end gap-2 pt-1">
+        <button type="button" @click="rq = null" class="btn-secondary">Hủy</button>
+        <button class="btn-primary" :disabled="busy"><span x-text="busy ? 'Đang gửi...' : 'Gửi yêu cầu'"></span></button>
+      </div>
+    </form>
+  </div>
+</template>

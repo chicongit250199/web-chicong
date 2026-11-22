@@ -32,9 +32,8 @@ const GROUPS = [
   {
     title: 'Build PC',
     items: [
-      { key: 'build', href: '/staff/build', icon: 'desktop', label: 'Build PC', roles: ['staff'] },
-      // Quản lý: 1 mục Build PC + Giá Linh Kiện (2 trang có nút qua lại)
-      { key: 'm-build', also: ['build', 'm-pc-parts'], href: '/staff/build', icon: 'desktop', label: 'Build PC - Giá Linh Kiện', roles: ['manager'] },
+      // 1 mục Build PC + Giá Linh Kiện (2 trang có nút qua lại; nhân viên xem giá ở /staff/pc-parts)
+      { key: 'm-build', also: ['build', 'm-pc-parts', 'pc-parts-view'], href: '/staff/build', icon: 'desktop', label: 'Build PC - Giá Linh Kiện', roles: ['staff', 'manager'] },
     ],
   },
   {

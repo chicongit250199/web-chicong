@@ -3,27 +3,31 @@
   <h1><%- icon('cpu', 'h-6 w-6 text-brand-600') %>Giá Linh Kiện</h1>
   <div class="flex flex-wrap gap-2">
     <a href="/staff/build" class="btn-secondary"><%- icon('desktop', 'h-4 w-4') %>Build PC</a>
+    <% if (canEdit) { %>
     <a href="/manager/import/pc-parts" class="btn-secondary"><%- icon('fileSheet', 'h-4 w-4') %>Nhập Excel</a>
     <a href="/manager/pc-parts/stock" class="btn-secondary"><%- icon('archive', 'h-4 w-4') %>Ghép kho<% if (unlinkedCount) { %> <span class="badge-amber"><%= unlinkedCount %></span><% } %></a>
     <a href="/manager/pc-parts/new<%= f.cat ? '?cat=' + encodeURIComponent(f.cat) : '' %>" class="btn-primary"><%- icon('plusSquare', 'h-4 w-4') %>Thêm linh kiện</a>
+    <% } %>
   </div>
 </div>
 
 <% if (!totals.all) { %>
   <div class="card py-10 text-center">
-    <p class="mb-3 text-slate-500">Chưa có linh kiện nào trong báo giá.</p>
-    <a href="/manager/import/pc-parts" class="btn-primary"><%- icon('fileSheet', 'h-4 w-4') %>Nhập từ file Excel</a>
+    <p class="mb-3 text-slate-500">Chưa có linh kiện nào trong bảng giá.</p>
+    <% if (canEdit) { %><a href="/manager/import/pc-parts" class="btn-primary"><%- icon('fileSheet', 'h-4 w-4') %>Nhập từ file Excel</a><% } %>
   </div>
 <% } else { %>
-<div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-  <a href="/manager/pc-parts" class="stat hover:border-brand-400"><p class="stat-label">Linh kiện</p><p class="stat-value"><%= totals.all %></p></a>
+<% if (!canEdit) { %><p class="mb-3 text-sm text-slate-500">Bảng giá chỉ xem. Món chưa có hàng (hoặc cần thêm) bấm <strong>Yêu cầu nhập</strong> để báo quản lý — món đó chuyển sang <strong>Chờ nhập kho</strong>.</p><% } %>
+<div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+  <a href="<%= base %>" class="stat hover:border-brand-400"><p class="stat-label">Linh kiện</p><p class="stat-value"><%= totals.all %></p></a>
   <a href="?stock=in" class="stat hover:border-brand-400 <%= f.stock === 'in' ? 'ring-2 ring-brand-500' : '' %>"><p class="stat-label">Có sẵn trong kho</p><p class="stat-value text-emerald-600"><%= totals.in %></p></a>
   <a href="?info=none" class="stat hover:border-brand-400 <%= f.info === 'none' ? 'ring-2 ring-brand-500' : '' %>"><p class="stat-label">Chưa có thông số</p><p class="stat-value text-violet-600"><%= totals.noInfo %></p></a>
   <div class="stat"><p class="stat-label">Chưa có giá</p><p class="stat-value text-amber-600"><%= totals.noPrice %></p></div>
+  <a href="?req=1" class="stat hover:border-brand-400 <%= f.req ? 'ring-2 ring-brand-500' : '' %>"><p class="stat-label">Chờ nhập kho</p><p class="stat-value text-fuchsia-600"><%= totals.req %></p></a>
 </div>
 
 <%# ---- AI tra hàng loạt ---- %>
-<% if (totals.noInfo || aiStatus.running) { %>
+<% if (canEdit && (totals.noInfo || aiStatus.running)) { %>
 <section class="card mb-4 border-violet-200 bg-violet-50/50 dark:border-violet-900 dark:bg-violet-950/20" x-data="aiBatch(<%= JSON.stringify(aiStatus) %>)">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div class="text-sm">
@@ -44,7 +48,7 @@
 </section>
 <% } %>
 
-<% const qs = c => '?' + new URLSearchParams(Object.entries({ q: f.q, cat: c, stock: f.stock, info: f.info }).filter(([, v]) => v)).toString(); %>
+<% const qs = c => '?' + new URLSearchParams(Object.entries({ q: f.q, cat: c, stock: f.stock, info: f.info, req: f.req ? '1' : '' }).filter(([, v]) => v)).toString(); %>
 <nav class="tabs sticky top-14 z-10" aria-label="Nhóm linh kiện">
   <a href="<%= qs('') %>" class="tab <%= !f.cat ? 'tab-active' : '' %>">Tất cả <span class="text-xs text-slate-400"><%= totals.all %></span></a>
   <% cats.forEach(c => { %><a href="<%= qs(c) %>" class="tab <%= f.cat === c ? 'tab-active' : '' %>"><%= c %> <span class="text-xs text-slate-400"><%= catCounts[c] || 0 %></span></a><% }) %>
@@ -55,39 +59,62 @@
   <select name="stock" class="input w-auto"><option value="">Còn / hết kho</option><option value="in" <%= f.stock === 'in' ? 'selected' : '' %>>Có sẵn</option><option value="out" <%= f.stock === 'out' ? 'selected' : '' %>>Hàng đặt</option></select>
   <select name="info" class="input w-auto"><option value="">Thông số</option><option value="none" <%= f.info === 'none' ? 'selected' : '' %>>Chưa có</option><option value="has" <%= f.info === 'has' ? 'selected' : '' %>>Đã có</option></select>
   <button class="btn-secondary"><%- icon('search', 'h-4 w-4') %>Lọc</button>
-  <% if (f.q || f.stock || f.info) { %><a href="<%= f.cat ? '?cat=' + encodeURIComponent(f.cat) : '/manager/pc-parts' %>" class="btn-secondary">Bỏ lọc</a><% } %>
+  <% if (f.req) { %><input type="hidden" name="req" value="1"><% } %>
+  <% if (f.q || f.stock || f.info || f.req) { %><a href="<%= f.cat ? '?cat=' + encodeURIComponent(f.cat) : base %>" class="btn-secondary">Bỏ lọc</a><% } %>
 </form>
 
-<div class="space-y-5" x-data="receiveStock()">
+<div class="space-y-5" x-data="<%= canEdit ? 'receiveStock()' : 'partRequest()' %>">
   <% groups.forEach(g => { %>
     <section>
       <h2 class="mb-2 flex items-center justify-between font-semibold <%= f.cat ? 'sr-only' : '' %>"><span><%= g.category %> <span class="text-sm font-normal text-slate-500">(<%= g.items.length %>)</span></span>
-        <a href="/manager/pc-parts/new?cat=<%= encodeURIComponent(g.category) %>" class="text-sm font-normal text-brand-600 hover:underline">+ Thêm vào nhóm</a></h2>
+        <% if (canEdit) { %><a href="/manager/pc-parts/new?cat=<%= encodeURIComponent(g.category) %>" class="text-sm font-normal text-brand-600 hover:underline">+ Thêm vào nhóm</a><% } %></h2>
       <div class="tbl-wrap"><table class="tbl">
         <thead><tr><th>Linh kiện</th><th class="text-right">Giá</th><th>BH</th><th>Kho</th><th></th></tr></thead>
         <tbody>
           <% g.items.forEach(p => { const fl = fieldsByType[typeOf(p.category)] || fieldsByType.other; %>
             <tr id="p<%= p.id %>" class="<%= p.hidden ? 'opacity-50' : '' %>">
               <td class="min-w-64">
-                <a href="/manager/pc-parts/<%= p.id %>" class="font-medium hover:text-brand-600"><%= p.name %></a>
+                <% if (canEdit) { %><a href="/manager/pc-parts/<%= p.id %>" class="font-medium hover:text-brand-600"><%= p.name %></a><% } else { %><span class="font-medium"><%= p.name %></span><% } %>
                 <% if (p.condition) { %><span class="<%= /new/i.test(p.condition) && !/like/i.test(p.condition) ? 'badge-blue' : 'badge-gray' %> ml-1"><%= p.condition %></span><% } %>
                 <% if (p.hidden) { %><span class="badge-gray ml-1">Đang ẩn</span><% } %>
                 <% const chips = fl.map(([k, l]) => p.specsObj[k] ? `${l}: ${p.specsObj[k]}` : null).filter(Boolean).slice(0, 4); %>
                 <% if (chips.length) { %><p class="mt-0.5 text-xs text-slate-500"><%= chips.join(' · ') %></p><% } %>
-                <% if (p.note_public || p.note) { %><p class="mt-0.5 text-xs text-amber-700 dark:text-amber-400"><%= [p.note_public, p.note].filter(Boolean).join(' · ') %></p><% } %>
+                <% if (canEdit ? (p.note_public || p.note) : p.note_public) { %><p class="mt-0.5 text-xs text-amber-700 dark:text-amber-400"><%= (canEdit ? [p.note_public, p.note] : [p.note_public]).filter(Boolean).join(' · ') %></p><% } %>
               </td>
+              <% if (!canEdit) { %><td class="whitespace-nowrap text-right font-semibold tabular-nums"><%= p.price != null ? fmt.money(p.price) : 'Liên hệ' %></td><% } else { %>
               <td class="whitespace-nowrap text-right" x-data="quickPrice(<%= p.id %>, <%= p.price == null ? 'null' : p.price %>)">
                 <button type="button" x-show="!editing" @click="open()" class="font-semibold tabular-nums hover:text-brand-600" title="Bấm để sửa giá" x-text="saved != null ? formatVnd(saved) + ' ₫' : 'Chưa có giá'"><%= p.price != null ? fmt.money(p.price) : 'Chưa có giá' %></button>
                 <input x-show="editing" x-cloak x-ref="inp" class="input w-32 py-1 text-right tabular-nums" inputmode="numeric" :value="display" @input="onInput($event)" @keydown.enter.prevent="save()" @keydown.escape.prevent="cancel()" @blur="save()" :disabled="busy">
-              </td>
+              </td><% } %>
               <td class="whitespace-nowrap text-slate-600 dark:text-slate-400"><%= p.warranty_months != null ? p.warranty_months + ' th' : '' %></td>
               <td class="whitespace-nowrap">
-                <% if (p.stock) { %><span class="badge-green">Có sẵn <%= p.stock %></span>
-                <% } else { %><button type="button" class="badge-amber hover:ring-1 hover:ring-amber-400" title="Bấm để nhập kho khi hàng về"
-                    @click="openReceive(<%= JSON.stringify({ id: p.id, name: p.name, condition: p.condition, price: p.price, warranty_months: p.warranty_months }) %>)">Hàng đặt · Nhập kho</button><% } %>
+                <% const rcJson = JSON.stringify({ id: p.id, name: p.name, condition: p.condition, price: p.price, warranty_months: p.warranty_months }); %>
+                <% if (p.req_at) { %>
+                  <span class="inline-flex items-center gap-1 rounded-md bg-fuchsia-100 px-2 py-0.5 text-xs font-semibold text-fuchsia-800 dark:bg-fuchsia-950 dark:text-fuchsia-300"><%- icon('clock', 'h-3.5 w-3.5') %>Chờ nhập kho<%= p.req_qty ? ' · ' + p.req_qty : '' %></span>
+                  <p class="mt-0.5 max-w-56 whitespace-normal text-xs text-slate-500"><%= p.req_by %> · <%= fmt.datetime(p.req_at) %><%= p.req_note ? ' — ' + p.req_note : '' %></p>
+                  <% if (canEdit) { %>
+                    <div class="mt-1 flex gap-2 text-xs">
+                      <button type="button" class="font-semibold text-brand-600 hover:underline" @click="openReceive(<%= rcJson %>)">Nhập kho</button>
+                      <form method="post" action="/manager/pc-parts/<%= p.id %>/request/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="text-slate-500 hover:text-red-600 hover:underline">Hủy yêu cầu</button></form>
+                    </div>
+                  <% } %>
+                <% } else if (canEdit) { %>
+                  <% if (p.stock) { %><span class="badge-green">Có sẵn <%= p.stock %></span>
+                  <% } else { %><button type="button" class="badge-amber hover:ring-1 hover:ring-amber-400" title="Bấm để nhập kho khi hàng về" @click="openReceive(<%= rcJson %>)">Hàng đặt · Nhập kho</button><% } %>
+                <% } else { %>
+                  <% if (p.stock) { %><span class="badge-green">Có sẵn <%= p.stock %></span><% } else { %><span class="badge-amber">Hàng đặt</span><% } %>
+                  <button type="button" class="ml-1 rounded-md border border-brand-300 px-2 py-0.5 text-xs font-semibold text-brand-700 hover:bg-brand-50 dark:border-brand-700 dark:text-brand-300 dark:hover:bg-slate-800"
+                          @click="ask(<%= JSON.stringify({ id: p.id, name: p.name + (p.condition ? ' (' + p.condition + ')' : '') }) %>)">Yêu cầu nhập</button>
+                <% } %>
               </td>
               <td class="whitespace-nowrap text-right">
+                <% if (canEdit) { %>
                 <a href="/manager/pc-parts/<%= p.id %>" class="inline-grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-slate-800" title="Sửa"><%- icon('edit', 'h-4 w-4') %></a>
+                <form method="post" action="/manager/pc-parts/<%= p.id %>/delete" class="inline" x-data @submit="if (!confirm(<%= JSON.stringify('Xóa "' + p.name + (p.condition ? ' (' + p.condition + ')' : '') + '" khỏi bảng giá?\nCấu hình Build PC đã lưu vẫn giữ nguyên. Không thể hoàn tác.') %>)) $event.preventDefault()">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button class="inline-grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-slate-800" title="Xóa"><%- icon('trash', 'h-4 w-4') %></button>
+                </form>
+                <% } %>
               </td>
             </tr>
           <% }) %>
@@ -96,11 +123,12 @@
     </section>
   <% }) %>
   <% if (!groups.length) { %><p class="card py-6 text-center text-sm text-slate-500">Không có linh kiện khớp bộ lọc.</p><% } %>
-  <%- include('../staff/_receive_modal') %>
+  <% if (canEdit) { %><%- include('../staff/_receive_modal') %><% } else { %><%- include('../staff/_request_modal') %><% } %>
 </div>
 <% } %>
 
 <%# ---- Lưu ý in trên phiếu ---- %>
+<% if (canEdit) { %>
 <details id="print-note" class="card mt-6">
   <summary class="cursor-pointer font-semibold">Lưu ý in trên phiếu báo giá / thanh toán</summary>
   <form method="post" action="/manager/pc-parts/print-note" class="mt-3 space-y-3">
@@ -110,4 +138,5 @@
     <div class="flex justify-end"><button class="btn-primary">Lưu</button></div>
   </form>
 </details>
+<% } %>
 <%- include('../app/_bottom') %>

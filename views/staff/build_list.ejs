@@ -2,7 +2,7 @@
 <div class="page-title">
   <h1><%- icon('desktop', 'h-6 w-6 text-brand-600') %>Build PC</h1>
   <div class="flex flex-wrap gap-2">
-    <% if (user.role === 'manager') { %><a href="/manager/pc-parts" class="btn-secondary"><%- icon('cpu', 'h-4 w-4') %>Giá Linh Kiện</a><% } %>
+    <a href="<%= user.role === 'manager' ? '/manager/pc-parts' : '/staff/pc-parts' %>" class="btn-secondary"><%- icon('cpu', 'h-4 w-4') %>Giá Linh Kiện</a>
     <a href="/staff/build/new" class="btn-primary"><%- icon('plusSquare', 'h-4 w-4') %>Build cấu hình mới</a>
   </div>
 </div>
