@@ -1,6 +1,6 @@
 <%- include('../app/_top') %>
 <div class="page-title">
-  <h1><%- icon('checkSquare', 'h-6 w-6 text-brand-600') %>Duyệt sản phẩm</h1>
+  <h1><%- icon('upload', 'h-6 w-6 text-brand-600') %>Quản lý sản phẩm</h1>
   <div class="flex flex-wrap gap-2">
     <form method="post" action="/manager/products/sync-inventory" @submit="confirm('Đưa các món đang tồn kho (chưa có trên web) lên trang chủ? Hàng cùng tên sẽ gộp thành 1 sản phẩm, tự xếp danh mục.') || $event.preventDefault()">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn-secondary"><%- icon('archive', 'h-4 w-4') %>Đưa hàng tồn kho lên web</button></form>
@@ -8,8 +8,8 @@
   </div>
 </div>
 <div class="tabs">
-  <a href="?tab=pending" class="tab <%= tab === 'pending' ? 'tab-active' : '' %>">Chờ duyệt (<%= counts.pending || 0 %>)</a>
-  <a href="?tab=approved" class="tab <%= tab === 'approved' ? 'tab-active' : '' %>">Đã duyệt (<%= counts.approved || 0 %>)</a>
+  <a href="?tab=approved" class="tab <%= tab === 'approved' ? 'tab-active' : '' %>">Sản phẩm đã đăng (<%= counts.approved || 0 %>)</a>
+  <a href="?tab=pending" class="tab flex items-center gap-1.5 <%= tab === 'pending' ? 'tab-active' : '' %>">Chờ duyệt<% if (counts.pending) { %><span class="rounded-full bg-red-500 px-1.5 text-xs font-bold text-white"><%= counts.pending %></span><% } else { %> (0)<% } %></a>
 </div>
 <form class="mb-3 flex gap-2"><input type="hidden" name="tab" value="<%= tab %>"><input name="q" value="<%= search %>" class="input" placeholder="Tìm tên sản phẩm..."><button class="btn-primary"><%- icon('search', 'h-4 w-4') %></button></form>
 <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

@@ -56,8 +56,9 @@ const GROUPS = [
   {
     title: 'Website',
     items: [
-      { key: 'product-new', href: '/staff/products/new', icon: 'upload', label: 'Đăng sản phẩm', roles: ['staff', 'manager'] },
-      { key: 'm-products', href: '/manager/products', icon: 'checkSquare', label: 'Duyệt sản phẩm', badge: 'productsPending', roles: ['manager'] },
+      { key: 'product-new', href: '/staff/products/new', icon: 'upload', label: 'Đăng sản phẩm', roles: ['staff'] },
+      // Quản lý: 1 mục gồm danh sách sửa (mặc định), Chờ duyệt, nút Đăng sản phẩm
+      { key: 'm-products', href: '/manager/products', icon: 'upload', label: 'Quản lý sản phẩm', badge: 'productsPending', roles: ['manager'] },
       { key: 'm-homepage', href: '/manager/homepage', icon: 'settings', label: 'Sửa trang chủ', roles: ['manager'] },
     ],
   },

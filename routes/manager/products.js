@@ -11,13 +11,13 @@ const qGet = db.prepare(`SELECT p.*, u.full_name AS author FROM products p LEFT 
 
 router.get('/products', (req, res) => {
   res.locals.nav = 'm-products';
-  const tab = req.query.tab === 'approved' ? 'approved' : 'pending';
+  const tab = req.query.tab === 'pending' ? 'pending' : 'approved'; // mặc định: danh sách sản phẩm đã đăng để sửa
   const s = String(req.query.q || '').trim();
   const products = db.prepare(`SELECT p.*, c.name_vi AS cat_name, u.full_name AS author FROM products p
       LEFT JOIN categories c ON c.id = p.category_id LEFT JOIN users u ON u.id = p.created_by
       WHERE p.status = ? ${s ? 'AND p.name_vi LIKE ?' : ''} ORDER BY p.created_at DESC LIMIT 300`).all(...[tab, s && `%${s}%`].filter(Boolean));
   const counts = Object.fromEntries(db.prepare('SELECT status, COUNT(*) c FROM products GROUP BY status').all().map(r => [r.status, r.c]));
-  res.render('manager/products', { title: 'Duyệt sản phẩm', tab, products, counts, search: s });
+  res.render('manager/products', { title: 'Quản lý sản phẩm', tab, products, counts, search: s });
 });
 
 // Đưa hàng tồn kho lên trang chủ (gộp theo tên, tự xếp danh mục, bỏ qua món đã có)
@@ -80,7 +80,8 @@ router.post('/products/:id', imageUpload.array('images', 5), async (req, res, ne
       if (action === 'approve') {
         db.prepare(`UPDATE products SET status = 'approved' WHERE id = ?`).run(p.id);
         req.flash('success', `Đã duyệt "${data.name_vi}"${translated ? ' và dịch sang EN / RU / ZH' : ''}.`);
-        return res.redirect('/manager/products');
+        const left = db.prepare(`SELECT COUNT(*) c FROM products WHERE status = 'pending'`).get().c;
+        return res.redirect(left ? '/manager/products?tab=pending' : '/manager/products');
       }
       if (translated) req.flash('success', 'Đã dịch sang EN / RU / ZH.');
     } else req.flash('success', 'Đã lưu.');

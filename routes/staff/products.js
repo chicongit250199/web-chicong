@@ -11,7 +11,7 @@ const router = express.Router();
 const qCats = db.prepare('SELECT * FROM categories WHERE is_active = 1 ORDER BY sort_order, id');
 
 router.get('/products/new', (req, res) => {
-  res.locals.nav = 'product-new';
+  res.locals.nav = req.user.role === 'manager' ? 'm-products' : 'product-new'; // quản lý: nằm trong mục Quản lý sản phẩm
   const mine = db.prepare(`SELECT p.*, c.name_vi AS cat_name FROM products p LEFT JOIN categories c ON c.id = p.category_id
                            WHERE p.created_by = ? ORDER BY p.id DESC LIMIT 20`).all(req.user.id);
   res.render('staff/product_new', { title: 'Đăng sản phẩm', categories: qCats.all(), mine, aiEnabled: ai.isEnabled(), scripts: ['/js/product-ai.js'] });
@@ -71,7 +71,7 @@ router.post('/products', imageUpload.array('images', 5), async (req, res, next) 
       .run({ ...data, image_url, status, created_by: req.user.id });
     urls.forEach((u, i) => db.prepare('INSERT INTO product_images (product_id, url, sort) VALUES (?, ?, ?)').run(r.lastInsertRowid, u, i));
     if (status === 'pending') notify('product', `${req.user.full_name} đăng sản phẩm "${data.name_vi}" — chờ duyệt`, `/manager/products/${r.lastInsertRowid}`, req.user.full_name);
-    req.flash('success', status === 'pending' ? 'Đã gửi sản phẩm, chờ Quản lý duyệt.' : 'Đã đăng sản phẩm. Vào "Duyệt sản phẩm" để dịch sang các ngôn ngữ khác.');
+    req.flash('success', status === 'pending' ? 'Đã gửi sản phẩm, chờ Quản lý duyệt.' : 'Đã đăng sản phẩm. Vào "Quản lý sản phẩm" để dịch sang các ngôn ngữ khác.');
     res.redirect('/staff/products/new');
   } catch (e) { next(e); }
 });
