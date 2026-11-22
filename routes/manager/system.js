@@ -4,6 +4,7 @@ const systemInfo = require('../../services/systemInfo');
 const vatSync = require('../../services/vatSync');
 const offsite = require('../../services/offsiteBackup');
 const gitBackup = require('../../services/gitBackup');
+const revenueReport = require('../../services/revenueReport');
 const serverLog = require('../../services/serverLog');
 const db = require('../../db');
 const { backup } = require('../../services/backup');
@@ -33,6 +34,26 @@ router.get('/system/logs', (req, res) => {
 router.post('/system/speedtest', (req, res) => {
   systemInfo.runSpeedTest(); // không chờ
   res.json(systemInfo.speedStatus());
+});
+
+// ---------- Báo cáo doanh thu qua email ----------
+router.get('/system/report-email', (req, res) => res.set('Cache-Control', 'no-store').json(revenueReport.status()));
+// Gửi thử ngay (không ghi dấu "đã gửi", lịch 20h vẫn gửi bình thường)
+router.post('/system/report-email/test', async (req, res) => {
+  const fmt = require('../../services/format');
+  const today = fmt.todayYmd();
+  try {
+    if (req.body.kind === 'monthly') await revenueReport.sendMonthly(today.slice(0, 7), { mark: false });
+    else await revenueReport.sendDaily(today, { mark: false });
+    res.json({ ok: true, ...revenueReport.status() });
+  } catch (e) {
+    res.status(400).json({ error: 'Gửi mail lỗi: ' + e.message });
+  }
+});
+// Xem trước nội dung mail trong trình duyệt
+router.get('/system/report-email/preview', (req, res) => {
+  const r = req.query.kind === 'monthly' ? revenueReport.monthlyReport() : revenueReport.dailyReport();
+  res.set('Cache-Control', 'no-store').type('html').send(r.html);
 });
 
 // ---------- Sao lưu lên GitHub (mã hóa) ----------

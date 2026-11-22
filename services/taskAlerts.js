@@ -1,5 +1,5 @@
 'use strict';
-// Cảnh báo task quá lâu không thay đổi:
+// Cảnh báo task quá lâu không thay đổi (KHÔNG tính ngày Chủ nhật, theo giờ VN):
 //  - Chưa làm (pending) quá PENDING_DAYS ngày kể từ lần thay đổi gần nhất
 //  - Đang làm (processing) quá PROCESSING_DAYS ngày
 const db = require('../db');
@@ -7,15 +7,41 @@ const db = require('../db');
 const PENDING_DAYS = Number(process.env.TASK_PENDING_ALERT_DAYS) || 3;
 const PROCESSING_DAYS = Number(process.env.TASK_PROCESSING_ALERT_DAYS) || 1;
 
+const DAY = 86400e3, WEEK = 7 * DAY, OFF = 7 * 3600e3; // giờ VN = UTC+7
+
+// Số ngày (thập phân) từ sinceMs tới nowMs, trừ phần thời gian rơi vào Chủ nhật (giờ VN)
+function workDays(sinceMs, nowMs = Date.now()) {
+  if (!Number.isFinite(sinceMs) || nowMs <= sinceMs) return 0;
+  let total = nowMs - sinceMs;
+  let d = Math.floor((sinceMs + OFF) / DAY) * DAY - OFF; // 0h VN của ngày bắt đầu
+  while (d < nowMs) {
+    // nhảy nhanh cả tuần nằm trọn trong khoảng: mỗi tuần có đúng 1 Chủ nhật
+    if (d >= sinceMs && d + WEEK <= nowMs) {
+      const weeks = Math.floor((nowMs - d) / WEEK);
+      total -= weeks * DAY;
+      d += weeks * WEEK;
+      continue;
+    }
+    if (new Date(d + OFF).getUTCDay() === 0) {
+      total -= Math.max(0, Math.min(nowMs, d + DAY) - Math.max(sinceMs, d));
+    }
+    d += DAY;
+  }
+  return total / DAY;
+}
+
+// Hàm SQL work_days(thời_điểm_ISO): số ngày làm việc tính tới hiện tại (không cố định -> không deterministic)
+db.function('work_days', s => (s ? workDays(Date.parse(s)) : 0));
+
 // Biểu thức SQL dùng chung (t = bảng tasks)
-const AGE = `(julianday('now') - julianday(COALESCE(t.updated_at, t.created_at)))`;
+const AGE = `work_days(COALESCE(t.updated_at, t.created_at))`;
 const OVERDUE_WHERE = `((t.status = 'pending' AND ${AGE} > ${PENDING_DAYS}) OR (t.status = 'processing' AND ${AGE} > ${PROCESSING_DAYS}))`;
 
 // Mức cảnh báo cho 1 task (dùng trong thẻ task)
 function level(t, now = Date.now()) {
   const since = Date.parse(t.updated_at || t.created_at);
   if (!since) return null;
-  const days = (now - since) / 86400000;
+  const days = workDays(since, now);
   if (t.status === 'pending' && days > PENDING_DAYS) return { kind: 'pending', days, label: `Chờ ${fmtAge(days)} chưa xử lý` };
   if (t.status === 'processing' && days > PROCESSING_DAYS) return { kind: 'processing', days, label: `Đang sửa ${fmtAge(days)}` };
   return null;
@@ -36,4 +62,4 @@ function forUser(user) {
   return rows.map(t => ({ ...t, alert: level(t, now) }));
 }
 
-module.exports = { PENDING_DAYS, PROCESSING_DAYS, OVERDUE_WHERE, AGE, level, forUser };
+module.exports = { PENDING_DAYS, PROCESSING_DAYS, OVERDUE_WHERE, AGE, level, forUser, workDays };

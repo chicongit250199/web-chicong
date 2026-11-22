@@ -132,6 +132,19 @@ window.offsiteBackup = function () {
 };
 
 // Sao lưu ra ngoài máy lên GitHub (mã hóa)
+window.reportEmail = function () {
+  return {
+    s: {}, busy: false, err: '', msg: '',
+    init: function () { var self = this; api('/manager/system/report-email').then(function (d) { self.s = d; }).catch(function (e) { self.err = e.message; }); },
+    test: function (kind) {
+      var self = this; this.busy = true; this.err = ''; this.msg = '';
+      api('/manager/system/report-email/test', { method: 'POST', body: { kind: kind } }).then(function (d) {
+        self.s = d; self.msg = 'Đã gửi mail thử tới ' + d.to + '.';
+      }).catch(function (e) { self.err = e.message; }).finally(function () { self.busy = false; });
+    },
+  };
+};
+
 window.gitBackup = function () {
   return {
     s: {}, busy: false, err: '', msg: '', pass: '',

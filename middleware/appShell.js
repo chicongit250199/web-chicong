@@ -36,6 +36,7 @@ module.exports = function appShell(req, res, next) {
   // Task quá lâu chưa thay đổi -> khung cảnh báo đầu trang + nhãn trên thẻ task
   res.locals.taskAlerts = taskAlerts.forUser(u);
   res.locals.alertOf = taskAlerts.level;
+  res.locals.taskAlertDays = { pending: taskAlerts.PENDING_DAYS, processing: taskAlerts.PROCESSING_DAYS };
   badges.overdue = res.locals.taskAlerts.length;
   res.locals.nav = '';
   next();

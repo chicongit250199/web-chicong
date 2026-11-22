@@ -232,6 +232,32 @@
     </div>
   </template>
 
+  <%# ---- Báo cáo doanh thu qua email ---- %>
+  <section class="card mt-4" x-data="reportEmail()">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h2 class="flex items-center gap-2 font-semibold"><%- icon('chart', 'h-5 w-5 text-brand-600') %>Báo cáo doanh thu qua email</h2>
+        <p class="mt-0.5 text-sm text-slate-500">Mỗi ngày lúc <b x-text="s.at || '20:00'"></b> gửi doanh thu trong ngày; ngày cuối tháng gửi thêm báo cáo cả tháng. Người nhận: <b x-text="s.to || '(chưa đặt)'"></b></p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/manager/system/report-email/preview" target="_blank" class="btn-secondary px-3 py-1.5 text-sm">Xem trước</a>
+        <button type="button" @click="test('daily')" :disabled="busy || !s.configured" class="btn-primary px-3 py-1.5 text-sm" x-text="busy ? 'Đang gửi...' : 'Gửi thử (ngày)'"></button>
+        <button type="button" @click="test('monthly')" :disabled="busy || !s.configured" class="btn-secondary px-3 py-1.5 text-sm">Gửi thử (tháng)</button>
+      </div>
+    </div>
+    <dl class="mt-3 grid grid-cols-[9rem_1fr] gap-x-4 gap-y-1.5 text-sm">
+      <dt class="text-slate-500">Trạng thái</dt>
+      <dd x-text="!s.configured ? 'Chưa cấu hình — thêm SMTP_USER, SMTP_PASS (mật khẩu ứng dụng Gmail), REPORT_EMAIL_TO vào .env rồi khởi động lại' : (s.enabled ? 'Đang bật · gửi từ ' + s.user : 'Đã tắt')"></dd>
+      <dt class="text-slate-500">Lần gửi kế tiếp</dt>
+      <dd x-text="s.nextRunAt ? new Date(s.nextRunAt).toLocaleString('vi-VN') : '—'"></dd>
+      <dt class="text-slate-500">Đã gửi gần nhất</dt>
+      <dd x-text="(s.dailyLast ? 'ngày ' + s.dailyLast.split('-').reverse().join('/') : '—') + (s.monthlyLast ? ' · tháng ' + s.monthlyLast.split('-').reverse().join('/') : '')"></dd>
+    </dl>
+    <p x-show="s.lastError" x-cloak class="mt-2 text-sm text-red-600" x-text="s.lastError ? 'Lỗi lần trước (' + new Date(s.lastError.at).toLocaleString('vi-VN') + '): ' + s.lastError.message : ''"></p>
+    <p x-show="err" x-cloak class="mt-2 text-sm text-red-600" x-text="err"></p>
+    <p x-show="msg" x-cloak class="mt-2 text-sm text-emerald-700 dark:text-emerald-400" x-text="msg"></p>
+  </section>
+
   <%# ---- Sao lưu ra ngoài máy: GitHub (mã hóa) ---- %>
   <section class="card mt-4" x-data="gitBackup()">
     <div class="flex flex-wrap items-start justify-between gap-3">
