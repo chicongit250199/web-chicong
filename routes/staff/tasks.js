@@ -64,7 +64,7 @@ const VIEW_TITLES = {
 function canWork(task, user) {
   return user.role === 'manager' || !task.assigned_to || task.assigned_to === user.id;
 }
-function back(req, res, id, type, msg) { req.flash(type, msg); res.redirect(`/staff/tasks/${id}`); }
+function back(req, res, id, type, msg) { req.flash(type, msg); res.redirect(`/staff/tasks/${id}${req.query.from === 'return' ? '?from=return' : ''}`); }
 
 // ---------- Tổng quan 2 cột ----------
 router.get('/', (req, res) => {
@@ -139,6 +139,7 @@ router.get('/tasks/:id', (req, res, next) => {
     title: task.ticket_code, task, histories: q.histories.all(task.id), staffList: q.staff.all(),
     revenues: q.revenue.all(task.id), extras: extrasOf(task.id), canWork: canWork(task, req.user), canEdit: canEdit(task, req.user), canDelete: canDelete(task, req.user), warrantyOptions: v.WARRANTY_OPTIONS,
     scripts: ['/js/task-complete.js'],
+    fromReturn: req.query.from === 'return', // nút Hoàn thành (trả máy) chỉ hiện khi mở từ trang Trả máy — tránh bấm nhầm ngay sau khi sửa xong
   });
 });
 

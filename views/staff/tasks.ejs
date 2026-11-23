@@ -14,7 +14,7 @@
   <p class="mb-3 text-sm text-slate-500">Các máy đã sửa xong hoặc không sửa được, đang chờ khách nhận. Bấm vào máy để <strong>Hoàn thành</strong> hoặc <strong>Sửa lại</strong>.</p>
 <% } %>
 <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-  <% tasks.forEach(t => { %><%- partial('staff/_task_card', { t, fmt, icon, alertOf }) %><% }) %>
+  <% tasks.forEach(t => { %><%- partial('staff/_task_card', { t, fmt, icon, alertOf, fromReturn: typeof returnMode !== 'undefined' }) %><% }) %>
 </div>
 <% if (!tasks.length) { %><p class="card py-12 text-center text-sm text-slate-500"><%= search ? 'Không tìm thấy task phù hợp.' : 'Không có task nào.' %></p><% } %>
 <%- include('../app/_bottom') %>

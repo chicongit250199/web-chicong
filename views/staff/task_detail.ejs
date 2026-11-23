@@ -97,10 +97,18 @@
             <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200"><%= task.assigned_name %> đang sửa máy này.</p>
           <% } %>
         <% } else if (['done','unrepairable'].includes(task.status)) { %>
-          <div class="grid grid-cols-2 gap-2">
-            <button type="button" @click="m = 'redo'" class="btn-secondary"><%- icon('refresh', 'h-4 w-4') %>Sửa lại</button>
-            <button type="button" @click="m = 'complete'" class="btn-primary"><%- icon('checkCircle', 'h-4 w-4') %>Hoàn thành</button>
-          </div>
+          <% if (fromReturn) { %>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" @click="m = 'redo'" class="btn-secondary"><%- icon('refresh', 'h-4 w-4') %>Sửa lại</button>
+              <button type="button" @click="m = 'complete'" class="btn-primary"><%- icon('checkCircle', 'h-4 w-4') %>Hoàn thành</button>
+            </div>
+          <% } else { %>
+            <p class="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">Máy đang <b>chờ trả máy</b>. Khi khách tới nhận, vào <b>Nhận - Trả → Trả máy</b> để hoàn thành.</p>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" @click="m = 'redo'" class="btn-secondary"><%- icon('refresh', 'h-4 w-4') %>Sửa lại</button>
+              <a href="/staff/return" class="btn-secondary"><%- icon('checkCircle', 'h-4 w-4') %>Trang Trả máy</a>
+            </div>
+          <% } %>
         <% } else { %>
           <p class="text-sm text-slate-500">Đã trả máy cho khách.</p>
           <% revenues.forEach(r => { %><p class="text-sm">Đã thu <strong><%= fmt.money(r.amount) %></strong> (<%= fmt.payment(r.payment_method) %>) · <%= r.staff_name %></p><% }) %>
@@ -211,7 +219,7 @@
 
   <template x-if="m === 'complete'">
     <div class="modal-backdrop" @click.self="m = null">
-      <form method="post" action="/staff/tasks/<%= task.id %>/complete" class="modal max-w-2xl space-y-3" x-data="completeForm(<%= task.status === 'unrepairable' ? 0 : (task.final_price ?? 0) %>)" @submit="beforeSubmit($event)">
+      <form method="post" action="/staff/tasks/<%= task.id %>/complete?from=return" class="modal max-w-2xl space-y-3" x-data="completeForm(<%= task.status === 'unrepairable' ? 0 : (task.final_price ?? 0) %>)" @submit="beforeSubmit($event)">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <input type="hidden" name="extra_items" :value="extraJson">
         <h3 class="text-lg font-semibold">Hoàn thành — trả máy cho khách</h3>
