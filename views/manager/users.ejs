@@ -22,8 +22,13 @@
       <dd><span x-text="(zs.sent || 0) + ' tin'"></span><span x-show="zs.failed" x-cloak class="text-red-600" x-text="' · lỗi ' + zs.failed"></span>
         <span class="text-xs text-slate-500" x-show="zs.lastSentAt" x-text="'— gần nhất ' + (zs.lastSentAt ? new Date(zs.lastSentAt).toLocaleString('vi-VN') : '')"></span>
         <span class="block text-xs text-slate-500">(đếm từ lần khởi động web gần nhất)</span></dd>
-      <dt class="text-slate-500">Nhắc quá hạn</dt>
-      <dd>Gửi ngay khi task vừa quá hạn cho người được giao (ban đêm 21:00–7:00 giữ lại, sáng gửi)<span class="block text-xs text-slate-500" x-show="zs.lastOverdue && zs.lastOverdue.people" x-cloak x-text="zs.lastOverdue ? 'Lần gần nhất: ' + new Date(zs.lastOverdue.at).toLocaleString('vi-VN') + ' — ' + zs.lastOverdue.tasks + ' task' : ''"></span></dd>
+      <dt class="text-slate-500 pt-1.5">Nhắc quá hạn</dt>
+      <dd><form @submit.prevent="saveOverdueAt()" class="flex flex-wrap items-center gap-2">
+        <span>Mỗi ngày lúc</span><input type="time" x-model="overdueAt" required class="input w-32 py-1"><span class="text-xs text-slate-500">(trừ Chủ nhật)</span>
+        <button type="submit" :disabled="busy || overdueAt === zs.overdueAt" class="btn-secondary px-3 py-1 text-sm">Lưu giờ</button>
+        <button type="button" @click="overdueNow()" :disabled="busy || !zs.enabled" class="btn-secondary px-3 py-1 text-sm">Gửi nhắc ngay</button>
+      </form>
+      <span class="mt-1 block text-xs text-slate-500">Các thông báo khác (task mới, giao task, sửa xong, giao dịch...) gửi ngay lúc thay đổi.</span></dd>
       <dt x-show="zs.lastError" x-cloak class="text-slate-500">Lỗi gần nhất</dt>
       <dd x-show="zs.lastError" x-cloak class="text-xs text-red-600" x-text="zs.lastError + (zs.lastErrorAt ? ' (' + new Date(zs.lastErrorAt).toLocaleString('vi-VN') + ')' : '')"></dd>
     </dl>
