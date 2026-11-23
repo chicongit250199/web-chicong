@@ -18,6 +18,8 @@ const flash = require('./middleware/flash');
 
 const app = express();
 app.disable('x-powered-by');
+// Trang HTML có nonce/CSRF đổi mỗi lần -> ETag không bao giờ khớp, chỉ tốn công băm SHA1 cả trang
+app.set('etag', false);
 if (config.trustProxy) app.set('trust proxy', 1);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -41,6 +43,22 @@ app.use(helmet({
   originAgentCluster: false,
 }));
 
+// Trang HTML / JSON (res.send chuỗi): nén gzip đồng bộ 1 lần (~1-2ms). Middleware compression nén kiểu luồng
+// qua thread pool -> mất thêm ~10ms mỗi trang trên CPU Celeron. Nó vẫn lo phần còn lại (file tĩnh khác).
+const zlib = require('zlib');
+app.use((req, res, next) => {
+  const send = res.send;
+  res.send = function (body) {
+    if (typeof body === 'string' && body.length > 1024 && !this.getHeader('Content-Encoding') && req.acceptsEncodings('gzip', 'identity') === 'gzip') {
+      if (!this.getHeader('Content-Type')) this.type('html');
+      this.setHeader('Content-Encoding', 'gzip');
+      this.vary('Accept-Encoding');
+      return send.call(this, zlib.gzipSync(body, { level: 1 }));
+    }
+    return send.call(this, body);
+  };
+  next();
+});
 // Nén gzip phản hồi (HTML/CSS/JS/JSON nhỏ đi 5-10 lần) — bỏ qua luồng SSE thông báo
 app.use(compression({ level: 6, threshold: 1024, filter: (req, res) => req.path !== '/manager/events' && req.path !== '/staff/events' && compression.filter(req, res) }));
 
@@ -59,6 +77,8 @@ app.locals.v = assetVersion;
 app.locals.partial = require('./services/partial');
 
 app.use('/vendor/alpine.js', (req, res) => res.sendFile(require.resolve('alpinejs/dist/cdn.min.js'), { maxAge: '30d' }));
+// CSS/JS/SVG: nén gzip sẵn 1 lần, giữ trong RAM (CPU yếu: khỏi nén lại 80KB CSS ở mỗi lần tải)
+if (config.isProd) app.use(require('./services/staticGzip')(path.join(__dirname, 'public'), { maxAge: 30 * 86400 }));
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: config.isProd ? '30d' : 0 }));
 
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));

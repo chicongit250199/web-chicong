@@ -1,13 +1,12 @@
 <%- include('../partials/head', { appUi: true }) %>
+<% const menuHtml = menuGroups.map((g, gi) => `<p class="mb-1 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 ${gi ? 'mt-4' : ''}">${escapeFn(g.title)}</p>
+    <nav class="space-y-0.5">${g.items.map(item => partial('app/_nav_item', { item, nav, badges, icon })).join('')}</nav>`).join('\n  '); %>
 <div x-data="{ menu: false, notifs: false }" @open-notifs.window="notifs = true">
 <%- include('../partials/app-header') %>
 
 <%# Sidebar trái cố định, luôn mở rộng (quản lý và nhân viên) %>
 <aside class="fixed bottom-0 left-0 top-14 z-30 hidden w-60 overflow-y-auto border-r border-slate-200 bg-white px-3 py-4 lg:block dark:border-slate-800 dark:bg-slate-900">
-  <% menuGroups.forEach((g, gi) => { %>
-    <p class="mb-1 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 <%= gi ? 'mt-4' : '' %>"><%= g.title %></p>
-    <nav class="space-y-0.5"><% g.items.forEach(item => { %><%- partial('app/_nav_item', { item, nav, badges, icon }) %><% }) %></nav>
-  <% }) %>
+  <%- menuHtml %>
 </aside>
 
 <%# Mobile: thanh dưới + drawer menu đầy đủ %>
@@ -24,10 +23,7 @@
     <span class="font-semibold">Menu</span>
     <button type="button" @click="menu = false" class="rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Đóng"><%- icon('x', 'h-5 w-5') %></button>
   </div>
-  <% menuGroups.forEach((g, gi) => { %>
-    <p class="mb-1 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 <%= gi ? 'mt-4' : '' %>"><%= g.title %></p>
-    <nav class="space-y-0.5"><% g.items.forEach(item => { %><%- partial('app/_nav_item', { item, nav, badges, icon }) %><% }) %></nav>
-  <% }) %>
+  <%- menuHtml %>
 </aside>
 
 <div class="pb-20 lg:pb-6 lg:pl-60">

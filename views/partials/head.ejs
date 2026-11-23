@@ -20,6 +20,19 @@
   <% (typeof scripts !== 'undefined' ? scripts : []).forEach(s => { %><script defer src="<%= s %>?v=<%= v %>"></script>
   <% }) %>
   <script defer src="/vendor/alpine.js"></script>
+  <% if (typeof appUi !== 'undefined' && appUi) { %>
+  <%# Chrome/Edge: rê chuột ~0,2s (điện thoại: lúc chạm) vào link là tải trước trang -> bấm vào hiện gần như ngay.
+      Chỉ tải trước trang xem thường; bỏ qua in phiếu, xuất file, JSON, đăng xuất, trang Hệ thống (nặng). %>
+  <script type="speculationrules" nonce="<%= nonce %>">
+  {"prefetch":[{"where":{"and":[
+    {"or":[{"href_matches":"/staff*"},{"href_matches":"/manager*"}]},
+    {"not":{"href_matches":"/manager/system*"}},
+    {"not":{"href_matches":"*/print*"}},{"not":{"href_matches":"*/receipt*"}},{"not":{"href_matches":"*.json*"}},
+    {"not":{"href_matches":"*.csv*"}},{"not":{"href_matches":"*export*"}},{"not":{"href_matches":"*download*"}},
+    {"not":{"href_matches":"/logout*"}},{"not":{"selector_matches":"[target=_blank], [download], .no-prefetch"}}
+  ]},"eagerness":"moderate"}]}
+  </script>
+  <% } %>
 </head>
 <body class="min-h-screen bg-paper text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-100">
 <% const bgMode = settings.bg_logo || 'float'; if (settings.logo_url && bgMode !== 'off') { %>

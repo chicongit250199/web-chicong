@@ -15,6 +15,21 @@ db.pragma('cache_size = -16000'); // ~16MB cache trang
 db.pragma('mmap_size = 134217728'); // đọc file DB qua mmap (128MB) — nhanh hơn khi nhiều người xem cùng lúc
 db.pragma('temp_store = MEMORY');
 
+// Cache câu lệnh đã biên dịch: nhiều route gọi db.prepare(sql) trong mỗi request -> SQLite phải phân tích lại SQL.
+// Cùng chuỗi SQL dùng lại statement cũ (better-sqlite3 tự biên dịch lại khi schema đổi). Không có chỗ nào gọi
+// .pluck()/.raw()/.expand() (làm đổi trạng thái statement), nên dùng chung an toàn.
+const rawPrepare = db.prepare.bind(db);
+const stmtCache = new Map();
+db.prepare = sql => {
+  let st = stmtCache.get(sql);
+  if (!st) {
+    st = rawPrepare(sql);
+    if (stmtCache.size >= 1000) stmtCache.clear(); // SQL ghép động (LIMIT, IN (...)) không làm phình RAM
+    stmtCache.set(sql, st);
+  }
+  return st;
+};
+
 // vn(text): bỏ dấu + chữ thường, để tìm kiếm tiếng Việt không phân biệt dấu/hoa thường ("ha duy" khớp "HÀ DUY")
 const vn = s => (s == null ? null : String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toLowerCase());
 db.function('vn', { deterministic: true }, vn);
