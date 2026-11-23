@@ -1,10 +1,16 @@
 <%- include('../app/_top') %>
 <div class="page-title">
   <h1><%- icon(typeof returnMode !== 'undefined' ? 'checkCircle' : 'list', 'h-6 w-6 text-brand-600') %><%= title %> <span class="text-base font-normal text-slate-500">(<%= tasks.length %>)</span></h1>
-  <form class="flex w-full gap-2 sm:w-auto">
+  <form class="flex w-full flex-wrap gap-2 sm:w-auto">
     <% if (typeof returnMode === 'undefined') { %><input type="hidden" name="view" value="<%= view %>"><% } %>
-    <input name="q" value="<%= search %>" class="input sm:w-72" placeholder="SĐT, Model máy, mã phiếu..." autofocus>
+    <input name="q" value="<%= search %>" class="input min-w-0 flex-1 sm:w-72 sm:flex-none" placeholder="SĐT, Model máy, mã phiếu..." autofocus>
     <button class="btn-primary"><%- icon('search', 'h-4 w-4') %></button>
+    <label class="flex w-full items-center gap-2 text-sm sm:w-auto"><span class="shrink-0 text-slate-500">Sắp xếp</span>
+      <select name="sort" class="input py-2 sm:w-auto" x-on:change="$el.form.submit()">
+        <% Object.entries(sorts).filter(([k]) => k !== 'completed_new' || view === 'completed' || view === 'all').forEach(([k, [label]]) => { %>
+          <option value="<%= k %>" <%= sort === k ? 'selected' : '' %>><%= label %></option>
+        <% }) %>
+      </select></label>
   </form>
 </div>
 <% if (typeof returnMode === 'undefined') { %>

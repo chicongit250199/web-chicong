@@ -32,8 +32,26 @@ function extrasOf(taskId) {
                      WHERE r.type = 'repair' AND r.ref_id = ? AND r.order_code IS NOT NULL AND NOT (x.type = 'repair' AND x.ref_id IS NOT NULL) ORDER BY x.id`).all(taskId);
 }
 
+// Cách sắp xếp danh sách task (mặc định: nhận lâu nhất lên trước). Tab "Máy đã trả" mặc định ngày trả mới nhất.
+const SORTS = {
+  received: ['Ngày nhận — lâu nhất trước', 't.created_at ASC'],
+  received_new: ['Ngày nhận — mới nhất trước', 't.created_at DESC'],
+  return_date: ['Ngày hẹn trả — gần nhất trước', `t.expected_return_date IS NULL, t.expected_return_date ASC, t.created_at ASC`],
+  stale: ['Lâu không cập nhật nhất', `COALESCE(t.updated_at, t.created_at) ASC`],
+  updated: ['Mới cập nhật nhất', `COALESCE(t.updated_at, t.created_at) DESC`],
+  completed_new: ['Ngày trả máy — mới nhất trước', `t.completed_at IS NULL, t.completed_at DESC, t.created_at DESC`],
+  customer: ['Tên khách A → Z', `t.customer_name IS NULL OR t.customer_name = '', t.customer_name COLLATE NOCASE, t.created_at ASC`],
+};
+const defaultSort = view => (view === 'completed' ? 'completed_new' : 'received');
+// Lấy cách sắp xếp: ?sort=... (nhớ theo phiên đăng nhập cho từng tab), không có thì dùng đã nhớ / mặc định
+function pickSort(req, view) {
+  const mem = (req.session.taskSort ||= {});
+  if (SORTS[req.query.sort]) mem[view] = req.query.sort;
+  return mem[view] && SORTS[mem[view]] ? mem[view] : defaultSort(view);
+}
+
 // Danh sách theo "view" của menu
-function listTasks(view, user, search) {
+function listTasks(view, user, search, sort = defaultSort(view)) {
   const where = [];
   const params = {};
   const isManager = user.role === 'manager';
@@ -51,7 +69,7 @@ function listTasks(view, user, search) {
     params.s = `%${search}%`;
   }
   params.uid = user.id;
-  const order = view === 'completed' ? 't.completed_at DESC' : view === 'overdue' ? `${taskAlerts.AGE} DESC` : 't.created_at ASC';
+  const order = (SORTS[sort] || SORTS[defaultSort(view)])[1];
   return db.prepare(`${LIST_SQL} ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY ${order} LIMIT 200`).all(params);
 }
 
@@ -120,14 +138,16 @@ router.get('/tasks', (req, res) => {
   const search = String(req.query.q || '').trim();
   const [title, nav] = VIEW_TITLES[view];
   res.locals.nav = 'm-tasks'; // mọi nhóm task nằm chung mục "Quản lý task"
-  res.render('staff/tasks', { title, view, search, tasks: listTasks(view, req.user, search) });
+  const sort = pickSort(req, view);
+  res.render('staff/tasks', { title, view, search, sort, sorts: SORTS, tasks: listTasks(view, req.user, search, sort) });
 });
 
 // ---------- Trả máy: tìm theo SĐT / Model trong các task done + unrepairable ----------
 router.get('/return', (req, res) => {
   const search = String(req.query.q || '').trim();
   res.locals.nav = 'return';
-  res.render('staff/tasks', { title: 'Trả máy', view: 'ready', search, tasks: listTasks('ready', req.user, search), returnMode: true });
+  const sort = pickSort(req, 'return');
+  res.render('staff/tasks', { title: 'Trả máy', view: 'ready', search, sort, sorts: SORTS, tasks: listTasks('ready', req.user, search, sort), returnMode: true });
 });
 
 // ---------- Chi tiết ----------
