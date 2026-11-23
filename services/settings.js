@@ -1,5 +1,5 @@
 'use strict';
-// Cache settings trong RAM, xoá cache khi ghi
+// Cache settings trong RAM (nạp 1 lần), ghi thì cập nhật cache luôn
 const db = require('../db');
 
 let cache = null;
@@ -13,7 +13,9 @@ function all() {
 function get(key) { return all()[key]; }
 function set(obj) {
   db.transaction(() => { for (const [k, v] of Object.entries(obj)) qSet.run(k, v == null ? '' : String(v)); })();
-  cache = null;
+  // Cập nhật cache tại chỗ (không xóa): hàm SQL như task_alert_days đọc settings giữa lúc đang chạy query,
+  // nếu cache rỗng sẽ phải query lồng -> lỗi "connection is busy"
+  if (cache) for (const [k, v] of Object.entries(obj)) cache[k] = v == null ? '' : String(v);
 }
 
 module.exports = { all, get, set };

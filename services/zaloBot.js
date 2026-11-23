@@ -7,7 +7,7 @@
 //  - Quản lý: giao dịch (bán hàng, trả máy thu tiền), sửa xong / không sửa được, yêu cầu nhập hàng
 //  - Nhân viên: task mới; task được giao cho mình (chỉ người được giao)
 //  - Nhóm Zalo đối tác: máy của đối tác đó bắt đầu sửa / sửa xong / không sửa được (lời lẽ gửi khách)
-//  - Mỗi sáng (giờ đặt ở trang Tài khoản nhân viên, trừ Chủ nhật): task quá hạn đang giao cho từng người
+//  - Task đang giao cho ai đó vừa quá hạn: nhắn ngay người đó (ban đêm giữ lại tới 7:00)
 //  - Không gửi cho chính người vừa làm thao tác
 // Token trong .env (ZALO_BOT_TOKEN), nằm trong URL API → không bao giờ ghi URL ra log.
 // Server thử (BACKUP_DISABLED=true) tắt bot, trừ khi đặt ZALO_API_BASE (trỏ tới server giả để test).
@@ -20,7 +20,6 @@ const BASE = (process.env.ZALO_API_BASE || 'https://bot-api.zaloplatforms.com').
 const PUBLIC_URL = (process.env.PUBLIC_BASE_URL || 'http://chicongcomputer.local').replace(/\/+$/, '');
 const ENABLED = !!TOKEN && (process.env.BACKUP_DISABLED !== 'true' || !!process.env.ZALO_API_BASE);
 const MAX_TEXT = 2000, CODE_TTL = 15 * 60e3, MAX_QUEUE = 300, GAP_MS = 350;
-const DEF_OVERDUE_AT = '08:00';
 
 const MANAGER_KINDS = new Set(['sale', 'task_completed', 'task_done', 'task_unrepairable', 'stock_request']);
 const PARTNER_KINDS = new Set(['task_processing', 'task_done', 'task_unrepairable']);
@@ -146,38 +145,63 @@ function onNotification(n, meta) {
   } catch (e) { fail('chọn người nhận', e); }
 }
 
-// ---------- Cảnh báo task quá hạn hằng ngày ----------
-function overdueAt() { const v = settings.get('zalo_overdue_at'); return /^\d{2}:\d{2}$/.test(v || '') ? v : DEF_OVERDUE_AT; }
-function setOverdueAt(at) {
-  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(at || ''))) throw httpErr('Giờ không hợp lệ');
-  settings.set({ zalo_overdue_at: at });
-  return status();
-}
-function vnNow() { const d = new Date(Date.now() + 7 * 3600e3); return { ymd: d.toISOString().slice(0, 10), hm: d.toISOString().slice(11, 16), dow: d.getUTCDay() }; }
-
-function sendOverdue() {
-  const ta = require('./taskAlerts');
-  const list = db.prepare(`SELECT t.id, t.ticket_code, t.device_model, t.status, ${ta.AGE} AS age FROM tasks t
-    WHERE t.assigned_to = ? AND ${ta.OVERDUE_WHERE} ORDER BY age DESC LIMIT 30`);
-  let people = 0;
-  for (const u of q.users.all()) {
-    const rows = list.all(u.id);
-    if (!rows.length) continue;
-    const lines = rows.map(t => `• ${t.device_model} (${t.ticket_code}) — ${t.status === 'processing' ? 'đang sửa' : 'chưa làm'} ${String(Math.round(t.age * 10) / 10).replace('.', ',')} ngày`);
-    enqueue(u.zalo_chat_id, `⏰ ${u.full_name} có ${rows.length} task quá hạn:\n${lines.join('\n')}\n${absLink('/staff/tasks?view=overdue')}`);
-    people++;
+// ---------- Nhắc task quá hạn: gửi ngay khi task vừa quá hạn ----------
+// Mỗi 2 phút tìm task đang giao cho ai đó vừa vượt ngưỡng (ngưỡng ở trang Hệ thống, không tính Chủ nhật) mà chưa nhắc
+// kể từ lần cập nhật gần nhất → gộp theo người, nhắn 1 tin. Ban đêm (21:00–7:00 giờ VN) giữ lại, sáng gửi.
+const QUIET_FROM = 21, QUIET_TO = 7, OVERDUE_EVERY = 2 * 60e3;
+let qOverdue = null, qMarkOverdue = null;
+function checkOverdue() {
+  const h = new Date(Date.now() + 7 * 3600e3).getUTCHours();
+  if (h >= QUIET_FROM || h < QUIET_TO) return 0;
+  if (!qOverdue) {
+    const ta = require('./taskAlerts');
+    qOverdue = db.prepare(`SELECT t.id, t.ticket_code, t.device_model, t.status, t.assigned_to, ${ta.AGE} AS age FROM tasks t
+      WHERE t.assigned_to IS NOT NULL AND ${ta.OVERDUE_WHERE}
+        AND (t.zalo_overdue_at IS NULL OR t.zalo_overdue_at < COALESCE(t.updated_at, t.created_at)) ORDER BY age DESC`);
+    qMarkOverdue = db.prepare('UPDATE tasks SET zalo_overdue_at = ? WHERE id = ?');
   }
-  state.lastOverdue = { at: new Date().toISOString(), people };
-  return people;
+  settings.all(); // nạp cache trước (lần đầu) — hàm SQL task_alert_days đọc settings giữa lúc chạy query
+  const rows = qOverdue.all();
+  if (!rows.length) return 0;
+  const users = new Map(q.users.all().map(u => [u.id, u]));
+  const now = new Date().toISOString();
+  const byUser = new Map();
+  db.transaction(() => {
+    for (const t of rows) {
+      qMarkOverdue.run(now, t.id); // người chưa liên kết cũng đánh dấu, khỏi dồn tin khi liên kết sau
+      if (!users.has(t.assigned_to)) continue;
+      if (!byUser.has(t.assigned_to)) byUser.set(t.assigned_to, []);
+      byUser.get(t.assigned_to).push(t);
+    }
+  })();
+  const days = a => String(Math.round(a * 10) / 10).replace('.', ',');
+  for (const [uid, list] of byUser) {
+    const u = users.get(uid);
+    const lines = list.slice(0, 20).map(t => `• ${t.device_model} (${t.ticket_code}) — ${t.status === 'processing' ? 'đang sửa' : 'chưa làm'} ${days(t.age)} ngày\n  ${absLink('/staff/tasks/' + t.id)}`);
+    enqueue(u.zalo_chat_id, `⏰ ${list.length > 1 ? list.length + ' task' : 'Task'} của ${u.full_name} vừa quá hạn:\n${lines.join('\n')}${list.length > 20 ? `\n… và ${list.length - 20} task khác` : ''}`);
+  }
+  state.lastOverdue = { at: now, tasks: rows.length, people: byUser.size };
+  if (byUser.size) log(`nhắc task quá hạn: ${rows.length} task, ${byUser.size} người`);
+  return byUser.size;
 }
 
 function scheduleOverdue() {
-  setInterval(() => {
-    const n = vnNow();
-    if (n.dow === 0 || n.hm !== overdueAt() || settings.get('zalo_overdue_last') === n.ymd) return;
-    settings.set({ zalo_overdue_last: n.ymd });
-    try { log(`cảnh báo task quá hạn: gửi ${sendOverdue()} người`); } catch (e) { fail('cảnh báo quá hạn', e); }
-  }, 20e3).unref();
+  const run = () => { try { checkOverdue(); } catch (e) { fail('nhắc task quá hạn', e); } };
+  setTimeout(run, 30e3).unref();
+  setInterval(run, OVERDUE_EVERY).unref();
+}
+
+// Gửi tin tự soạn (mục Thử tin nhắn): target 'user:ID' | 'partner:ID'
+async function sendCustom(targetKey, text) {
+  if (!ENABLED) throw httpErr(TOKEN ? 'Bot đang tắt (máy chủ thử)' : 'Chưa cấu hình ZALO_BOT_TOKEN trong .env');
+  const [kind, id] = String(targetKey || '').split(':');
+  const msg = String(text || '').trim();
+  if (!msg) throw httpErr('Nhập nội dung tin nhắn');
+  const { row } = target(kind, Number(id));
+  if (!row.zalo_chat_id) throw httpErr('Chưa liên kết Zalo');
+  await call('sendMessage', { chat_id: row.zalo_chat_id, text: clip(msg) });
+  state.sent++; state.lastSentAt = new Date().toISOString();
+  return { to: row.zalo_name || row.name };
 }
 
 // ---------- Liên kết ----------
@@ -262,7 +286,7 @@ async function start() {
   if (!ENABLED) { if (TOKEN) log('tắt trên máy chủ thử'); return; }
   try {
     state.bot = await call('getMe');
-    log(`bot sẵn sàng: ${botName() || '(không rõ tên)'} · cảnh báo task quá hạn lúc ${overdueAt()} (trừ CN)`);
+    log(`bot sẵn sàng: ${botName() || '(không rõ tên)'}`);
   } catch (e) { fail('kiểm tra bot (getMe)', e); }
   pollLoop();
   scheduleOverdue();
@@ -288,8 +312,8 @@ function status() {
   return {
     configured: !!TOKEN, enabled: ENABLED, bot: botName(), polling: state.polling, lastPollOk: state.lastPollOk,
     lastError: state.lastError, lastErrorAt: state.lastErrorAt, sent: state.sent, failed: state.failed,
-    lastSentAt: state.lastSentAt, queue: queue.length, overdueAt: overdueAt(), lastOverdue: state.lastOverdue,
+    lastSentAt: state.lastSentAt, queue: queue.length, lastOverdue: state.lastOverdue,
   };
 }
 
-module.exports = { start, onNotification, createLinkCode, linkInfo, sendTest, setEnabled, unlink, status, setOverdueAt, sendOverdue };
+module.exports = { start, onNotification, createLinkCode, linkInfo, sendTest, setEnabled, unlink, status, sendCustom, checkOverdue };

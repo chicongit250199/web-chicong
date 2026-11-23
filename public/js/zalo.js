@@ -1,11 +1,11 @@
 // Liên kết Zalo: tài khoản nhân viên (base '/manager/users') và nhóm Zalo đối tác (base '/staff/partners')
 window.zaloLink = function (base, extra) {
   return Object.assign({
-    m: null, u: {}, zs: {}, zerr: '', zmsg: '', code: '', linked: false, linkedName: '', timer: null, overdueAt: '', busy: false,
+    m: null, u: {}, zs: {}, zerr: '', zmsg: '', code: '', linked: false, linkedName: '', timer: null, busy: false, sendTo: '', sendText: '',
     init: function () { this.loadStatus(); },
     loadStatus: function () {
       var self = this;
-      api('/manager/users/zalo/status').then(function (d) { self.zs = d; if (!self.overdueAt) self.overdueAt = d.overdueAt; }).catch(function (e) { self.zerr = e.message; });
+      api('/manager/users/zalo/status').then(function (d) { self.zs = d; }).catch(function (e) { self.zerr = e.message; });
     },
     startLink: function (item) {
       var self = this;
@@ -43,15 +43,11 @@ window.zaloLink = function (base, extra) {
       api(base + '/' + id + '/zalo/test', { method: 'POST' }).then(function () { self.zmsg = 'Đã gửi tin thử.'; self.loadStatus(); })
         .catch(function (e) { self.zerr = e.message; self.loadStatus(); });
     },
-    saveOverdueAt: function () {
+    sendCustom: function () {
       var self = this; this.busy = true; this.zerr = ''; this.zmsg = '';
-      api('/manager/users/zalo/overdue-at', { method: 'POST', body: { at: this.overdueAt } }).then(function (d) { self.zs = d; self.zmsg = 'Đã lưu giờ gửi cảnh báo.'; })
-        .catch(function (e) { self.zerr = e.message; }).finally(function () { self.busy = false; });
-    },
-    overdueNow: function () {
-      var self = this; this.busy = true; this.zerr = ''; this.zmsg = '';
-      api('/manager/users/zalo/overdue-now', { method: 'POST' }).then(function (d) { self.zs = d; self.zmsg = d.people ? 'Đã gửi cảnh báo cho ' + d.people + ' người.' : 'Không ai có task quá hạn.'; })
-        .catch(function (e) { self.zerr = e.message; }).finally(function () { self.busy = false; });
+      api('/manager/users/zalo/send', { method: 'POST', body: { target: this.sendTo, text: this.sendText } })
+        .then(function (d) { self.zmsg = 'Đã gửi tới ' + d.to + '.'; self.sendText = ''; self.loadStatus(); })
+        .catch(function (e) { self.zerr = e.message; self.loadStatus(); }).finally(function () { self.busy = false; });
     },
   }, extra || {});
 };

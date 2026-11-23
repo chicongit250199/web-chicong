@@ -1,5 +1,5 @@
 <%- include('../app/_top') %>
-<div x-data="zaloLink('/manager/users')" @keydown.escape.window="closeModal()">
+<div x-data="zaloLink('/manager/users', { sendTo: <%= JSON.stringify((users.find(x => x.zalo_chat_id) ? 'user:' + users.find(x => x.zalo_chat_id).id : zaloPartners[0] ? 'partner:' + zaloPartners[0].id : '')) %> })" @keydown.escape.window="closeModal()">
   <div class="page-title">
     <h1><%- icon('cpu', 'h-6 w-6 text-brand-600') %>Hệ thống</h1>
     <button type="button" @click="m = 'create'" class="btn-primary"><%- icon('plusSquare', 'h-4 w-4') %>Thêm tài khoản</button>
@@ -22,15 +22,28 @@
       <dd><span x-text="(zs.sent || 0) + ' tin'"></span><span x-show="zs.failed" x-cloak class="text-red-600" x-text="' · lỗi ' + zs.failed"></span>
         <span class="text-xs text-slate-500" x-show="zs.lastSentAt" x-text="'— gần nhất ' + (zs.lastSentAt ? new Date(zs.lastSentAt).toLocaleString('vi-VN') : '')"></span>
         <span class="block text-xs text-slate-500">(đếm từ lần khởi động web gần nhất)</span></dd>
-      <dt class="text-slate-500 pt-1.5">Nhắc quá hạn</dt>
-      <dd><form @submit.prevent="saveOverdueAt()" class="flex flex-wrap items-center gap-2">
-        <span>Mỗi ngày lúc</span><input type="time" x-model="overdueAt" required class="input w-32 py-1"><span class="text-xs text-slate-500">(trừ Chủ nhật)</span>
-        <button type="submit" :disabled="busy || overdueAt === zs.overdueAt" class="btn-secondary px-3 py-1 text-sm">Lưu giờ</button>
-        <button type="button" @click="overdueNow()" :disabled="busy || !zs.enabled" class="btn-secondary px-3 py-1 text-sm">Gửi nhắc ngay</button>
-      </form></dd>
+      <dt class="text-slate-500">Nhắc quá hạn</dt>
+      <dd>Gửi ngay khi task vừa quá hạn cho người được giao (ban đêm 21:00–7:00 giữ lại, sáng gửi)<span class="block text-xs text-slate-500" x-show="zs.lastOverdue && zs.lastOverdue.people" x-cloak x-text="zs.lastOverdue ? 'Lần gần nhất: ' + new Date(zs.lastOverdue.at).toLocaleString('vi-VN') + ' — ' + zs.lastOverdue.tasks + ' task' : ''"></span></dd>
       <dt x-show="zs.lastError" x-cloak class="text-slate-500">Lỗi gần nhất</dt>
       <dd x-show="zs.lastError" x-cloak class="text-xs text-red-600" x-text="zs.lastError + (zs.lastErrorAt ? ' (' + new Date(zs.lastErrorAt).toLocaleString('vi-VN') + ')' : '')"></dd>
     </dl>
+    <%# ---- Thử tin nhắn: gửi ngay 1 tin tự soạn tới tài khoản / nhóm đã liên kết ---- %>
+    <% const zTargets = users.filter(x => x.zalo_chat_id).map(x => ['user:' + x.id, x.full_name + (x.zalo_name ? ' (' + x.zalo_name + ')' : '')])
+         .concat(zaloPartners.map(p => ['partner:' + p.id, 'Nhóm ' + p.name + (p.zalo_name ? ' (' + p.zalo_name + ')' : '')])); %>
+    <form @submit.prevent="sendCustom()" class="mt-4 border-t border-slate-200 pt-3 dark:border-slate-800">
+      <h3 class="text-sm font-semibold">Thử tin nhắn</h3>
+      <% if (zTargets.length) { %>
+        <div class="mt-2 grid gap-2 md:grid-cols-[14rem_minmax(0,1fr)_auto] md:items-start">
+          <select x-model="sendTo" class="input" required>
+            <% zTargets.forEach(([k, l]) => { %><option value="<%= k %>"><%= l %></option><% }) %>
+          </select>
+          <textarea x-model="sendText" rows="2" maxlength="2000" required class="input" placeholder="Nội dung tin nhắn..."></textarea>
+          <button type="submit" :disabled="busy || !zs.enabled || !sendText.trim()" class="btn-primary" x-text="busy ? 'Đang gửi...' : 'Gửi ngay'"></button>
+        </div>
+      <% } else { %>
+        <p class="mt-1 text-sm text-slate-500">Chưa có tài khoản / nhóm nào liên kết Zalo.</p>
+      <% } %>
+    </form>
     <p x-show="zerr" x-cloak class="mt-2 text-sm text-red-600" x-text="zerr"></p>
     <p x-show="zmsg" x-cloak class="mt-2 text-sm text-emerald-700 dark:text-emerald-400" x-text="zmsg"></p>
   </section>
