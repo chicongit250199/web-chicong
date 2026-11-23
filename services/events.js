@@ -30,6 +30,7 @@ function notify(type, message, link, actor, audience) {
   const { lastInsertRowid } = ins.run(type, message, link || null, actor || null, aud);
   const n = getOne.get(lastInsertRowid);
   for (const c of clients) if (c.manager || aud === 'all') send(c.res, 'notification', n);
+  try { require('./zaloBot').onNotification(n); } catch (e) { console.error('[zalo]', e.message); }
   return n;
 }
 

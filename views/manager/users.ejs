@@ -1,12 +1,35 @@
 <%- include('../app/_top') %>
-<div x-data="{ m: null, u: {} }" @keydown.escape.window="m = null">
+<div x-data="zaloUsers()" @keydown.escape.window="closeModal()">
   <div class="page-title">
     <h1><%- icon('cpu', 'h-6 w-6 text-brand-600') %>Hệ thống</h1>
     <button type="button" @click="m = 'create'" class="btn-primary"><%- icon('plusSquare', 'h-4 w-4') %>Thêm tài khoản</button>
   </div>
   <%- include('_system_tabs', { sysTab: 'users' }) %>
+  <%# ---- Thông báo Zalo: trạng thái bot ---- %>
+  <section class="card mb-4">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h2 class="flex items-center gap-2 font-semibold"><span class="text-[#0068ff]"><%- icon('zalo', 'h-5 w-5') %></span>Thông báo Zalo</h2>
+        <p class="mt-0.5 text-sm text-slate-500">Thông báo trong web được gửi thêm qua Zalo cho tài khoản đã liên kết (quản lý nhận tất cả, nhân viên nhận việc bán hàng / sửa chữa / nhập kho; không gửi thao tác do chính mình làm).</p>
+      </div>
+      <span x-show="zs.enabled !== undefined" x-cloak :class="zs.enabled ? (zs.polling ? 'badge-green' : 'badge-amber') : 'badge-red'"
+            x-text="!zs.configured ? 'Chưa cấu hình' : !zs.enabled ? 'Đang tắt' : zs.polling ? 'Đang hoạt động' : 'Mất kết nối'"></span>
+    </div>
+    <dl class="mt-3 grid grid-cols-[8rem_1fr] gap-x-4 gap-y-1.5 text-sm">
+      <dt class="text-slate-500">Bot</dt>
+      <dd x-text="!zs.configured ? 'Chưa có token — thêm ZALO_BOT_TOKEN vào .env rồi khởi động lại' : !zs.enabled ? 'Tắt trên máy chủ thử' : (zs.bot || '(chưa lấy được tên bot)')"></dd>
+      <dt class="text-slate-500">Đã gửi</dt>
+      <dd><span x-text="(zs.sent || 0) + ' tin'"></span><span x-show="zs.failed" x-cloak class="text-red-600" x-text="' · lỗi ' + zs.failed"></span>
+        <span class="text-xs text-slate-500" x-show="zs.lastSentAt" x-text="'— gần nhất ' + (zs.lastSentAt ? new Date(zs.lastSentAt).toLocaleString('vi-VN') : '')"></span>
+        <span class="block text-xs text-slate-500">(đếm từ lần khởi động web gần nhất)</span></dd>
+      <dt x-show="zs.lastError" x-cloak class="text-slate-500">Lỗi gần nhất</dt>
+      <dd x-show="zs.lastError" x-cloak class="text-xs text-red-600" x-text="zs.lastError + (zs.lastErrorAt ? ' (' + new Date(zs.lastErrorAt).toLocaleString('vi-VN') + ')' : '')"></dd>
+    </dl>
+    <p x-show="zerr" x-cloak class="mt-2 text-sm text-red-600" x-text="zerr"></p>
+    <p x-show="zmsg" x-cloak class="mt-2 text-sm text-emerald-700 dark:text-emerald-400" x-text="zmsg"></p>
+  </section>
   <div class="tbl-wrap"><table class="tbl">
-    <thead><tr><th>Họ tên</th><th>Tên đăng nhập</th><th>Vai trò</th><th>Trạng thái</th><th class="text-right">Task đang mở</th><th>Tạo lúc</th><th class="text-right">Thao tác</th></tr></thead>
+    <thead><tr><th>Họ tên</th><th>Tên đăng nhập</th><th>Vai trò</th><th>Trạng thái</th><th>Zalo</th><th class="text-right">Task đang mở</th><th>Tạo lúc</th><th class="text-right">Thao tác</th></tr></thead>
     <tbody>
       <% users.forEach(x => { %>
         <tr class="<%= x.is_active ? '' : 'opacity-60' %>">
@@ -14,6 +37,18 @@
           <td class="font-mono text-xs"><%= x.username %></td>
           <td><span class="<%= x.role === 'manager' ? 'badge-violet' : 'badge-blue' %>"><%= x.role === 'manager' ? 'Quản lý' : 'Nhân viên' %></span></td>
           <td><span class="<%= x.is_active ? 'badge-green' : 'badge-red' %>"><%= x.is_active ? 'Hoạt động' : 'Đã khóa' %></span></td>
+          <td class="whitespace-nowrap">
+            <% if (x.zalo_chat_id) { %>
+              <span class="flex items-center gap-1">
+                <span class="<%= x.zalo_enabled ? 'badge-green' : 'badge-gray' %> max-w-[9rem] truncate" title="<%= x.zalo_name || '' %>"><%= x.zalo_enabled ? (x.zalo_name || 'Đã liên kết') : 'Tắt nhận tin' %></span>
+                <button type="button" title="<%= x.zalo_enabled ? 'Tắt nhận tin Zalo' : 'Bật nhận tin Zalo' %>" @click="setEnabled(<%= x.id %>, <%= x.zalo_enabled ? 'false' : 'true' %>)" class="rounded-md p-1 hover:bg-slate-100 dark:hover:bg-slate-800 <%= x.zalo_enabled ? 'text-brand-600' : 'text-slate-400' %>"><%- icon('bell', 'h-4 w-4') %></button>
+                <button type="button" title="Gửi tin thử" @click="test(<%= x.id %>)" class="rounded-md p-1 hover:bg-slate-100 dark:hover:bg-slate-800"><%- icon('chat', 'h-4 w-4') %></button>
+                <button type="button" title="Gỡ liên kết" @click="unlink(<%= x.id %>, <%= JSON.stringify(x.full_name) %>)" class="rounded-md p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"><%- icon('x', 'h-4 w-4') %></button>
+              </span>
+            <% } else if (x.is_active) { %>
+              <button type="button" @click="startLink(<%= JSON.stringify({ id: x.id, full_name: x.full_name }) %>)" class="btn-secondary px-2 py-1 text-xs"><span class="text-[#0068ff]"><%- icon('zalo', 'h-4 w-4') %></span>Liên kết</button>
+            <% } else { %><span class="text-xs text-slate-400">—</span><% } %>
+          </td>
           <td class="text-right tabular-nums"><%= x.open_tasks %></td>
           <td class="whitespace-nowrap text-xs"><%= fmt.datetime(x.created_at) %></td>
           <td class="whitespace-nowrap text-right">
@@ -68,6 +103,29 @@
         <p class="text-xs text-slate-500">Tài khoản này sẽ bị đăng xuất khỏi các thiết bị khác.</p>
         <div class="flex justify-end gap-2 pt-2"><button type="button" @click="m = null" class="btn-secondary">Hủy</button><button class="btn-primary">Đổi mật khẩu</button></div>
       </form>
+    </div>
+  </template>
+  <template x-if="m === 'zalo'">
+    <div class="modal-backdrop" @click.self="closeModal()">
+      <div class="modal space-y-3">
+        <h3 class="text-lg font-semibold">Liên kết Zalo cho <span x-text="u.full_name"></span></h3>
+        <template x-if="!linked">
+          <div class="space-y-3">
+            <ol class="list-decimal space-y-1 pl-5 text-sm">
+              <li>Người dùng mở Zalo trên điện thoại, tìm bot <b x-text="zs.bot || '(tên bot)'"></b>.</li>
+              <li>Nhắn cho bot mã sau:</li>
+            </ol>
+            <div class="rounded-xl bg-slate-100 py-4 text-center font-mono text-4xl font-bold tracking-[0.3em] dark:bg-slate-800" x-text="code || '······'"></div>
+            <p class="text-xs text-slate-500">Mã dùng 1 lần, hết hạn sau 15 phút. Trang tự nhận khi liên kết xong.</p>
+            <p class="flex items-center gap-2 text-sm text-slate-500"><span class="h-2 w-2 animate-pulse rounded-full bg-brand-500"></span>Đang chờ tin nhắn...</p>
+          </div>
+        </template>
+        <template x-if="linked">
+          <p class="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">✅ Đã liên kết với Zalo <b x-text="linkedName || ''"></b>. Bot đã gửi tin xác nhận.</p>
+        </template>
+        <p x-show="zerr" class="text-sm text-red-600" x-text="zerr"></p>
+        <div class="flex justify-end gap-2 pt-2"><button type="button" @click="closeModal()" class="btn-secondary" x-text="linked ? 'Xong' : 'Đóng'"></button></div>
+      </div>
     </div>
   </template>
 </div>

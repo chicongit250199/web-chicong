@@ -121,6 +121,7 @@ const server = app.listen(config.port, config.host, () => {
   require('./services/vatSync').scheduleAuto();
   require('./services/revenueReport').schedule();
   require('./services/sheetSync').schedule();
+  require('./services/zaloBot').start();
 });
 
 // Giữ kết nối lâu hơn để trình duyệt dùng lại (nhiều người dùng LAN)

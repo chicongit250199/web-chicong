@@ -22,7 +22,7 @@ const createSchema = v.z.object({
 
 router.get('/users', (req, res) => {
   res.locals.nav = 'm-users'; // tab trong trang Hệ thống
-  res.render('manager/users', { title: 'Tài khoản nhân viên', users: q.list.all() });
+  res.render('manager/users', { title: 'Tài khoản nhân viên', users: q.list.all(), scripts: ['/js/zalo.js'] });
 });
 
 router.post('/users', (req, res) => {
@@ -90,5 +90,19 @@ router.post('/users/:id/delete', (req, res) => {
   req.flash('success', `Đã xóa ${target.username}.`);
   res.redirect('/manager/users');
 });
+
+// ---------- Thông báo Zalo ----------
+const zalo = require('../../services/zaloBot');
+const zj = fn => async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try { res.json(await fn(req)); } catch (e) { res.status(e.status || 400).json({ error: e.message }); }
+};
+const zUser = req => { const u = q.get.get(req.params.id); if (!u) throw Object.assign(new Error('Không tìm thấy tài khoản'), { status: 404 }); return u; };
+router.get('/users/zalo/status', zj(() => zalo.status()));
+router.post('/users/:id/zalo/code', zj(req => zalo.createLinkCode(zUser(req).id)));
+router.get('/users/:id/zalo', zj(req => zalo.linkInfo(zUser(req).id)));
+router.post('/users/:id/zalo/enabled', zj(req => zalo.setEnabled(zUser(req).id, !!req.body.enabled)));
+router.post('/users/:id/zalo/unlink', zj(req => zalo.unlink(zUser(req).id)));
+router.post('/users/:id/zalo/test', zj(async req => { await zalo.sendTest(zUser(req).id); return { ok: true }; }));
 
 module.exports = router;
