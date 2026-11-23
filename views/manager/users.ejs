@@ -32,23 +32,41 @@
       <dt x-show="zs.lastError" x-cloak class="text-slate-500">Lỗi gần nhất</dt>
       <dd x-show="zs.lastError" x-cloak class="text-xs text-red-600" x-text="zs.lastError + (zs.lastErrorAt ? ' (' + new Date(zs.lastErrorAt).toLocaleString('vi-VN') + ')' : '')"></dd>
     </dl>
-    <%# ---- Thử tin nhắn: gửi ngay 1 tin tự soạn tới tài khoản / nhóm đã liên kết ---- %>
+    <%# ---- Thử tin nhắn: xem trước mẫu nội dung bot sẽ gửi, gửi thử 1 mẫu ---- %>
     <% const zTargets = users.filter(x => x.zalo_chat_id).map(x => ['user:' + x.id, x.full_name + (x.zalo_name ? ' (' + x.zalo_name + ')' : '')])
          .concat(zaloPartners.map(p => ['partner:' + p.id, 'Nhóm ' + p.name + (p.zalo_name ? ' (' + p.zalo_name + ')' : '')])); %>
-    <form @submit.prevent="sendCustom()" class="mt-4 border-t border-slate-200 pt-3 dark:border-slate-800">
-      <h3 class="text-sm font-semibold">Thử tin nhắn</h3>
-      <% if (zTargets.length) { %>
-        <div class="mt-2 grid gap-2 md:grid-cols-[14rem_minmax(0,1fr)_auto] md:items-start">
-          <select x-model="sendTo" class="input" required>
-            <% zTargets.forEach(([k, l]) => { %><option value="<%= k %>"><%= l %></option><% }) %>
-          </select>
-          <textarea x-model="sendText" rows="2" maxlength="2000" required class="input" placeholder="Nội dung tin nhắn..."></textarea>
-          <button type="submit" :disabled="busy || !zs.enabled || !sendText.trim()" class="btn-primary" x-text="busy ? 'Đang gửi...' : 'Gửi ngay'"></button>
+    <div class="mt-4 border-t border-slate-200 pt-3 dark:border-slate-800">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 class="text-sm font-semibold">Thử tin nhắn — mẫu nội dung bot sẽ gửi</h3>
+          <p class="text-xs text-slate-500">Dữ liệu minh họa; tin thật thay bằng tên máy, phiếu, giá… của task đó.</p>
         </div>
-      <% } else { %>
-        <p class="mt-1 text-sm text-slate-500">Chưa có tài khoản / nhóm nào liên kết Zalo.</p>
-      <% } %>
-    </form>
+        <% if (zTargets.length) { %>
+          <label class="flex items-center gap-2 text-sm"><span class="text-slate-500">Gửi thử tới</span>
+            <select x-model="sendTo" class="input w-auto py-1">
+              <% zTargets.forEach(([k, l]) => { %><option value="<%= k %>"><%= l %></option><% }) %>
+            </select></label>
+        <% } %>
+      </div>
+      <div class="mt-3 grid gap-4 lg:grid-cols-3">
+        <% ['Quản lý', 'Nhân viên', 'Nhóm đối tác'].forEach(g => { %>
+          <div>
+            <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Gửi <%= g === 'Nhóm đối tác' ? 'nhóm Zalo đối tác' : g.toLowerCase() %></h4>
+            <div class="space-y-2">
+              <% zaloPreviews.filter(p => p.group === g).forEach(p => { %>
+                <div class="rounded-xl border border-slate-200 p-2.5 dark:border-slate-700">
+                  <div class="mb-1 flex items-center justify-between gap-2">
+                    <span class="text-xs font-semibold"><%= p.label %></span>
+                    <% if (zTargets.length) { %><button type="button" @click="sendPreview('<%= p.key %>')" :disabled="busy || !zs.enabled" class="rounded-md px-2 py-0.5 text-xs text-brand-600 hover:bg-brand-50 disabled:opacity-50 dark:hover:bg-slate-800">Gửi thử</button><% } %>
+                  </div>
+                  <p class="whitespace-pre-line break-words rounded-lg bg-[#e5efff] px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100"><%= p.text %></p>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    </div>
     <p x-show="zerr" x-cloak class="mt-2 text-sm text-red-600" x-text="zerr"></p>
     <p x-show="zmsg" x-cloak class="mt-2 text-sm text-emerald-700 dark:text-emerald-400" x-text="zmsg"></p>
   </section>

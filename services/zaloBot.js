@@ -126,13 +126,15 @@ function partnerText(kind, t) {
   return null;
 }
 
+// Tin nội bộ (quản lý / nhân viên): nội dung thông báo trong web + link mở trang
+function internalText(message, link) { link = absLink(link); return `🔔 ${message}${link ? '\n' + link : ''}`; }
+
 function onNotification(n, meta) {
   if (!ENABLED || !n) return;
   meta = meta || {};
   const kind = meta.kind || n.type;
   try {
-    const link = absLink(n.link);
-    const text = `🔔 ${n.message}${link ? '\n' + link : ''}`;
+    const text = internalText(n.message, n.link);
     for (const u of q.users.all()) {
       if (n.actor_name && n.actor_name === u.full_name) continue;
       const want = kind === 'task_assigned' ? u.id === meta.userId
@@ -156,6 +158,11 @@ function setOverdueAt(at) {
 }
 function vnNow() { const d = new Date(Date.now() + 7 * 3600e3); return { ymd: d.toISOString().slice(0, 10), hm: d.toISOString().slice(11, 16), dow: d.getUTCDay() }; }
 
+function overdueText(name, rows) {
+  const lines = rows.map(t => `• ${t.device_model} (${t.ticket_code}) — ${t.status === 'processing' ? 'đang sửa' : 'chưa làm'} ${String(Math.round(t.age * 10) / 10).replace('.', ',')} ngày`);
+  return `⏰ ${name} có ${rows.length} task quá hạn:\n${lines.join('\n')}\n${absLink('/staff/tasks?view=overdue')}`;
+}
+
 function sendOverdue() {
   const ta = require('./taskAlerts');
   const list = db.prepare(`SELECT t.id, t.ticket_code, t.device_model, t.status, ${ta.AGE} AS age FROM tasks t
@@ -164,8 +171,7 @@ function sendOverdue() {
   for (const u of q.users.all()) {
     const rows = list.all(u.id);
     if (!rows.length) continue;
-    const lines = rows.map(t => `• ${t.device_model} (${t.ticket_code}) — ${t.status === 'processing' ? 'đang sửa' : 'chưa làm'} ${String(Math.round(t.age * 10) / 10).replace('.', ',')} ngày`);
-    enqueue(u.zalo_chat_id, `⏰ ${u.full_name} có ${rows.length} task quá hạn:\n${lines.join('\n')}\n${absLink('/staff/tasks?view=overdue')}`);
+    enqueue(u.zalo_chat_id, overdueText(u.full_name, rows));
     people++;
   }
   state.lastOverdue = { at: new Date().toISOString(), people };
@@ -183,15 +189,37 @@ function scheduleOverdue() {
 }
 
 
-// Gửi tin tự soạn (mục Thử tin nhắn): target 'user:ID' | 'partner:ID'
-async function sendCustom(targetKey, text) {
+// ---------- Mẫu tin nhắn (mục Thử tin nhắn): xem trước nội dung bot sẽ gửi, dữ liệu minh họa ----------
+// Lời nội bộ giống chuỗi thông báo trong routes (sales / tasks / assign / pcParts) — sửa ở đó thì sửa cả đây
+function previews() {
+  const t = { id: 1, device_model: 'Laptop Dell Latitude 5420', ticket_code: 'CC-20261123-001', final_price: 450000, fail_reason: 'Hỏng chip VGA, không có linh kiện thay' };
+  const nv = 'Nhân viên A', ql = 'Quản lý', link = `/staff/tasks/${t.id}`, dev = `${t.device_model} (${t.ticket_code})`;
+  const pay = fmt.payment('cash'), money = fmt.money(t.final_price);
+  return [
+    { key: 'sale', group: 'Quản lý', label: 'Bán hàng', text: internalText(`${nv} bán RAM DDR4 8GB 3200 — ${fmt.money(500000)} (${pay})`, '/staff/search?q=0901234567') },
+    { key: 'task_completed', group: 'Quản lý', label: 'Trả máy, thu tiền', text: internalText(`${nv} trả máy ${dev} — thu ${money} (${pay})`, link) },
+    { key: 'task_done', group: 'Quản lý', label: 'Sửa xong', text: internalText(`${nv} sửa xong ${dev} — ${money}`, link) },
+    { key: 'task_unrepairable', group: 'Quản lý', label: 'Không sửa được', text: internalText(`${nv}: không sửa được ${dev} — ${t.fail_reason}`, link) },
+    { key: 'stock_request', group: 'Quản lý', label: 'Yêu cầu nhập hàng', text: internalText(`${nv} yêu cầu nhập 2 × SSD Samsung 980 500GB — khách đặt`, '/manager/pc-parts?req=1') },
+    { key: 'task_new', group: 'Nhân viên', label: 'Task mới', text: internalText(`${ql} nhận máy ${dev} — KH Anh Ba`, link) },
+    { key: 'task_assigned', group: 'Nhân viên', label: 'Được giao task', text: internalText(`${ql} giao ${dev} cho ${nv}`, link) },
+    { key: 'overdue', group: 'Nhân viên', label: 'Nhắc quá hạn (mỗi sáng)', text: overdueText(nv, [
+      { ...t, status: 'processing', age: 2.5 }, { device_model: 'PC văn phòng i5', ticket_code: 'CC-20261120-004', status: 'pending', age: 3.2 }]) },
+    { key: 'p_processing', group: 'Nhóm đối tác', label: 'Bắt đầu sửa', text: partnerText('task_processing', t) },
+    { key: 'p_done', group: 'Nhóm đối tác', label: 'Sửa xong', text: partnerText('task_done', t) },
+    { key: 'p_unrepairable', group: 'Nhóm đối tác', label: 'Không sửa được', text: partnerText('task_unrepairable', t) },
+  ];
+}
+
+// Gửi thử 1 mẫu tới tài khoản / nhóm đã liên kết: target 'user:ID' | 'partner:ID'
+async function sendPreview(targetKey, key) {
   if (!ENABLED) throw httpErr(TOKEN ? 'Bot đang tắt (máy chủ thử)' : 'Chưa cấu hình ZALO_BOT_TOKEN trong .env');
+  const p = previews().find(x => x.key === key);
+  if (!p) throw httpErr('Không có mẫu này');
   const [kind, id] = String(targetKey || '').split(':');
-  const msg = String(text || '').trim();
-  if (!msg) throw httpErr('Nhập nội dung tin nhắn');
   const { row } = target(kind, Number(id));
   if (!row.zalo_chat_id) throw httpErr('Chưa liên kết Zalo');
-  await call('sendMessage', { chat_id: row.zalo_chat_id, text: clip(msg) });
+  await call('sendMessage', { chat_id: row.zalo_chat_id, text: clip(`🧪 TIN MẪU (thử, không phải thông báo thật)\n\n${p.text}`) });
   state.sent++; state.lastSentAt = new Date().toISOString();
   return { to: row.zalo_name || row.name };
 }
@@ -308,4 +336,4 @@ function status() {
   };
 }
 
-module.exports = { start, onNotification, createLinkCode, linkInfo, sendTest, setEnabled, unlink, status, sendCustom, setOverdueAt, sendOverdue };
+module.exports = { start, onNotification, createLinkCode, linkInfo, sendTest, setEnabled, unlink, status, previews, sendPreview, setOverdueAt, sendOverdue };
