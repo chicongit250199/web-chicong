@@ -156,4 +156,4 @@ function partnerBalances() {
   return m;
 }
 
-module.exports = { keyFor, NEED_CUSTOMER, split, recordOrder, cleanupOrphans, list, totals, detail, pay, deletePayment, relinkPartners, partnerBalances, balanceOf };
+module.exports = { label, keyFor, NEED_CUSTOMER, split, recordOrder, cleanupOrphans, list, totals, detail, pay, deletePayment, relinkPartners, partnerBalances, balanceOf };

@@ -66,12 +66,41 @@ function summaryTable(s, expense, paid = 0) {
     ['Bán hàng', money(s.sale)],
     ['Tiền mặt', money(s.cash)],
     ['Chuyển khoản', money(s.transfer)],
-    ...(s.debt ? [['Bán công nợ (chưa thu)', money(s.debt)]] : []),
-    ...(paid ? [['Thu nợ', money(paid)]] : []),
+    ['Bán công nợ (đã tính vào doanh thu)', money(s.debt)],
+    ['Thu nợ (khách trả nợ)', money(paid)],
     ['Chi phí', money(expense)],
     ['Doanh thu − chi phí', `<b>${money(s.total - expense)}</b>`],
   ];
   return `<table style="border-collapse:collapse;width:100%;max-width:480px;font-size:14px">${rows.map(([k, v]) => `<tr><td style="${TD}color:#475569">${k}</td><td style="${TDR}">${v}</td></tr>`).join('')}</table>`;
+}
+
+// ---------- Công nợ: trong kỳ (bán nợ, thu nợ) + tổng còn nợ hiện tại ----------
+function debtSection(from, to) {
+  const debts = require('./debts');
+  const range = `date(created_at, '+7 hours') BETWEEN ? AND ?`;
+  const sold = db.prepare(`SELECT debtor_key, order_code, MIN(created_at) created_at, GROUP_CONCAT(content, ' · ') content, SUM(amount) amount, MAX(staff_name) staff_name
+    FROM revenues WHERE payment_method = 'debt' AND ${range} GROUP BY COALESCE(order_code, id) ORDER BY created_at`).all(from, to);
+  const paid = db.prepare(`SELECT * FROM debt_payments WHERE ${range} ORDER BY created_at`).all(from, to);
+  const owing = debts.list();
+  const t = debts.totals();
+  const name = k => { if (!k) return ''; const l = debts.label(k); return esc(l.name || l.phone) + (k.startsWith('p:') ? ' <span style="color:#7c3aed;font-size:11px">(đối tác)</span>' : ''); };
+  const dm = iso => esc(fmt.date(fmt.todayYmd(new Date(iso))).slice(0, 5));
+  const table = (head, rows) => `<table style="border-collapse:collapse;width:100%;font-size:13px;margin-top:8px"><tr>${head.map(([h, r]) => `<th style="${TH}${r ? 'text-align:right' : ''}">${h}</th>`).join('')}</tr>${rows}</table>`;
+  const upfront = new Map(paid.filter(p => p.order_code).map(p => [p.order_code, p.amount]));
+  return `<h3 style="margin:24px 0 0;font-size:15px">Công nợ</h3>
+<p style="margin:6px 0 0;font-size:14px">Tổng còn nợ hiện tại: <b style="color:#b91c1c;font-size:16px">${money(t.balance)}</b> · ${esc(owing.length)} người / đối tác đang nợ</p>
+${sold.length ? `<h4 style="margin:14px 0 0;font-size:14px">Bán công nợ trong kỳ</h4>
+${table([['Ngày'], ['Người nợ'], ['Nội dung'], ['Tổng đơn', 1], ['Trả trước', 1], ['Ghi nợ', 1]], sold.map(r => { const up = upfront.get(r.order_code) || 0; return `<tr>
+<td style="${TD}white-space:nowrap">${dm(r.created_at)}</td><td style="${TD}">${name(r.debtor_key)}</td><td style="${TD}">${esc(r.content)}${r.staff_name ? `<br><span style="color:#94a3b8;font-size:12px">NV: ${esc(r.staff_name)}</span>` : ''}</td>
+<td style="${TDR}">${money(r.amount)}</td><td style="${TDR}">${up ? money(up) : ''}</td><td style="${TDR}"><b style="color:#b45309">${money(r.amount - up)}</b></td></tr>`; }).join(''))}` : ''}
+${paid.filter(p => !p.order_code).length ? `<h4 style="margin:14px 0 0;font-size:14px">Thu nợ trong kỳ</h4>
+${table([['Ngày'], ['Người trả'], ['Ghi chú'], ['Hình thức'], ['Số tiền', 1]], paid.filter(p => !p.order_code).map(p => `<tr>
+<td style="${TD}white-space:nowrap">${dm(p.created_at)}</td><td style="${TD}">${name(p.debtor_key)}</td><td style="${TD}">${esc(p.note || '')}${p.staff_name ? `<br><span style="color:#94a3b8;font-size:12px">NV: ${esc(p.staff_name)}</span>` : ''}</td>
+<td style="${TD}">${esc(fmt.payment(p.payment_method))}</td><td style="${TDR}"><b style="color:#047857">${money(p.amount)}</b></td></tr>`).join(''))}` : ''}
+${owing.length ? `<h4 style="margin:14px 0 0;font-size:14px">Danh sách đang nợ</h4>
+${table([['Người nợ'], ['Nợ phát sinh', 1], ['Đã trả', 1], ['Còn nợ', 1]], owing.slice(0, 30).map(d => `<tr>
+<td style="${TD}">${name(d.key)}${d.phone && d.name ? `<br><span style="color:#64748b;font-size:12px">${esc(d.phone)}</span>` : ''}</td><td style="${TDR}">${money(d.owed)}</td><td style="${TDR}">${money(d.paid)}</td><td style="${TDR}"><b style="color:#b91c1c">${money(d.balance)}</b></td></tr>`).join(''))}
+${owing.length > 30 ? `<p style="font-size:12px;color:#64748b">… và ${esc(owing.length - 30)} người khác — xem đủ ở trang Doanh thu → Công nợ.</p>` : ''}` : '<p style="font-size:13px;color:#64748b">Không ai đang nợ.</p>'}`;
 }
 
 function layout(title, body) {
@@ -170,6 +199,7 @@ ${multi ? '<p style="margin:0 0 12px;font-size:13px;color:#b45309">Chủ nhật 
 ${summaryTable(s, expense, debtPaid(from, day))}
 <p style="margin:12px 0 0;font-size:13px;color:#475569">Lũy kế tháng ${esc(day.slice(5, 7))}/${esc(day.slice(0, 4))} đến hôm nay: <b>${money(month.t)}</b> · ${esc(month.c)} giao dịch</p>
 <h3 style="margin:20px 0 0;font-size:15px">Chi tiết giao dịch</h3>${items}
+${debtSection(from, day)}
 ${taskSection(from, day)}
 <p style="font-size:12px;color:#94a3b8">Số liệu tính đến lúc gửi; giao dịch sau giờ này sẽ nằm trong báo cáo tháng / trang Thống kê.</p>`;
   return { subject: `[Chí Công] ${title}: ${fmt.money(s.total)}`, html: layout(title, body), total: s.total };
@@ -204,6 +234,7 @@ ${summaryTable(s, expense, debtPaid(from, to))}
 ${staff.length ? `<h3 style="margin:20px 0 0;font-size:15px">Theo nhân viên</h3>
 <table style="border-collapse:collapse;width:100%;max-width:480px;font-size:13px;margin-top:8px"><tr><th style="${TH}">Nhân viên</th><th style="${TH}text-align:right">Giao dịch</th><th style="${TH}text-align:right">Doanh thu</th></tr>
 ${staff.map(r => `<tr><td style="${TD}">${esc(r.name)}</td><td style="${TDR}">${esc(r.c)}</td><td style="${TDR}">${money(r.t)}</td></tr>`).join('')}</table>` : ''}
+${debtSection(from, to)}
 <h3 style="margin:20px 0 0;font-size:15px">Theo ngày</h3>
 <table style="border-collapse:collapse;width:100%;font-size:13px;margin-top:8px">
 <tr><th style="${TH}">Ngày</th><th style="${TH}text-align:right">GD</th><th style="${TH}text-align:right">Sửa chữa</th><th style="${TH}text-align:right">Bán hàng</th><th style="${TH}text-align:right">Chi phí</th><th style="${TH}text-align:right">Tổng</th></tr>

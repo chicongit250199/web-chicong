@@ -10,9 +10,14 @@
     </div>
     <span class="flex shrink-0 flex-col items-end gap-1"><span class="<%= st.cls %>"><%= st.label %></span><% if (t.partner_name) { %><span class="badge-violet"><%= t.partner_name %></span><% } %></span>
   </div>
-  <p class="mt-2 line-clamp-2 text-sm text-slate-600 dark:text-slate-300"><%= t.issue_desc %></p>
-  <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-    <span class="flex items-center gap-1"><%- icon('phone', 'h-3.5 w-3.5') %><%= [t.customer_name, t.customer_phone].filter(Boolean).join(' · ') || 'Khách lẻ' %></span>
+  <%# Lỗi + khách hàng: chữ lớn, đậm hơn để dễ đọc %>
+  <p class="mt-2 line-clamp-2 text-[15px] leading-snug text-slate-800 dark:text-slate-100"><%= t.issue_desc %></p>
+  <p class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[15px]">
+    <%- icon('phone', 'h-4 w-4 shrink-0 text-brand-600') %>
+    <span class="font-semibold text-slate-900 dark:text-white"><%= t.customer_name || (t.customer_phone ? '' : 'Khách lẻ') %></span>
+    <% if (t.customer_phone) { %><span class="font-medium tabular-nums text-slate-700 dark:text-slate-200"><%= t.customer_phone %></span><% } %>
+  </p>
+  <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
     <% if (t.assigned_name) { %><span class="flex items-center gap-1"><%- icon('userCheck', 'h-3.5 w-3.5') %><%= t.assigned_name %></span><% } %>
     <% if (t.expected_return_date) { %>
       <span class="flex items-center gap-1 <%= t.expected_return_date < fmt.todayYmd() && ['pending','processing'].includes(t.status) ? 'font-semibold text-red-600' : '' %>"><%- icon('clock', 'h-3.5 w-3.5') %>Hẹn <%= fmt.date(t.expected_return_date) %></span>
