@@ -83,6 +83,7 @@
   // ---- Cập nhật trang theo thời gian thực ----
   // Có thông báo mới (SSE) -> tải lại ngầm trang hiện tại, thay phần <main> + số trên menu, giữ nguyên vị trí cuộn.
   // Không làm khi người dùng đang thao tác: popup đang mở, đang gõ / đã sửa ô nhập, hoặc trang nhập liệu (bán hàng, nhận máy...).
+  // Khi đó vẫn cập nhật các khung chỉ-để-xem đánh dấu data-live="tên" (vd "Bán gần đây" ở trang bán hàng) — không đụng ô đang nhập.
   var liveRefresh = (function () {
     var SKIP = /^\/(staff\/(sell|build|tasks\/new|inventory\/new|products\/new)|manager\/(system|import|pc-parts\/new|products\/\d+))|\/(edit|new|print)(\/|$)/;
     var timer = null, busy = false, again = false, dirty = false;
@@ -99,6 +100,15 @@
       for (var i = 0; i < cur.length; i++) if (cur[i].innerHTML !== next[i].innerHTML) cur[i].innerHTML = next[i].innerHTML;
       return true;
     }
+    // Khung data-live: khớp theo tên, bỏ qua khung đang chứa ô người dùng đang gõ
+    function swapLive(doc) {
+      var a = document.activeElement;
+      document.querySelectorAll('[data-live]').forEach(function (el) {
+        var nx = doc.querySelector('[data-live="' + el.getAttribute('data-live') + '"]');
+        if (!nx || (a && el.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) return;
+        if (el.innerHTML !== nx.innerHTML) el.innerHTML = nx.innerHTML;
+      });
+    }
     function run() {
       timer = null;
       if (document.hidden) return;
@@ -111,6 +121,7 @@
           var doc = new DOMParser().parseFromString(html, 'text/html');
           swap('[data-live-nav]', doc);
           if (!onlyNav && !userBusy()) swap('main', doc);
+          else swapLive(doc);
         })
         .catch(function () {})
         .then(function () { busy = false; if (again) { again = false; schedule(); } });

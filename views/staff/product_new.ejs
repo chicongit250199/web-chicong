@@ -26,7 +26,7 @@
   </form>
   <aside>
     <h2 class="mb-2 font-semibold">Sản phẩm tôi đã đăng</h2>
-    <ul class="card divide-y divide-slate-100 p-0 dark:divide-slate-800">
+    <ul data-live="my-products" class="card divide-y divide-slate-100 p-0 dark:divide-slate-800">
       <% mine.forEach(p => { %>
         <li class="flex items-center gap-3 px-3 py-2.5 text-sm">
           <% if (p.image_url) { %><img src="<%= p.image_url %>" alt="" class="h-10 w-10 rounded object-cover"><% } else { %><span class="grid h-10 w-10 place-items-center rounded bg-slate-100 text-slate-400 dark:bg-slate-800"><%- icon('box', 'h-5 w-5') %></span><% } %>

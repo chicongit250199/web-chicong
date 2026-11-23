@@ -122,7 +122,7 @@ window.sellForm = function (staffName, preset, build) {
         items: this.cart.map(function (l) { return { item_id: l.item_id, name: l.item_id ? '' : l.name, kind: l.kind, price: l.price, warranty_months: l.warranty }; }),
         payment_method: this.payment, sale_date: this.sale_date, build_id: this.buildId, customer_name: this.customer_name, customer_phone: this.customer_phone, delivery_address: this.delivery_address,
       } }).then(function (d) {
-        self.success = d.message; self.receipt = d.receipt || ''; self.confirm = false; self.reset();
+        self.success = d.message; self.receipt = d.receipt || ''; self.confirm = false; self.reset(); if (window.liveRefresh) liveRefresh.schedule();
       }).catch(function (e) { self.error = e.message; self.confirm = false; })
         .finally(function () { self.sending = false; });
     },
