@@ -37,7 +37,7 @@
   // Bảng thông báo real-time (SSE) — base /manager (quản lý) hoặc /staff (nhân viên)
   var TYPE = {
     task_new: ['bg-blue-500', 'inbox'], task_processing: ['bg-amber-500', 'wrench'], task_done: ['bg-emerald-500', 'check'],
-    task_unrepairable: ['bg-red-500', 'alert'], task_completed: ['bg-violet-500', 'checkCircle'], task_redo: ['bg-orange-500', 'refresh'],
+    task_unrepairable: ['bg-red-500', 'alert'], task_completed: ['bg-violet-500', 'checkCircle'], task_redo: ['bg-orange-500', 'refresh'], task_edited: ['bg-sky-500', 'edit'],
     sale: ['bg-pink-500', 'cart'], product: ['bg-sky-500', 'upload'], inventory: ['bg-teal-500', 'archive'],
     task_deleted: ['bg-red-600', 'trash'], revenue_deleted: ['bg-red-600', 'trash'],
   };

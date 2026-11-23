@@ -6,7 +6,7 @@ const db = require('../db');
 const clients = new Set();
 const ins = db.prepare('INSERT INTO notifications (type, message, link, actor_name, audience) VALUES (?, ?, ?, ?, ?)');
 // Loại thông báo nhân viên được xem (mặc định); loại khác muốn cho nhân viên thấy thì truyền audience = 'all'
-const STAFF_TYPES = new Set(['task_new', 'task_processing', 'task_done', 'task_unrepairable', 'task_completed', 'task_redo', 'sale']);
+const STAFF_TYPES = new Set(['task_new', 'task_processing', 'task_done', 'task_unrepairable', 'task_completed', 'task_redo', 'task_edited', 'sale']);
 const getOne = db.prepare('SELECT * FROM notifications WHERE id = ?');
 
 function send(res, event, data) {

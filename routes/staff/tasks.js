@@ -136,7 +136,7 @@ router.get('/tasks/:id', (req, res, next) => {
   res.locals.nav = { done: 'return', unrepairable: 'return' }[task.status] || 'm-tasks'; // chờ trả -> Nhận - Trả, còn lại -> Quản lý task
   res.render('staff/task_detail', {
     title: task.ticket_code, task, histories: q.histories.all(task.id), staffList: q.staff.all(),
-    revenues: q.revenue.all(task.id), extras: extrasOf(task.id), canWork: canWork(task, req.user), canDelete: canDelete(task, req.user), warrantyOptions: v.WARRANTY_OPTIONS,
+    revenues: q.revenue.all(task.id), extras: extrasOf(task.id), canWork: canWork(task, req.user), canEdit: canEdit(task, req.user), canDelete: canDelete(task, req.user), warrantyOptions: v.WARRANTY_OPTIONS,
     scripts: ['/js/task-complete.js'],
   });
 });
@@ -145,6 +145,29 @@ router.get('/tasks/:id/print', (req, res, next) => {
   const task = q.get.get(req.params.id);
   if (!task) return next();
   res.render('staff/task_print', { title: task.ticket_code, task });
+});
+
+// ---------- Sửa thông tin task (chỉ khi còn chờ xử lý) ----------
+// Quản lý, người nhận máy, hoặc người được giao / task chưa giao
+function canEdit(task, user) {
+  return task.status === 'pending' && (canWork(task, user) || task.received_by === user.id);
+}
+
+router.post('/tasks/:id/edit', (req, res, next) => {
+  const task = q.get.get(req.params.id);
+  if (!task) return next();
+  if (task.status !== 'pending') return back(req, res, task.id, 'error', 'Chỉ sửa được task đang chờ xử lý.');
+  if (!canEdit(task, req.user)) return back(req, res, task.id, 'error', `Task đã được giao cho ${task.assigned_name}.`);
+  const { data, error } = v.parse(createSchema, req.body);
+  if (error) return back(req, res, task.id, 'error', error);
+  const r = db.prepare(`UPDATE tasks SET customer_name = @customer_name, customer_phone = @customer_phone, device_model = @device_model, specs = @specs,
+                        issue_desc = @issue_desc, estimated_price = @estimated_price, expected_return_date = @expected_return_date,
+                        accessories = @accessories, note = @note, partner_id = @partner_id, updated_at = @now
+                        WHERE id = @id AND status = 'pending'`)
+    .run({ ...data, partner_id: partners.detect(data.customer_name, data.customer_phone), now: new Date().toISOString(), id: task.id });
+  if (!r.changes) return back(req, res, task.id, 'error', 'Task không còn ở trạng thái chờ xử lý.');
+  notify('task_edited', `${req.user.full_name} sửa thông tin ${data.device_model} (${task.ticket_code})`, `/staff/tasks/${task.id}`, req.user.full_name);
+  back(req, res, task.id, 'success', 'Đã cập nhật thông tin task.');
 });
 
 // ---------- Bấm "Xử lý": pending -> processing ----------

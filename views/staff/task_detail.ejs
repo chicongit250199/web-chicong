@@ -12,7 +12,10 @@
   <div class="grid gap-4 lg:grid-cols-3">
     <div class="space-y-4 lg:col-span-2">
       <section class="card">
-        <h2 class="mb-3 font-semibold">Thông tin máy</h2>
+        <div class="mb-3 flex items-center justify-between gap-2">
+          <h2 class="font-semibold">Thông tin máy</h2>
+          <% if (canEdit) { %><button type="button" @click="m = 'edit'" class="btn-secondary px-3 py-1.5 text-sm"><%- icon('edit', 'h-4 w-4') %>Sửa thông tin</button><% } %>
+        </div>
         <dl class="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
           <div><dt class="text-slate-500">Model</dt><dd class="font-semibold"><%= task.device_model %></dd></div>
           <div><dt class="text-slate-500">Khách hàng</dt><dd class="font-medium"><%= task.customer_name || '—' %><% if (task.customer_phone) { %> · <a class="text-brand-600 hover:underline" href="tel:<%= task.customer_phone %>"><%= task.customer_phone %></a><% } %></dd></div>
@@ -126,6 +129,40 @@
   </div>
 
   <%# ================= POPUP ================= %>
+  <% if (canEdit) { %>
+  <template x-if="m === 'edit'">
+    <div class="modal-backdrop" @click.self="m = null">
+      <form method="post" action="/staff/tasks/<%= task.id %>/edit" class="modal max-w-2xl space-y-3">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <h3 class="flex items-center gap-2 text-lg font-semibold"><%- icon('edit', 'h-5 w-5') %>Sửa thông tin <%= task.ticket_code %></h3>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="block"><span class="label">Tên khách hàng</span>
+            <input name="customer_name" value="<%= task.customer_name || '' %>" class="input" maxlength="120" autocomplete="off"></label>
+          <label class="block"><span class="label">SĐT khách hàng</span>
+            <input name="customer_phone" value="<%= task.customer_phone || '' %>" class="input" inputmode="tel" pattern="[0-9+ .]{8,20}" autocomplete="off"></label>
+        </div>
+        <label class="block"><span class="label req">Model máy / linh kiện</span>
+          <input name="device_model" value="<%= task.device_model %>" class="input" required maxlength="200" autocomplete="off"></label>
+        <label class="block"><span class="label">Cấu hình</span>
+          <textarea name="specs" rows="2" class="input"><%= task.specs || '' %></textarea></label>
+        <label class="block"><span class="label req">Mô tả lỗi</span>
+          <textarea name="issue_desc" rows="3" class="input" required><%= task.issue_desc %></textarea></label>
+        <div class="grid gap-3 sm:grid-cols-3">
+          <label class="block" x-data="moneyInput('<%= task.estimated_price ?? '' %>')"><span class="label">Báo giá dự kiến (₫)</span>
+            <input class="input text-right tabular-nums" inputmode="numeric" :value="display" @input="onInput($event)">
+            <input type="hidden" name="estimated_price" :value="raw"></label>
+          <label class="block"><span class="label">Ngày trả dự kiến</span>
+            <input type="date" name="expected_return_date" value="<%= task.expected_return_date || '' %>" class="input"></label>
+          <label class="block"><span class="label">Phụ kiện đi kèm</span>
+            <input name="accessories" value="<%= task.accessories || '' %>" class="input"></label>
+        </div>
+        <label class="block"><span class="label">Ghi chú</span>
+          <input name="note" value="<%= task.note || '' %>" class="input"></label>
+        <div class="flex justify-end gap-2 pt-2"><button type="button" @click="m = null" class="btn-secondary">Hủy</button><button class="btn-primary"><%- icon('check', 'h-4 w-4') %>Lưu thay đổi</button></div>
+      </form>
+    </div>
+  </template>
+  <% } %>
   <template x-if="m === 'start'">
     <div class="modal-backdrop" @click.self="m = null">
       <form method="post" action="/staff/tasks/<%= task.id %>/start" class="modal space-y-4">
