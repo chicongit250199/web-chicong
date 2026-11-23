@@ -1,6 +1,6 @@
 <%- include('../app/_top') %>
 <% const qs = o => '?' + new URLSearchParams(Object.entries(Object.assign({ p: sel ? sel.id : '', s: sel ? filter : '', m: month }, o)).filter(([, v]) => v !== '' && v != null)).toString(); %>
-<div x-data="{ edit: null }">
+<div x-data="<%= canEdit ? "zaloLink('/staff/partners', { edit: null })" : '{ edit: null }' %>"<% if (canEdit) { %> @keydown.escape.window="closeModal()"<% } %>>
 <div class="page-title">
   <h1><%- icon('users', 'h-6 w-6 text-brand-600') %>Khách đối tác</h1>
   <form method="get" class="flex items-center gap-2 text-sm">
@@ -43,7 +43,7 @@
   <% } %>
 
   <div class="tbl-wrap"><table class="tbl">
-    <thead><tr><th>Đối tác</th><th class="text-center">Đang sửa</th><th class="text-center">Chờ trả</th><th class="text-center">Đã trả T<%= month.slice(5) %></th><th class="text-right">Tiền T<%= month.slice(5) %></th><th class="text-center">Tổng task</th><% if (canEdit) { %><th></th><% } %></tr></thead>
+    <thead><tr><th>Đối tác</th><th class="text-center">Đang sửa</th><th class="text-center">Chờ trả</th><th class="text-center">Đã trả T<%= month.slice(5) %></th><th class="text-right">Tiền T<%= month.slice(5) %></th><th class="text-center">Tổng task</th><% if (canEdit) { %><th>Nhóm Zalo</th><th></th><% } %></tr></thead>
     <tbody>
       <% list.forEach(p => { %>
         <tr>
@@ -54,10 +54,22 @@
           <td class="text-center"><%= p.done_month || '' %></td>
           <td class="whitespace-nowrap text-right font-semibold tabular-nums"><%= p.money_month ? fmt.money(p.money_month) : '' %></td>
           <td class="text-center text-slate-500"><%= p.total %></td>
+          <% if (canEdit) { %><td class="whitespace-nowrap">
+            <% if (p.zalo_chat_id) { %>
+              <span class="flex items-center gap-1">
+                <span class="<%= p.zalo_enabled ? 'badge-green' : 'badge-gray' %> max-w-[9rem] truncate" title="<%= p.zalo_name || '' %>"><%= p.zalo_enabled ? (p.zalo_name || 'Đã liên kết') : 'Tắt nhận tin' %></span>
+                <button type="button" title="<%= p.zalo_enabled ? 'Tắt gửi Zalo' : 'Bật gửi Zalo' %>" @click="setEnabled(<%= p.id %>, <%= p.zalo_enabled ? 'false' : 'true' %>)" class="rounded-md p-1 hover:bg-slate-100 dark:hover:bg-slate-800 <%= p.zalo_enabled ? 'text-brand-600' : 'text-slate-400' %>"><%- icon('bell', 'h-4 w-4') %></button>
+                <button type="button" title="Gửi tin thử" @click="test(<%= p.id %>)" class="rounded-md p-1 hover:bg-slate-100 dark:hover:bg-slate-800"><%- icon('chat', 'h-4 w-4') %></button>
+                <button type="button" title="Gỡ liên kết" @click="unlink(<%= p.id %>, <%= JSON.stringify(p.name) %>)" class="rounded-md p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"><%- icon('x', 'h-4 w-4') %></button>
+              </span>
+            <% } else { %>
+              <button type="button" @click="startLink(<%= JSON.stringify({ id: p.id, full_name: p.name }) %>)" class="btn-secondary px-2 py-1 text-xs"><span class="text-[#0068ff]"><%- icon('zalo', 'h-4 w-4') %></span>Liên kết</button>
+            <% } %>
+          </td><% } %>
           <% if (canEdit) { %><td class="text-right"><button type="button" @click="edit = <%= JSON.stringify({ id: p.id, name: p.name, aliases: p.aliases || '', phones: p.phones || '', note: p.note || '' }) %>" class="inline-grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-slate-800" title="Sửa"><%- icon('edit', 'h-4 w-4') %></button></td><% } %>
         </tr>
       <% }) %>
-      <% if (!list.length) { %><tr><td colspan="7" class="py-8 text-center text-sm text-slate-500">Chưa có đối tác nào<%= canEdit ? ' — thêm ở trên' : '' %>.</td></tr><% } %>
+      <% if (!list.length) { %><tr><td colspan="8" class="py-8 text-center text-sm text-slate-500">Chưa có đối tác nào<%= canEdit ? ' — thêm ở trên' : '' %>.</td></tr><% } %>
     </tbody>
   </table></div>
 <% } else { %>
@@ -110,6 +122,11 @@
       </div>
     </div>
   </template>
+<% } %>
+<% if (canEdit) { %>
+  <p x-show="zerr && m !== 'zalo'" x-cloak class="mt-2 text-sm text-red-600" x-text="zerr"></p>
+  <p x-show="zmsg" x-cloak class="mt-2 text-sm text-emerald-700 dark:text-emerald-400" x-text="zmsg"></p>
+  <%- include('../manager/_zalo_modal', { group: true }) %>
 <% } %>
 </div>
 <%- include('../app/_bottom') %>

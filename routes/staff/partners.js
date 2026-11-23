@@ -40,6 +40,7 @@ router.get('/partners', nav, (req, res) => {
     title: sel ? `Đối tác: ${sel.name}` : 'Khách đối tác', list, sel, tasks, filter, month,
     suggestions: !sel && req.user.role === 'manager' ? partners.suggestions() : [],
     canEdit: req.user.role === 'manager',
+    scripts: req.user.role === 'manager' ? ['/js/zalo.js'] : [],
   });
 });
 
@@ -78,5 +79,9 @@ router.post('/partners/:id/delete', managerOnly, (req, res) => {
   req.flash('success', p ? `Đã xóa đối tác "${p.name}" (task vẫn giữ nguyên, chỉ bỏ phân loại).` : 'Đối tác không còn.');
   res.redirect('/staff/partners');
 });
+
+// Nhóm Zalo của đối tác (quản lý liên kết)
+const managerJson = (req, res, next) => (req.user.role === 'manager' ? next() : res.status(403).json({ error: 'Chỉ quản lý' }));
+require('../../services/zaloRoutes')(router, '/partners', 'partner', managerJson);
 
 module.exports = router;

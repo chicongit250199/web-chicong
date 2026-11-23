@@ -178,7 +178,7 @@ router.post('/tasks/:id/start', (req, res, next) => {
   const r = db.prepare(`UPDATE tasks SET status = 'processing', assigned_to = COALESCE(assigned_to, ?), technician_name = ?, updated_at = ?
                         WHERE id = ? AND status = 'pending'`).run(req.user.id, req.user.full_name, new Date().toISOString(), task.id);
   if (!r.changes) return back(req, res, task.id, 'error', 'Task không còn ở trạng thái chờ xử lý.');
-  notify('task_processing', `${req.user.full_name} bắt đầu sửa ${task.device_model} (${task.ticket_code})`, `/staff/tasks/${task.id}`, req.user.full_name);
+  notify('task_processing', `${req.user.full_name} bắt đầu sửa ${task.device_model} (${task.ticket_code})`, `/staff/tasks/${task.id}`, req.user.full_name, null, { taskId: task.id });
   back(req, res, task.id, 'success', 'Đã nhận xử lý task.');
 });
 
@@ -194,7 +194,7 @@ router.post('/tasks/:id/done', (req, res, next) => {
                         fail_reason = NULL, updated_at = ? WHERE id = ? AND status = 'processing'`)
     .run(data.repair_detail, data.replaced_parts, data.final_price ?? task.estimated_price ?? 0, req.user.full_name, new Date().toISOString(), task.id);
   if (!r.changes) return back(req, res, task.id, 'error', 'Task không ở trạng thái đang sửa.');
-  notify('task_done', `${req.user.full_name} sửa xong ${task.device_model} (${task.ticket_code}) — ${fmt.money(data.final_price ?? task.estimated_price ?? 0)}`, `/staff/tasks/${task.id}`, req.user.full_name);
+  notify('task_done', `${req.user.full_name} sửa xong ${task.device_model} (${task.ticket_code}) — ${fmt.money(data.final_price ?? task.estimated_price ?? 0)}`, `/staff/tasks/${task.id}`, req.user.full_name, null, { taskId: task.id });
   back(req, res, task.id, 'success', 'Đã cập nhật: sửa xong. Task chuyển sang chờ trả máy.');
 });
 
@@ -210,7 +210,7 @@ router.post('/tasks/:id/fail', (req, res, next) => {
                         updated_at = ? WHERE id = ? AND status = 'processing'`)
     .run(data.fail_reason, data.note, req.user.full_name, new Date().toISOString(), task.id);
   if (!r.changes) return back(req, res, task.id, 'error', 'Task không ở trạng thái đang sửa.');
-  notify('task_unrepairable', `${req.user.full_name}: không sửa được ${task.device_model} (${task.ticket_code}) — ${data.fail_reason}`, `/staff/tasks/${task.id}`, req.user.full_name);
+  notify('task_unrepairable', `${req.user.full_name}: không sửa được ${task.device_model} (${task.ticket_code}) — ${data.fail_reason}`, `/staff/tasks/${task.id}`, req.user.full_name, null, { taskId: task.id });
   back(req, res, task.id, 'success', 'Đã cập nhật: không sửa được. Task chuyển sang chờ trả máy.');
 });
 

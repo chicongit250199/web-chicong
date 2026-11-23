@@ -25,12 +25,13 @@ function stream(req, res) {
 }
 
 // notify('sale', 'Nhân viên A bán RAM 8GB — 500.000 ₫', '/staff/search?q=...', 'Nhân viên A')
-function notify(type, message, link, actor, audience) {
+// meta (tùy chọn) cho Zalo: { kind, taskId, userId } — xem services/zaloBot.js
+function notify(type, message, link, actor, audience, meta) {
   const aud = audience || (STAFF_TYPES.has(type) ? 'all' : 'manager');
   const { lastInsertRowid } = ins.run(type, message, link || null, actor || null, aud);
   const n = getOne.get(lastInsertRowid);
   for (const c of clients) if (c.manager || aud === 'all') send(c.res, 'notification', n);
-  try { require('./zaloBot').onNotification(n); } catch (e) { console.error('[zalo]', e.message); }
+  try { require('./zaloBot').onNotification(n, meta); } catch (e) { console.error('[zalo]', e.message); }
   return n;
 }
 

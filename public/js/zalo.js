@@ -1,20 +1,23 @@
-// Trang Tài khoản nhân viên: liên kết / bật tắt thông báo Zalo
-window.zaloUsers = function () {
-  return {
-    m: null, u: {}, zs: {}, zerr: '', zmsg: '', code: '', linked: false, linkedName: '', timer: null,
+// Liên kết Zalo: tài khoản nhân viên (base '/manager/users') và nhóm Zalo đối tác (base '/staff/partners')
+window.zaloLink = function (base, extra) {
+  return Object.assign({
+    m: null, u: {}, zs: {}, zerr: '', zmsg: '', code: '', linked: false, linkedName: '', timer: null, overdueAt: '', busy: false,
     init: function () { this.loadStatus(); },
-    loadStatus: function () { var self = this; api('/manager/users/zalo/status').then(function (d) { self.zs = d; }).catch(function (e) { self.zerr = e.message; }); },
-    startLink: function (user) {
+    loadStatus: function () {
       var self = this;
-      this.u = user; this.m = 'zalo'; this.code = ''; this.linked = false; this.zerr = '';
-      api('/manager/users/' + user.id + '/zalo/code', { method: 'POST' }).then(function (d) {
+      api('/manager/users/zalo/status').then(function (d) { self.zs = d; if (!self.overdueAt) self.overdueAt = d.overdueAt; }).catch(function (e) { self.zerr = e.message; });
+    },
+    startLink: function (item) {
+      var self = this;
+      this.u = item; this.m = 'zalo'; this.code = ''; this.linked = false; this.zerr = '';
+      api(base + '/' + item.id + '/zalo/code', { method: 'POST' }).then(function (d) {
         self.code = d.code;
         self.timer = setInterval(function () { self.check(); }, 3000);
       }).catch(function (e) { self.zerr = e.message; });
     },
     check: function () {
       var self = this;
-      api('/manager/users/' + this.u.id + '/zalo').then(function (d) {
+      api(base + '/' + this.u.id + '/zalo').then(function (d) {
         if (d && d.linked) { self.linked = true; self.linkedName = d.name; self.stop(); }
       }).catch(function () {});
     },
@@ -26,19 +29,29 @@ window.zaloUsers = function () {
     },
     setEnabled: function (id, on) {
       var self = this;
-      api('/manager/users/' + id + '/zalo/enabled', { method: 'POST', body: { enabled: on } }).then(function () { location.reload(); }).catch(function (e) { self.zerr = e.message; });
+      api(base + '/' + id + '/zalo/enabled', { method: 'POST', body: { enabled: on } }).then(function () { location.reload(); }).catch(function (e) { self.zerr = e.message; });
     },
     unlink: function (id, name) {
       var self = this;
-      uiConfirm('Gỡ liên kết Zalo của ' + name + '? Người này sẽ không nhận thông báo Zalo nữa.', { ok: 'Gỡ liên kết', tone: 'danger' }).then(function (ok) {
+      uiConfirm('Gỡ liên kết Zalo của ' + name + '? Sẽ không nhận thông báo Zalo nữa.', { ok: 'Gỡ liên kết', tone: 'danger' }).then(function (ok) {
         if (!ok) return;
-        api('/manager/users/' + id + '/zalo/unlink', { method: 'POST' }).then(function () { location.reload(); }).catch(function (e) { self.zerr = e.message; });
+        api(base + '/' + id + '/zalo/unlink', { method: 'POST' }).then(function () { location.reload(); }).catch(function (e) { self.zerr = e.message; });
       });
     },
     test: function (id) {
       var self = this; this.zerr = ''; this.zmsg = '';
-      api('/manager/users/' + id + '/zalo/test', { method: 'POST' }).then(function () { self.zmsg = 'Đã gửi tin thử.'; self.loadStatus(); })
+      api(base + '/' + id + '/zalo/test', { method: 'POST' }).then(function () { self.zmsg = 'Đã gửi tin thử.'; self.loadStatus(); })
         .catch(function (e) { self.zerr = e.message; self.loadStatus(); });
     },
-  };
+    saveOverdueAt: function () {
+      var self = this; this.busy = true; this.zerr = ''; this.zmsg = '';
+      api('/manager/users/zalo/overdue-at', { method: 'POST', body: { at: this.overdueAt } }).then(function (d) { self.zs = d; self.zmsg = 'Đã lưu giờ gửi cảnh báo.'; })
+        .catch(function (e) { self.zerr = e.message; }).finally(function () { self.busy = false; });
+    },
+    overdueNow: function () {
+      var self = this; this.busy = true; this.zerr = ''; this.zmsg = '';
+      api('/manager/users/zalo/overdue-now', { method: 'POST' }).then(function (d) { self.zs = d; self.zmsg = d.people ? 'Đã gửi cảnh báo cho ' + d.people + ' người.' : 'Không ai có task quá hạn.'; })
+        .catch(function (e) { self.zerr = e.message; }).finally(function () { self.busy = false; });
+    },
+  }, extra || {});
 };

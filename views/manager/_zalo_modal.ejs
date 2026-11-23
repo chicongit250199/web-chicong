@@ -1,0 +1,29 @@
+<%# Hộp liên kết Zalo (dùng trong x-data="zaloLink(...)"). group: true = liên kết nhóm Zalo của đối tác %>
+<template x-if="m === 'zalo'">
+  <div class="modal-backdrop" @click.self="closeModal()">
+    <div class="modal space-y-3">
+      <h3 class="text-lg font-semibold">Liên kết <%= group ? 'nhóm Zalo' : 'Zalo' %> cho <span x-text="u.full_name"></span></h3>
+      <template x-if="!linked">
+        <div class="space-y-3">
+          <ol class="list-decimal space-y-1 pl-5 text-sm">
+            <% if (group) { %>
+              <li>Thêm bot <b x-text="zs.bot || '(tên bot)'"></b> vào nhóm Zalo của đối tác (Thêm thành viên).</li>
+              <li>Nhắn mã sau vào nhóm (bot không trả lời thì nhắn <b>@tên bot</b> kèm mã):</li>
+            <% } else { %>
+              <li>Mở Zalo trên điện thoại, vào khung chat với bot <b x-text="zs.bot || '(tên bot)'"></b>.</li>
+              <li>Nhắn riêng cho bot mã sau:</li>
+            <% } %>
+          </ol>
+          <div class="rounded-xl bg-slate-100 py-4 text-center font-mono text-4xl font-bold tracking-[0.3em] dark:bg-slate-800" x-text="code || '······'"></div>
+          <p class="text-xs text-slate-500">Mã dùng 1 lần, hết hạn sau 15 phút. Trang tự nhận khi liên kết xong.</p>
+          <p class="flex items-center gap-2 text-sm text-slate-500"><span class="h-2 w-2 animate-pulse rounded-full bg-brand-500"></span>Đang chờ tin nhắn...</p>
+        </div>
+      </template>
+      <template x-if="linked">
+        <p class="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">✅ Đã liên kết với <b x-text="linkedName || 'Zalo'"></b>. Bot đã gửi tin xác nhận.</p>
+      </template>
+      <p x-show="zerr" class="text-sm text-red-600" x-text="zerr"></p>
+      <div class="flex justify-end gap-2 pt-2"><button type="button" @click="closeModal()" class="btn-secondary" x-text="linked ? 'Xong' : 'Đóng'"></button></div>
+    </div>
+  </div>
+</template>

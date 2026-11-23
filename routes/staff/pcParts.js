@@ -28,7 +28,7 @@ router.post('/pc-parts/:id/request', (req, res) => {
   db.prepare(`UPDATE pc_parts SET req_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), req_by = ?, req_qty = ?, req_note = ?, req_stock = ? WHERE id = ?`)
     .run(req.user.full_name, data.qty, data.note || null, stock, part.id);
   notify('inventory', `${req.user.full_name} yêu cầu nhập ${data.qty} × ${pc.displayName(part)}${data.note ? ' — ' + data.note : ''}`.slice(0, 400),
-    '/manager/pc-parts?req=1', req.user.full_name, 'manager');
+    '/manager/pc-parts?req=1', req.user.full_name, 'manager', { kind: 'stock_request' });
   res.json({ ok: true, message: `Đã gửi yêu cầu nhập ${data.qty} × ${part.name}. Món này đang ở trạng thái Chờ nhập kho.` });
 });
 

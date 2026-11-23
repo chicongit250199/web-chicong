@@ -1,5 +1,5 @@
 <%- include('../app/_top') %>
-<div x-data="zaloUsers()" @keydown.escape.window="closeModal()">
+<div x-data="zaloLink('/manager/users')" @keydown.escape.window="closeModal()">
   <div class="page-title">
     <h1><%- icon('cpu', 'h-6 w-6 text-brand-600') %>Hệ thống</h1>
     <button type="button" @click="m = 'create'" class="btn-primary"><%- icon('plusSquare', 'h-4 w-4') %>Thêm tài khoản</button>
@@ -10,7 +10,7 @@
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h2 class="flex items-center gap-2 font-semibold"><span class="text-[#0068ff]"><%- icon('zalo', 'h-5 w-5') %></span>Thông báo Zalo</h2>
-        <p class="mt-0.5 text-sm text-slate-500">Thông báo trong web được gửi thêm qua Zalo cho tài khoản đã liên kết (quản lý nhận tất cả, nhân viên nhận việc bán hàng / sửa chữa / nhập kho; không gửi thao tác do chính mình làm).</p>
+        <p class="mt-0.5 text-sm text-slate-500"><b>Quản lý</b>: giao dịch (bán hàng, trả máy), sửa xong / không sửa được, yêu cầu nhập hàng. <b>Nhân viên</b>: task mới, task được giao cho mình, mỗi sáng nhắc task quá hạn mình đang giữ. <b>Nhóm đối tác</b> (liên kết ở trang Khách đối tác): máy bắt đầu sửa / sửa xong. Không gửi thao tác do chính mình làm.</p>
       </div>
       <span x-show="zs.enabled !== undefined" x-cloak :class="zs.enabled ? (zs.polling ? 'badge-green' : 'badge-amber') : 'badge-red'"
             x-text="!zs.configured ? 'Chưa cấu hình' : !zs.enabled ? 'Đang tắt' : zs.polling ? 'Đang hoạt động' : 'Mất kết nối'"></span>
@@ -22,6 +22,12 @@
       <dd><span x-text="(zs.sent || 0) + ' tin'"></span><span x-show="zs.failed" x-cloak class="text-red-600" x-text="' · lỗi ' + zs.failed"></span>
         <span class="text-xs text-slate-500" x-show="zs.lastSentAt" x-text="'— gần nhất ' + (zs.lastSentAt ? new Date(zs.lastSentAt).toLocaleString('vi-VN') : '')"></span>
         <span class="block text-xs text-slate-500">(đếm từ lần khởi động web gần nhất)</span></dd>
+      <dt class="text-slate-500 pt-1.5">Nhắc quá hạn</dt>
+      <dd><form @submit.prevent="saveOverdueAt()" class="flex flex-wrap items-center gap-2">
+        <span>Mỗi ngày lúc</span><input type="time" x-model="overdueAt" required class="input w-32 py-1"><span class="text-xs text-slate-500">(trừ Chủ nhật)</span>
+        <button type="submit" :disabled="busy || overdueAt === zs.overdueAt" class="btn-secondary px-3 py-1 text-sm">Lưu giờ</button>
+        <button type="button" @click="overdueNow()" :disabled="busy || !zs.enabled" class="btn-secondary px-3 py-1 text-sm">Gửi nhắc ngay</button>
+      </form></dd>
       <dt x-show="zs.lastError" x-cloak class="text-slate-500">Lỗi gần nhất</dt>
       <dd x-show="zs.lastError" x-cloak class="text-xs text-red-600" x-text="zs.lastError + (zs.lastErrorAt ? ' (' + new Date(zs.lastErrorAt).toLocaleString('vi-VN') + ')' : '')"></dd>
     </dl>
@@ -105,21 +111,7 @@
       </form>
     </div>
   </template>
-  <template x-if="m === 'zalo'">
-    <div class="modal-backdrop" @click.self="closeModal()">
-      <div class="modal space-y-3">
-        <h3 class="text-lg font-semibold">Liên kết Zalo cho <span x-text="u.full_name"></span></h3>
-        <template x-if="!linked">
-          <div class="space-y-3">
-            <ol class="list-decimal space-y-1 pl-5 text-sm">
-              <li>Người dùng mở Zalo trên điện thoại, tìm bot <b x-text="zs.bot || '(tên bot)'"></b>.</li>
-              <li>Nhắn cho bot mã sau:</li>
-            </ol>
-            <div class="rounded-xl bg-slate-100 py-4 text-center font-mono text-4xl font-bold tracking-[0.3em] dark:bg-slate-800" x-text="code || '······'"></div>
-            <p class="text-xs text-slate-500">Mã dùng 1 lần, hết hạn sau 15 phút. Trang tự nhận khi liên kết xong.</p>
-            <p class="flex items-center gap-2 text-sm text-slate-500"><span class="h-2 w-2 animate-pulse rounded-full bg-brand-500"></span>Đang chờ tin nhắn...</p>
-          </div>
-        </template>
+  <%- include('_zalo_modal', { group: false }) %>
         <template x-if="linked">
           <p class="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">✅ Đã liên kết với Zalo <b x-text="linkedName || ''"></b>. Bot đã gửi tin xác nhận.</p>
         </template>

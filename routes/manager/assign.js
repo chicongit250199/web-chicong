@@ -27,7 +27,7 @@ router.post('/assign', (req, res) => {
   db.prepare('UPDATE tasks SET assigned_to = ?, technician_name = CASE WHEN status = ? THEN ? ELSE technician_name END, updated_at = ? WHERE id = ?')
     .run(userId, 'processing', staff ? staff.full_name : null, new Date().toISOString(), task.id);
   notify('task_processing', staff ? `${req.user.full_name} giao ${task.device_model} (${task.ticket_code}) cho ${staff.full_name}` : `${req.user.full_name} bỏ phân công ${task.ticket_code}`,
-    `/staff/tasks/${task.id}`, req.user.full_name);
+    `/staff/tasks/${task.id}`, req.user.full_name, null, staff ? { kind: 'task_assigned', taskId: task.id, userId: staff.id } : { kind: 'task_unassigned' });
   req.flash('success', staff ? `Đã giao ${task.ticket_code} cho ${staff.full_name}.` : `Đã bỏ phân công ${task.ticket_code}.`);
   res.redirect(back);
 });
