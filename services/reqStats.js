@@ -38,7 +38,9 @@ function middleware(req, res, next) {
   const t0 = process.hrtime.bigint();
   res.on('finish', () => {
     if (res.statusCode >= 500) st.errors++;
-    st.pageMs += Number(process.hrtime.bigint() - t0) / 1e6; st.pageN++;
+    const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+    st.pageMs += ms; st.pageN++;
+    if (ms > 2000) console.log(`[slow] ${req.method} ${req.originalUrl.slice(0, 120)} ${Math.round(ms)} ms (${res.statusCode})`);
   });
   next();
 }

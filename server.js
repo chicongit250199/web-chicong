@@ -26,6 +26,8 @@ app.set('views', path.join(__dirname, 'views'));
 
 // CSP với nonce cho script inline; Alpine.js cần 'unsafe-eval'
 app.use(require('./services/reqStats').middleware); // đếm request (trang Hệ thống)
+app.use(require('./services/perfWatch').router); // trình duyệt báo trang tải chậm (log [perf])
+require('./services/perfWatch').start(); // log [lag] khi luồng xử lý bị đứng
 app.use((req, res, next) => { res.locals.nonce = crypto.randomBytes(16).toString('base64'); next(); });
 app.use(helmet({
   contentSecurityPolicy: {

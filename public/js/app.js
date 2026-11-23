@@ -21,6 +21,35 @@
   };
 
   // fetch có kèm CSRF token + JSON
+  // Báo về máy chủ khi trang / lệnh tải chậm (> 3 giây) để tìm nguyên nhân: dò tên, kết nối, chờ máy chủ hay dựng trang
+  function perfReport(d) {
+    try {
+      d.host = location.host; d.ua = navigator.userAgent;
+      var body = JSON.stringify(d);
+      if (!(navigator.sendBeacon && navigator.sendBeacon('/perf-beacon', body))) fetch('/perf-beacon', { method: 'POST', body: body, keepalive: true });
+    } catch (e) {}
+  }
+  window.addEventListener('load', function () {
+    setTimeout(function () {
+      try {
+        var n = performance.getEntriesByType('navigation')[0];
+        if (!n) return;
+        var total = n.loadEventStart || n.domContentLoadedEventEnd;
+        if (total < 3000) return;
+        perfReport({
+          kind: 'page', path: location.pathname + location.search, nav: n.type, total: total,
+          stall: n.domainLookupStart - n.fetchStart,   // chờ trước khi dò tên (hàng đợi trình duyệt, chuyển hướng)
+          dns: n.domainLookupEnd - n.domainLookupStart, // dò tên chicongcomputer.local
+          connect: n.connectEnd - n.connectStart,       // mở kết nối TCP
+          queue: n.requestStart - n.connectEnd,         // chờ gửi request (hết lượt kết nối)
+          ttfb: n.responseStart - n.requestStart,       // máy chủ xử lý + mạng
+          download: n.responseEnd - n.responseStart,
+          dom: n.domContentLoadedEventEnd - n.responseEnd, // dựng trang, chạy JS
+        });
+      } catch (e) {}
+    }, 0);
+  });
+
   window.api = async function (url, opts) {
     opts = opts || {};
     var headers = Object.assign({ Accept: 'application/json', 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content }, opts.headers || {});
@@ -28,7 +57,10 @@
       headers['Content-Type'] = 'application/json';
       opts.body = JSON.stringify(opts.body);
     }
+    var t0 = performance.now();
     var res = await fetch(url, Object.assign({}, opts, { headers: headers }));
+    var took = performance.now() - t0;
+    if (took > 3000) perfReport({ kind: 'api', path: url, total: took, ttfb: took });
     var data = await res.json().catch(function () { return {}; });
     if (!res.ok) throw new Error(data.error || ('Lỗi ' + res.status));
     return data;
