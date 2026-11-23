@@ -5,6 +5,7 @@ const db = require('../../db');
 const v = require('../../services/validate');
 const fmt = require('../../services/format');
 const partners = require('../../services/partners');
+const debts = require('../../services/debts');
 
 const router = express.Router();
 const nav = (req, res, next) => { res.locals.nav = 'partners'; next(); };
@@ -28,9 +29,9 @@ router.get('/partners', nav, (req, res) => {
   const sel = req.query.p ? list.find(p => String(p.id) === String(req.query.p)) : null;
   let tasks = []; let filter = 'open';
   if (sel) {
-    filter = ['open', 'ready', 'completed', 'all'].includes(req.query.s) ? req.query.s : 'open';
+    filter = ['open', 'ready', 'completed', 'all', 'debt'].includes(req.query.s) ? req.query.s : 'open';
     const where = { open: `t.status IN ('pending','processing')`, ready: `t.status IN ('done','unrepairable')`,
-      completed: `t.status = 'completed' AND ${VN_MONTH('t.completed_at')} = @m`, all: '1=1' }[filter];
+      completed: `t.status = 'completed' AND ${VN_MONTH('t.completed_at')} = @m`, all: '1=1', debt: '0' }[filter];
     tasks = db.prepare(`SELECT t.*, u.full_name AS assigned_name,
         (SELECT COALESCE(SUM(amount),0) FROM revenues r WHERE r.type = 'repair' AND r.ref_id = t.id) AS paid
         FROM tasks t LEFT JOIN users u ON u.id = t.assigned_to
@@ -38,6 +39,9 @@ router.get('/partners', nav, (req, res) => {
   }
   res.render('staff/partners', {
     title: sel ? `Đối tác: ${sel.name}` : 'Khách đối tác', list, sel, tasks, filter, month,
+    // công nợ: số còn nợ từng đối tác (bảng danh sách) + chi tiết khi mở tab Công nợ của 1 đối tác
+    debtMap: debts.partnerBalances(),
+    debt: sel && filter === 'debt' ? debts.detail(`p:${sel.id}`) : null,
     suggestions: !sel && req.user.role === 'manager' ? partners.suggestions() : [],
     canEdit: req.user.role === 'manager',
     scripts: req.user.role === 'manager' ? ['/js/zalo.js'] : [],
@@ -59,6 +63,7 @@ router.post('/partners', managerOnly, (req, res) => {
   if (dup) { req.flash('error', `Đã có đối tác "${dup.name}".`); return res.redirect(`/staff/partners?p=${dup.id}`); }
   const id = db.prepare('INSERT INTO partners (name, aliases, phones, note) VALUES (@name, @aliases, @phones, @note)').run(data).lastInsertRowid;
   const n = partners.reclassify();
+  debts.relinkPartners(); // nợ của khách lẻ khớp đối tác mới -> gộp vào đối tác
   req.flash('success', `Đã thêm đối tác "${data.name}"${n ? ` — xếp ${n} task vào đối tác` : ''}.`);
   res.redirect(`/staff/partners?p=${id}&s=all`);
 });
@@ -69,12 +74,15 @@ router.post('/partners/:id', managerOnly, (req, res, next) => {
   if (error) { req.flash('error', error); return res.redirect(`/staff/partners?p=${req.params.id}`); }
   db.prepare('UPDATE partners SET name=@name, aliases=@aliases, phones=@phones, note=@note WHERE id=@id').run({ ...data, id: req.params.id });
   const n = partners.reclassify();
+  debts.relinkPartners();
   req.flash('success', `Đã lưu "${data.name}"${n ? ` — cập nhật phân loại ${n} task` : ''}.`);
   res.redirect(`/staff/partners?p=${req.params.id}`);
 });
 
 router.post('/partners/:id/delete', managerOnly, (req, res) => {
   const p = db.prepare('SELECT * FROM partners WHERE id = ?').get(req.params.id);
+  const owe = p ? debts.balanceOf(`p:${p.id}`).balance : 0;
+  if (owe) { req.flash('error', `"${p.name}" còn công nợ ${fmt.money(owe)} — thu hết nợ trước khi xóa đối tác.`); return res.redirect(`/staff/partners?p=${p.id}`); }
   if (p) { db.prepare('DELETE FROM partners WHERE id = ?').run(p.id); partners.reclassify(); }
   req.flash('success', p ? `Đã xóa đối tác "${p.name}" (task vẫn giữ nguyên, chỉ bỏ phân loại).` : 'Đối tác không còn.');
   res.redirect('/staff/partners');

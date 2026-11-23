@@ -16,6 +16,7 @@ router.use(require('./products'));
 router.use(require('./build'));
 router.use(require('./pcParts'));
 router.use(require('./partners'));
+router.use(require('./debts'));
 router.use(require('./print'));
 
 module.exports = router;

@@ -3,7 +3,7 @@
   <h1><%- icon('chart', 'h-6 w-6 text-brand-600') %>Doanh thu hôm nay <span class="text-base font-normal text-slate-500"><%= fmt.date(today) %></span></h1>
 </div>
 <%- include('_revenue_tabs', { revTab: 'today' }) %>
-<div class="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+<div class="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-5">
   <div class="stat col-span-2 xl:col-span-1">
     <p class="stat-label">Tổng hôm nay</p>
     <p class="stat-value text-3xl text-brand-700 dark:text-brand-300"><%= fmt.money(todayStats.total) %></p>
@@ -11,6 +11,10 @@
   </div>
   <div class="stat"><p class="stat-label flex items-center gap-1"><%- icon('cash', 'h-3.5 w-3.5') %>Tiền mặt</p><p class="stat-value text-xl"><%= fmt.money(todayStats.cash) %></p></div>
   <div class="stat"><p class="stat-label flex items-center gap-1"><%- icon('bank', 'h-3.5 w-3.5') %>Chuyển khoản</p><p class="stat-value text-xl"><%= fmt.money(todayStats.transfer) %></p></div>
+  <a href="/manager/debts" class="stat hover:border-brand-400"><p class="stat-label">Công nợ / Thu nợ hôm nay</p>
+    <p class="mt-1 text-sm font-semibold tabular-nums text-amber-600">Bán nợ <%= fmt.money(todayStats.debt) %></p>
+    <p class="text-sm font-semibold tabular-nums text-emerald-600">Thu nợ <%= fmt.money(todayDebtPaid.total) %></p>
+    <p class="text-xs text-slate-500">Tổng còn nợ <%= fmt.money(debtBalance) %></p></a>
   <div class="stat"><p class="stat-label">Sửa chữa / Bán hàng</p><p class="mt-1 text-sm font-semibold tabular-nums"><%= fmt.money(todayStats.repair) %></p><p class="text-sm font-semibold tabular-nums"><%= fmt.money(todayStats.sale) %></p></div>
 </div>
 

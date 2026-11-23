@@ -40,7 +40,7 @@
             <% if (task.replaced_parts) { %><div class="sm:col-span-2"><dt class="text-slate-500">Vị trí sửa / linh kiện thay</dt><dd class="whitespace-pre-line"><%= task.replaced_parts %></dd></div><% } %>
             <div><dt class="text-slate-500">Giá tiền</dt><dd class="font-semibold"><%= fmt.money(task.final_price || 0) %></dd></div>
             <% if (task.status === 'completed') { %>
-              <div><dt class="text-slate-500">Thanh toán</dt><dd><%= fmt.payment(task.payment_method) %> · BH <%= task.warranty_months || 0 %> tháng</dd></div>
+              <div><dt class="text-slate-500">Thanh toán</dt><dd><%= fmt.payment(task.payment_method || (revenues[0] && revenues[0].payment_method)) %> · BH <%= task.warranty_months || 0 %> tháng</dd></div>
               <div><dt class="text-slate-500">Trả máy lúc</dt><dd><%= fmt.datetime(task.completed_at) %></dd></div>
               <% if (extras.length) { %>
                 <div class="sm:col-span-2"><dt class="text-slate-500">Bán kèm khi trả máy</dt><dd>
@@ -273,9 +273,20 @@
         </fieldset>
 
         <fieldset><legend class="label">Hình thức thanh toán</legend>
-          <div class="grid grid-cols-2 gap-2">
-            <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 p-3 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 dark:border-slate-700 dark:has-[:checked]:bg-brand-900/30"><input type="radio" name="payment_method" value="cash" checked><%- icon('cash', 'h-4 w-4') %>Tiền mặt</label>
-            <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 p-3 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 dark:border-slate-700 dark:has-[:checked]:bg-brand-900/30"><input type="radio" name="payment_method" value="transfer"><%- icon('bank', 'h-4 w-4') %>Chuyển khoản</label>
+          <div class="grid grid-cols-3 gap-2">
+            <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 p-3 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 dark:border-slate-700 dark:has-[:checked]:bg-brand-900/30"><input type="radio" name="payment_method" value="cash" x-model="pay"><%- icon('cash', 'h-4 w-4') %>Tiền mặt</label>
+            <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 p-3 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 dark:border-slate-700 dark:has-[:checked]:bg-brand-900/30"><input type="radio" name="payment_method" value="transfer" x-model="pay"><%- icon('bank', 'h-4 w-4') %>Chuyển khoản</label>
+            <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 p-3 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 dark:border-slate-700 dark:has-[:checked]:bg-brand-900/30"><input type="radio" name="payment_method" value="debt" x-model="pay"><%- icon('receipt', 'h-4 w-4') %>Công nợ</label>
+          </div>
+          <%# Công nợ: trả trước 1 phần (trống = nợ hết); đối tác tự gộp vào công nợ đối tác %>
+          <div x-show="pay === 'debt'" x-cloak class="mt-2 grid gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 sm:grid-cols-2 dark:border-amber-800 dark:bg-amber-950/30">
+            <label class="block"><span class="label">Khách trả trước <span class="font-normal text-slate-400">(để trống = nợ hết)</span></span>
+              <input class="input text-right tabular-nums" inputmode="numeric" :value="paidDisplay" @input="onPaid($event)" placeholder="0">
+              <input type="hidden" name="paid_amount" :value="pay === 'debt' ? paid : ''"></label>
+            <label class="block"><span class="label">Trả trước bằng</span>
+              <select name="paid_method" class="input"><option value="cash">Tiền mặt</option><option value="transfer">Chuyển khoản</option></select></label>
+            <p class="text-sm sm:col-span-2">Ghi nợ: <b class="text-red-600 tabular-nums" x-text="formatVnd(debtAmount) + ' ₫'"></b>
+              <span class="text-xs text-slate-500"><%= task.partner_id ? '— gộp vào công nợ đối tác' : (task.customer_name || task.customer_phone ? '— theo ' + (task.customer_phone || task.customer_name) : '— phiếu này chưa có tên / SĐT khách, không ghi nợ được') %></span></p>
           </div></fieldset>
         <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm dark:bg-slate-800/50">
           <span class="text-slate-500"><span x-text="cart.length ? 'Tổng thu (sửa máy + ' + cart.length + ' món bán kèm)' : 'Tổng thu'"></span> · <%= nowStr %></span>

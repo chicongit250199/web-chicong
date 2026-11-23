@@ -43,7 +43,7 @@
   <% } %>
 
   <div class="tbl-wrap"><table class="tbl">
-    <thead><tr><th>Đối tác</th><th class="text-center">Đang sửa</th><th class="text-center">Chờ trả</th><th class="text-center">Đã trả T<%= month.slice(5) %></th><th class="text-right">Tiền T<%= month.slice(5) %></th><th class="text-center">Tổng task</th><% if (canEdit) { %><th>Nhóm Zalo</th><th></th><% } %></tr></thead>
+    <thead><tr><th>Đối tác</th><th class="text-center">Đang sửa</th><th class="text-center">Chờ trả</th><th class="text-center">Đã trả T<%= month.slice(5) %></th><th class="text-right">Tiền T<%= month.slice(5) %></th><th class="text-center">Tổng task</th><th class="text-right">Công nợ</th><% if (canEdit) { %><th>Nhóm Zalo</th><th></th><% } %></tr></thead>
     <tbody>
       <% list.forEach(p => { %>
         <tr>
@@ -54,6 +54,7 @@
           <td class="text-center"><%= p.done_month || '' %></td>
           <td class="whitespace-nowrap text-right font-semibold tabular-nums"><%= p.money_month ? fmt.money(p.money_month) : '' %></td>
           <td class="text-center text-slate-500"><%= p.total %></td>
+          <td class="whitespace-nowrap text-right tabular-nums"><% if (debtMap.get(p.id)) { %><a href="?p=<%= p.id %>&s=debt&m=<%= month %>" class="font-semibold <%= debtMap.get(p.id) > 0 ? 'text-red-600' : 'text-emerald-600' %> hover:underline"><%= fmt.money(debtMap.get(p.id)) %></a><% } %></td>
           <% if (canEdit) { %><td class="whitespace-nowrap">
             <% if (p.zalo_chat_id) { %>
               <span class="flex items-center gap-1">
@@ -69,16 +70,18 @@
           <% if (canEdit) { %><td class="text-right"><button type="button" @click="edit = <%= JSON.stringify({ id: p.id, name: p.name, aliases: p.aliases || '', phones: p.phones || '', note: p.note || '' }) %>" class="inline-grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-slate-800" title="Sửa"><%- icon('edit', 'h-4 w-4') %></button></td><% } %>
         </tr>
       <% }) %>
-      <% if (!list.length) { %><tr><td colspan="8" class="py-8 text-center text-sm text-slate-500">Chưa có đối tác nào<%= canEdit ? ' — thêm ở trên' : '' %>.</td></tr><% } %>
+      <% if (!list.length) { %><tr><td colspan="9" class="py-8 text-center text-sm text-slate-500">Chưa có đối tác nào<%= canEdit ? ' — thêm ở trên' : '' %>.</td></tr><% } %>
     </tbody>
   </table></div>
 <% } else { %>
   <%# ---- Một đối tác ---- %>
-  <div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+  <div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
     <a href="<%= qs({ s: 'open' }) %>" class="stat hover:border-brand-400 <%= filter === 'open' ? 'ring-2 ring-brand-500' : '' %>"><p class="stat-label">Đang sửa</p><p class="stat-value text-blue-600"><%= sel.open %></p></a>
     <a href="<%= qs({ s: 'ready' }) %>" class="stat hover:border-brand-400 <%= filter === 'ready' ? 'ring-2 ring-brand-500' : '' %>"><p class="stat-label">Chờ trả máy</p><p class="stat-value text-emerald-600"><%= sel.ready %></p></a>
     <a href="<%= qs({ s: 'completed' }) %>" class="stat hover:border-brand-400 <%= filter === 'completed' ? 'ring-2 ring-brand-500' : '' %>"><p class="stat-label">Đã trả tháng <%= month.slice(5) %>/<%= month.slice(0, 4) %></p><p class="stat-value"><%= sel.done_month %></p></a>
     <div class="stat"><p class="stat-label">Tiền tháng <%= month.slice(5) %></p><p class="stat-value text-red-600"><%= fmt.money(sel.money_month) %></p></div>
+    <a href="<%= qs({ s: 'debt' }) %>" class="stat hover:border-brand-400 <%= filter === 'debt' ? 'ring-2 ring-brand-500' : '' %>"><p class="stat-label">Công nợ</p>
+      <p class="stat-value <%= debtMap.get(sel.id) > 0 ? 'text-red-600' : '' %>"><%= fmt.money(debtMap.get(sel.id) || 0) %></p></a>
   </div>
   <div class="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
     <p class="text-slate-500"><%= tasks.length %> task · <a href="<%= qs({ s: 'all' }) %>" class="text-brand-600 hover:underline <%= filter === 'all' ? 'font-semibold' : '' %>">xem tất cả (<%= sel.total %>)</a>
@@ -86,6 +89,10 @@
     <% if (canEdit) { %><button type="button" @click="edit = <%= JSON.stringify({ id: sel.id, name: sel.name, aliases: sel.aliases || '', phones: sel.phones || '', note: sel.note || '' }) %>" class="btn-secondary px-3 py-1.5 text-sm"><%- icon('edit', 'h-4 w-4') %>Sửa đối tác</button><% } %>
   </div>
   <% if (sel.note) { %><p class="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-sm dark:bg-slate-800/60"><%= sel.note %></p><% } %>
+  <% if (filter === 'debt') { %>
+    <% if (debt) { %><%- include('_debt_panel', { d: debt, back: '/staff/partners?p=' + sel.id + '&s=debt' }) %>
+    <% } else { %><p class="card py-8 text-center text-sm text-slate-500">Đối tác này chưa có công nợ. Ghi nợ bằng cách chọn <b>Công nợ</b> khi trả máy / bán hàng.</p><% } %>
+  <% } else { %>
   <div class="tbl-wrap"><table class="tbl">
     <thead><tr><th>Phiếu</th><th>Máy / lỗi</th><th>Trạng thái</th><th>Kỹ thuật</th><th class="text-right">Giá</th><th>Ngày</th></tr></thead>
     <tbody>
@@ -102,6 +109,7 @@
       <% if (!tasks.length) { %><tr><td colspan="6" class="py-8 text-center text-sm text-slate-500">Không có task.</td></tr><% } %>
     </tbody>
   </table></div>
+  <% } %>
 <% } %>
 
 <% if (canEdit) { %>

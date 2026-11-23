@@ -69,9 +69,19 @@
         </ul>
       </div>
       <fieldset><legend class="label">Hình thức thanh toán</legend>
-        <div class="grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-3 gap-2">
           <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 p-3 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 dark:border-slate-700 dark:has-[:checked]:bg-brand-900/30"><input type="radio" x-model="payment" value="cash"><%- icon('cash', 'h-4 w-4') %>Tiền mặt</label>
           <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 p-3 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 dark:border-slate-700 dark:has-[:checked]:bg-brand-900/30"><input type="radio" x-model="payment" value="transfer"><%- icon('bank', 'h-4 w-4') %>Chuyển khoản</label>
+          <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 p-3 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 dark:border-slate-700 dark:has-[:checked]:bg-brand-900/30"><input type="radio" x-model="payment" value="debt"><%- icon('receipt', 'h-4 w-4') %>Công nợ</label>
+        </div>
+        <%# Công nợ: khách trả trước 1 phần (để trống = nợ toàn bộ), phần còn lại ghi nợ — cần tên hoặc SĐT khách %>
+        <div x-show="payment === 'debt'" x-cloak class="mt-2 grid gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 sm:grid-cols-2 dark:border-amber-800 dark:bg-amber-950/30">
+          <label class="block"><span class="label">Khách trả trước <span class="font-normal text-slate-400">(để trống = nợ hết)</span></span>
+            <input class="input text-right tabular-nums" inputmode="numeric" :value="paidDisplay" @input="onPaid($event)" placeholder="0"></label>
+          <label class="block"><span class="label">Trả trước bằng</span>
+            <select x-model="paid_method" class="input"><option value="cash">Tiền mặt</option><option value="transfer">Chuyển khoản</option></select></label>
+          <p class="text-sm sm:col-span-2">Ghi nợ: <b class="text-red-600 tabular-nums" x-text="formatVnd(debtAmount) + ' ₫'"></b>
+            <span class="text-xs text-slate-500">— nhập tên hoặc SĐT khách; đối tác tự gộp vào công nợ đối tác</span></p>
         </div></fieldset>
       <div class="grid gap-4 sm:grid-cols-2">
         <label class="block"><span class="label">Tên khách hàng</span><input x-model="customer_name" class="input" autocomplete="off"></label>
@@ -110,7 +120,11 @@
               <dd class="shrink-0 tabular-nums" x-text="formatVnd(l.price) + ' ₫'"></dd></div>
           </template>
           <div class="flex justify-between gap-3 px-3 py-2"><dt class="text-slate-500" x-text="cart.length > 1 ? 'Tổng cộng' : 'Giá tiền'"></dt><dd class="text-lg font-bold text-red-600" x-text="formatVnd(total) + ' ₫'"></dd></div>
-          <div class="flex justify-between gap-3 px-3 py-2"><dt class="text-slate-500">Thanh toán</dt><dd x-text="payment === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'"></dd></div>
+          <div class="flex justify-between gap-3 px-3 py-2"><dt class="text-slate-500">Thanh toán</dt><dd x-text="payment === 'cash' ? 'Tiền mặt' : payment === 'transfer' ? 'Chuyển khoản' : 'Công nợ'"></dd></div>
+          <template x-if="payment === 'debt'">
+            <div class="flex justify-between gap-3 bg-amber-50 px-3 py-2 dark:bg-amber-950/30"><dt class="text-slate-500">Trả trước / Ghi nợ</dt>
+              <dd class="text-right"><span x-text="formatVnd(paidNum) + ' ₫' + (paidNum ? (paid_method === 'cash' ? ' TM' : ' CK') : '')"></span> / <b class="text-red-600" x-text="formatVnd(debtAmount) + ' ₫'"></b></dd></div>
+          </template>
                     <div class="flex justify-between gap-3 px-3 py-2"><dt class="text-slate-500">Khách hàng</dt><dd class="text-right" x-text="(customer_name || '—') + (customer_phone ? ' · ' + customer_phone : '')"></dd></div>
           <div class="flex justify-between gap-3 px-3 py-2" x-show="delivery_address"><dt class="text-slate-500">Giao hàng</dt><dd class="text-right" x-text="delivery_address"></dd></div>
           <div class="flex justify-between gap-3 px-3 py-2"><dt class="text-slate-500">Nhân viên</dt><dd class="font-medium" x-text="staffName"></dd></div>

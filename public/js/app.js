@@ -39,7 +39,7 @@
     task_new: ['bg-blue-500', 'inbox'], task_processing: ['bg-amber-500', 'wrench'], task_done: ['bg-emerald-500', 'check'],
     task_unrepairable: ['bg-red-500', 'alert'], task_completed: ['bg-violet-500', 'checkCircle'], task_redo: ['bg-orange-500', 'refresh'], task_edited: ['bg-sky-500', 'edit'],
     sale: ['bg-pink-500', 'cart'], product: ['bg-sky-500', 'upload'], inventory: ['bg-teal-500', 'archive'],
-    task_deleted: ['bg-red-600', 'trash'], revenue_deleted: ['bg-red-600', 'trash'],
+    task_deleted: ['bg-red-600', 'trash'], revenue_deleted: ['bg-red-600', 'trash'], debt_payment: ['bg-emerald-600', 'checkCircle'],
   };
   var ICONS = {
     inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/>', wrench: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',

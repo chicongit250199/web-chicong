@@ -53,14 +53,17 @@ function buildTabs(from) {
   const rev = db.prepare(`SELECT * FROM revenues WHERE ${VN_DAY} >= ? ORDER BY created_at, id`).all(from);
   const exp = db.prepare('SELECT * FROM expenses WHERE expense_date >= ? ORDER BY expense_date, id').all(from);
   const months = db.prepare(`
-    SELECT m, SUM(n) n, SUM(cash) cash, SUM(transfer) transfer, SUM(repair) repair, SUM(sale) sale, SUM(thu) thu, SUM(chi) chi FROM (
+    SELECT m, SUM(n) n, SUM(cash) cash, SUM(transfer) transfer, SUM(debt) debt, SUM(repair) repair, SUM(sale) sale, SUM(thu) thu, SUM(chi) chi, SUM(paid) paid FROM (
       SELECT substr(${VN_DAY}, 1, 7) m, COUNT(*) n,
         SUM(CASE WHEN payment_method = 'cash' THEN amount ELSE 0 END) cash, SUM(CASE WHEN payment_method = 'transfer' THEN amount ELSE 0 END) transfer,
-        SUM(CASE WHEN type = 'repair' THEN amount ELSE 0 END) repair, SUM(CASE WHEN type = 'sale' THEN amount ELSE 0 END) sale, SUM(amount) thu, 0 chi
+        SUM(CASE WHEN payment_method = 'debt' THEN amount ELSE 0 END) debt,
+        SUM(CASE WHEN type = 'repair' THEN amount ELSE 0 END) repair, SUM(CASE WHEN type = 'sale' THEN amount ELSE 0 END) sale, SUM(amount) thu, 0 chi, 0 paid
       FROM revenues WHERE ${VN_DAY} >= ? GROUP BY m
       UNION ALL
-      SELECT substr(expense_date, 1, 7) m, 0, 0, 0, 0, 0, 0, SUM(amount) FROM expenses WHERE expense_date >= ? GROUP BY m
-    ) GROUP BY m ORDER BY m`).all(from, from);
+      SELECT substr(expense_date, 1, 7) m, 0, 0, 0, 0, 0, 0, 0, SUM(amount), 0 FROM expenses WHERE expense_date >= ? GROUP BY m
+      UNION ALL
+      SELECT substr(${VN_DAY}, 1, 7) m, 0, 0, 0, 0, 0, 0, 0, 0, SUM(amount) FROM debt_payments WHERE ${VN_DAY} >= ? GROUP BY m
+    ) GROUP BY m ORDER BY m`).all(from, from, from);
   // Kho tồn: hàng không serial cùng mã gộp 1 dòng (giống trang Xem kho)
   const stock = db.prepare(`
     SELECT item_code, name, serial, COUNT(*) qty, condition, supplier, MIN(import_date) import_date, tech_price, retail_price,
@@ -83,9 +86,9 @@ function buildTabs(from) {
         ...exp.map(e => [dmy(e.expense_date), e.content || '', e.amount, pay(e.payment_method), e.staff_name || '', e.note || ''])],
     },
     {
-      title: 'Tổng hợp tháng', money: [2, 3, 4, 5, 6, 7, 8],
-      rows: [['Tháng', 'Số GD', 'Tiền mặt', 'Chuyển khoản', 'Sửa chữa', 'Bán hàng', 'Tổng thu', 'Tổng chi', 'Thu − Chi'],
-        ...months.map(m => [m.m.split('-').reverse().join('/'), m.n, m.cash, m.transfer, m.repair, m.sale, m.thu, m.chi, m.thu - m.chi])],
+      title: 'Tổng hợp tháng', money: [2, 3, 4, 5, 6, 7, 8, 9, 10],
+      rows: [['Tháng', 'Số GD', 'Tiền mặt', 'Chuyển khoản', 'Công nợ', 'Sửa chữa', 'Bán hàng', 'Tổng thu', 'Thu nợ', 'Tổng chi', 'Thu − Chi'],
+        ...months.map(m => [m.m.split('-').reverse().join('/'), m.n, m.cash, m.transfer, m.debt, m.repair, m.sale, m.thu, m.paid, m.chi, m.thu - m.chi])],
     },
     {
       title: 'Kho tồn', money: [7, 8], date: [6],

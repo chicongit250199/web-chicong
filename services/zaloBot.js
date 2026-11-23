@@ -4,7 +4,7 @@
 //  - Liên kết bằng mã 6 số: quản lý lấy mã cho 1 tài khoản (nhắn riêng cho bot) hoặc 1 đối tác (nhắn trong nhóm Zalo có bot)
 //  - Gửi lần lượt qua hàng đợi; lỗi chỉ ghi log, không ảnh hưởng thông báo trong web
 // Ai nhận gì (gọi từ events.notify, kèm meta { kind, taskId, userId }):
-//  - Quản lý: giao dịch (bán hàng, trả máy thu tiền), sửa xong / không sửa được, yêu cầu nhập hàng
+//  - Quản lý: giao dịch (bán hàng, trả máy thu tiền, thu nợ), sửa xong / không sửa được, yêu cầu nhập hàng
 //  - Nhân viên: task mới; task được giao cho mình (chỉ người được giao)
 //  - Nhóm Zalo đối tác: máy của đối tác đó bắt đầu sửa / sửa xong / không sửa được (lời lẽ gửi khách)
 //  - Mỗi ngày lúc giờ đặt (mặc định 8:00, trừ Chủ nhật): danh sách task quá hạn đang giao cho từng người
@@ -23,7 +23,7 @@ const ENABLED = !!TOKEN && (process.env.BACKUP_DISABLED !== 'true' || !!process.
 const MAX_TEXT = 2000, CODE_TTL = 15 * 60e3, MAX_QUEUE = 300, GAP_MS = 350;
 const DEF_OVERDUE_AT = '08:00';
 
-const MANAGER_KINDS = new Set(['sale', 'task_completed', 'task_done', 'task_unrepairable', 'stock_request']);
+const MANAGER_KINDS = new Set(['sale', 'task_completed', 'task_done', 'task_unrepairable', 'stock_request', 'debt_payment']);
 const PARTNER_KINDS = new Set(['task_processing', 'task_done', 'task_unrepairable']);
 
 const q = {
@@ -198,6 +198,7 @@ function previews() {
   return [
     { key: 'sale', group: 'Quản lý', label: 'Bán hàng', text: internalText(`${nv} bán RAM DDR4 8GB 3200 — ${fmt.money(500000)} (${pay})`, '/staff/search?q=0901234567') },
     { key: 'task_completed', group: 'Quản lý', label: 'Trả máy, thu tiền', text: internalText(`${nv} trả máy ${dev} — thu ${money} (${pay})`, link) },
+    { key: 'debt_payment', group: 'Quản lý', label: 'Thu nợ', text: internalText(`${nv} thu nợ Quốc Computer: ${fmt.money(2000000)} (${pay}) — còn nợ ${fmt.money(1350000)}`, '/manager/debts') },
     { key: 'task_done', group: 'Quản lý', label: 'Sửa xong', text: internalText(`${nv} sửa xong ${dev} — ${money}`, link) },
     { key: 'task_unrepairable', group: 'Quản lý', label: 'Không sửa được', text: internalText(`${nv}: không sửa được ${dev} — ${t.fail_reason}`, link) },
     { key: 'stock_request', group: 'Quản lý', label: 'Yêu cầu nhập hàng', text: internalText(`${nv} yêu cầu nhập 2 × SSD Samsung 980 500GB — khách đặt`, '/manager/pc-parts?req=1') },

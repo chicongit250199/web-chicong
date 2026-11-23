@@ -1,0 +1,10 @@
+<%- include('../app/_top') %>
+<div class="page-title">
+  <h1><%- icon('receipt', 'h-6 w-6 text-brand-600') %><%= d.name || d.phone %>
+    <% if (d.partnerId) { %><a href="/staff/partners?p=<%= d.partnerId %>" class="badge-violet text-sm font-normal">Đối tác</a><% } %>
+    <% if (d.phone && d.name) { %><span class="text-base font-normal text-slate-500"><%= d.phone %></span><% } %></h1>
+  <a href="/manager/debts" class="btn-secondary"><%- icon('arrowLeft', 'h-4 w-4') %>Danh sách công nợ</a>
+</div>
+<%- include('_revenue_tabs', { revTab: 'debts' }) %>
+<%- include('../staff/_debt_panel', { d, back: '/manager/debts/view?k=' + encodeURIComponent(d.key) }) %>
+<%- include('../app/_bottom') %>

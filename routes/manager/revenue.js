@@ -24,7 +24,7 @@ function filters(query) {
     from: valid(query.from) || defFrom,
     to: valid(query.to) || today,
     type: ['repair', 'sale'].includes(query.type) ? query.type : '',
-    payment: ['cash', 'transfer'].includes(query.payment) ? query.payment : '',
+    payment: ['cash', 'transfer', 'debt'].includes(query.payment) ? query.payment : '',
   };
 }
 
@@ -38,6 +38,7 @@ function whereOf(f) {
 const SUMS = `COUNT(*) AS count, COALESCE(SUM(amount),0) AS total,
   COALESCE(SUM(CASE WHEN payment_method='cash' THEN amount END),0) AS cash,
   COALESCE(SUM(CASE WHEN payment_method='transfer' THEN amount END),0) AS transfer,
+  COALESCE(SUM(CASE WHEN payment_method='debt' THEN amount END),0) AS debt,
   COALESCE(SUM(CASE WHEN type='repair' THEN amount END),0) AS repair,
   COALESCE(SUM(CASE WHEN type='sale' THEN amount END),0) AS sale`;
 
@@ -49,12 +50,23 @@ function aggregate(f) {
     const map = new Map(rows.map(r => [r.period, r]));
     const out = [];
     for (let d = f.from; d <= f.to && out.length < 400; d = addDays(d, 1)) {
-      out.push(map.get(d) || { period: d, count: 0, total: 0, cash: 0, transfer: 0, repair: 0, sale: 0 });
+      out.push(map.get(d) || { period: d, count: 0, total: 0, cash: 0, transfer: 0, debt: 0, repair: 0, sale: 0 });
     }
     return out;
   }
   return rows;
 }
+
+// Thu nợ (tiền khách trả nợ, kể cả trả trước lúc mua) theo kỳ — không phải doanh thu, là tiền thực thu
+function debtPaidByPeriod(f) {
+  const day = `date(created_at, '+7 hours')`;
+  const period = { day, month: `strftime('%Y-%m', created_at, '+7 hours')`, year: `strftime('%Y', created_at, '+7 hours')` }[f.group];
+  return new Map(db.prepare(`SELECT ${period} AS p, COALESCE(SUM(amount),0) AS total FROM debt_payments WHERE ${day} BETWEEN ? AND ? GROUP BY p`).all(f.from, f.to).map(r => [r.p, r.total]));
+}
+const DEBT_PAID_SUM = `SELECT COALESCE(SUM(amount),0) total,
+  COALESCE(SUM(CASE WHEN payment_method='cash' THEN amount END),0) cash,
+  COALESCE(SUM(CASE WHEN payment_method='transfer' THEN amount END),0) transfer, COUNT(*) count
+  FROM debt_payments WHERE date(created_at, '+7 hours') BETWEEN ? AND ?`;
 
 // Chi phí theo kỳ (chỉ lọc theo khoảng ngày)
 function expenseByPeriod(f) {
@@ -77,10 +89,12 @@ router.get('/', (req, res) => {
   const yesterday = db.prepare(`SELECT COALESCE(SUM(amount),0) total FROM revenues WHERE ${VN_DAY} = ?`).get(addDays(today, -1)).total;
   const month = db.prepare(`SELECT COALESCE(SUM(amount),0) total, COUNT(*) count FROM revenues WHERE strftime('%Y-%m', created_at, '+7 hours') = ?`).get(today.slice(0, 7));
   const todayList = db.prepare(`SELECT * FROM revenues WHERE ${VN_DAY} = ? ORDER BY id DESC`).all(today);
+  const todayDebtPaid = db.prepare(DEBT_PAID_SUM).get(today, today);
+  const debtBalance = require('../../services/debts').totals().balance;
   const taskCounts = Object.fromEntries(db.prepare(`SELECT status, COUNT(*) c FROM tasks WHERE status <> 'completed' GROUP BY status`).all().map(r => [r.status, r.c]));
   const rows = aggregate(f);
   res.render('manager/dashboard', {
-    title: 'Doanh thu hôm nay', today, todayStats, yesterday, month, todayList, taskCounts,
+    title: 'Doanh thu hôm nay', today, todayStats, yesterday, month, todayList, taskCounts, todayDebtPaid, debtBalance,
     chart: rows.map(r => ({ label: periodLabel(r.period, 'day'), value: r.total, tip: `${fmt.date(r.period)}: ${fmt.money(r.total)} · ${r.count} giao dịch` })),
   });
 });
@@ -93,10 +107,12 @@ router.get('/revenue', (req, res) => {
   const totals = db.prepare(`SELECT ${SUMS} FROM revenues ${whereOf(f)}`).get(f);
   const details = db.prepare(`SELECT * FROM revenues ${whereOf(f)} ORDER BY created_at DESC LIMIT 100`).all(f);
   const expMap = expenseByPeriod(f);
-  for (const r of rows) r.expense = expMap.get(r.period) || 0;
+  const paidMap = debtPaidByPeriod(f);
+  for (const r of rows) { r.expense = expMap.get(r.period) || 0; r.debtPaid = paidMap.get(r.period) || 0; }
+  const debtPaid = db.prepare(DEBT_PAID_SUM).get(f.from, f.to);
   const expenseTotal = db.prepare('SELECT COALESCE(SUM(amount),0) t, COUNT(*) c FROM expenses WHERE expense_date BETWEEN ? AND ?').get(f.from, f.to);
   res.render('manager/revenue', {
-    title: 'Thống kê doanh thu', f, rows, totals, details, expenseTotal,
+    title: 'Thống kê doanh thu', f, rows, totals, details, expenseTotal, debtPaid,
     chart: rows.map(r => ({ label: periodLabel(r.period, f.group), value: r.total, tip: `${periodLabel(r.period, f.group)}: ${fmt.money(r.total)} · ${r.count} giao dịch` })),
     periodLabel,
   });
@@ -124,6 +140,7 @@ router.post('/revenues/:id/delete', (req, res) => {
   if (!r) { req.flash('error', 'Không tìm thấy giao dịch.'); return res.redirect(backTo); }
   const result = db.transaction(() => {
     db.prepare('DELETE FROM revenues WHERE id = ?').run(r.id);
+    require('../../services/debts').cleanupOrphans();
     if (r.type === 'repair' && r.ref_id) {
       const t = db.prepare('SELECT ticket_code FROM tasks WHERE id = ?').get(r.ref_id);
       db.prepare(`DELETE FROM revenues WHERE type = 'repair' AND ref_id = ?`).run(r.ref_id);

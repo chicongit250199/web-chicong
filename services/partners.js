@@ -55,4 +55,4 @@ function suggestions() {
   }).slice(0, 20);
 }
 
-module.exports = { detect, reclassify, suggestions, splitList, squash };
+module.exports = { detect, reclassify, suggestions, splitList, squash, matchers };

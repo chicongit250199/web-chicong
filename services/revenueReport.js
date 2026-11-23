@@ -26,6 +26,7 @@ const VN_DAY = `date(created_at, '+7 hours')`;
 const SUMS = `COUNT(*) AS count, COALESCE(SUM(amount),0) AS total,
   COALESCE(SUM(CASE WHEN payment_method='cash' THEN amount END),0) AS cash,
   COALESCE(SUM(CASE WHEN payment_method='transfer' THEN amount END),0) AS transfer,
+  COALESCE(SUM(CASE WHEN payment_method='debt' THEN amount END),0) AS debt,
   COALESCE(SUM(CASE WHEN type='repair' THEN amount END),0) AS repair,
   COALESCE(SUM(CASE WHEN type='sale' THEN amount END),0) AS sale`;
 
@@ -54,7 +55,10 @@ function diff(cur, prev, label) {
   return `<span style="color:${color}">${pct >= 0 ? '▲' : '▼'} ${Math.abs(pct)}%</span> <span style="color:#64748b">so với ${label} (${money(prev)})</span>`;
 }
 
-function summaryTable(s, expense) {
+// Thu nợ trong khoảng ngày (tiền khách trả nợ — không cộng vào doanh thu)
+const debtPaid = (from, to) => db.prepare(`SELECT COALESCE(SUM(amount),0) t FROM debt_payments WHERE date(created_at, '+7 hours') BETWEEN ? AND ?`).get(from, to).t;
+
+function summaryTable(s, expense, paid = 0) {
   const rows = [
     ['Tổng doanh thu', `<b style="font-size:18px">${money(s.total)}</b>`],
     ['Số giao dịch', esc(s.count)],
@@ -62,6 +66,8 @@ function summaryTable(s, expense) {
     ['Bán hàng', money(s.sale)],
     ['Tiền mặt', money(s.cash)],
     ['Chuyển khoản', money(s.transfer)],
+    ...(s.debt ? [['Bán công nợ (chưa thu)', money(s.debt)]] : []),
+    ...(paid ? [['Thu nợ', money(paid)]] : []),
     ['Chi phí', money(expense)],
     ['Doanh thu − chi phí', `<b>${money(s.total - expense)}</b>`],
   ];
@@ -161,7 +167,7 @@ ${list.map(r => `<tr><td style="${TD}white-space:nowrap">${esc(when(r))}</td><td
   const title = multi ? `Doanh thu Chủ nhật ${fmt.date(from).slice(0, 5)} + thứ 2 ${fmt.date(day)}` : `Doanh thu ngày ${fmt.date(day)}`;
   const body = `<p style="margin:0 0 16px;font-size:13px">${diff(s.total, prev, `${WD_LONG[weekday(prevDay)]} ${fmt.date(prevDay).slice(0, 5)}`)}</p>
 ${multi ? '<p style="margin:0 0 12px;font-size:13px;color:#b45309">Chủ nhật có phát sinh giao dịch nên gộp chung vào báo cáo thứ 2.</p>' : ''}
-${summaryTable(s, expense)}
+${summaryTable(s, expense, debtPaid(from, day))}
 <p style="margin:12px 0 0;font-size:13px;color:#475569">Lũy kế tháng ${esc(day.slice(5, 7))}/${esc(day.slice(0, 4))} đến hôm nay: <b>${money(month.t)}</b> · ${esc(month.c)} giao dịch</p>
 <h3 style="margin:20px 0 0;font-size:15px">Chi tiết giao dịch</h3>${items}
 ${taskSection(from, day)}
@@ -193,7 +199,7 @@ function monthlyReport(ym = fmt.todayYmd().slice(0, 7)) {
 
   const title = `Doanh thu tháng ${ym.slice(5, 7)}/${ym.slice(0, 4)}`;
   const body = `<p style="margin:0 0 16px;font-size:13px">${diff(s.total, prev, `tháng ${pm.slice(5, 7)}/${pm.slice(0, 4)}`)}</p>
-${summaryTable(s, expense)}
+${summaryTable(s, expense, debtPaid(from, to))}
 <p style="margin:12px 0 0;font-size:13px;color:#475569">${esc(activeDays)} ngày có doanh thu · trung bình ${money(activeDays ? Math.round(s.total / activeDays) : 0)}/ngày${best ? ` · cao nhất ${esc(fmt.date(best.d))}: ${money(best.total)}` : ''}</p>
 ${staff.length ? `<h3 style="margin:20px 0 0;font-size:15px">Theo nhân viên</h3>
 <table style="border-collapse:collapse;width:100%;max-width:480px;font-size:13px;margin-top:8px"><tr><th style="${TH}">Nhân viên</th><th style="${TH}text-align:right">Giao dịch</th><th style="${TH}text-align:right">Doanh thu</th></tr>

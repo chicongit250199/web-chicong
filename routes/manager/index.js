@@ -9,6 +9,7 @@ router.use(requireRole('manager'));
 router.use((req, res, next) => (req.path === '/events' || req.path === '/system.json' || req.path === '/notifications.json' ? next() : appShell(req, res, next)));
 
 router.use(require('./revenue'));
+router.use(require('./debts'));
 router.use(require('./expenses'));
 router.use(require('./users'));
 router.use(require('./assign'));

@@ -5,7 +5,7 @@ const GROUPS = [
   {
     title: 'Tổng quan',
     items: [
-      { key: 'm-home', also: ['m-revenue'], href: '/manager', icon: 'chart', label: 'Doanh thu', roles: ['manager'] },
+      { key: 'm-home', also: ['m-revenue', 'm-debts'], href: '/manager', icon: 'chart', label: 'Doanh thu', roles: ['manager'] },
       { key: 'm-expenses', href: '/manager/expenses', icon: 'cash', label: 'Chi phí', roles: ['manager'] },
       { key: 'home', href: '/staff', icon: 'home', label: 'Bảng công việc', roles: ['staff', 'manager'] },
     ],

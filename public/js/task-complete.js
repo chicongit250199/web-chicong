@@ -2,6 +2,7 @@
 window.completeForm = function (repairAmount) {
   return {
     amount: String(repairAmount || 0),
+    pay: 'cash', paid: '', // hình thức thanh toán; công nợ: số khách trả trước
     // ô nhập món bán kèm
     q: '', results: [], open: false, loading: false, hi: -1, timer: null,
     group: null, unitId: '', price: '', warranty: '', kind: 'sale', error: '',
@@ -11,6 +12,9 @@ window.completeForm = function (repairAmount) {
     onAmount: function (e) { this.amount = e.target.value.replace(/\D/g, ''); e.target.value = this.amountDisplay; },
     get extraSum() { return this.cart.reduce(function (s, l) { return s + Number(l.price || 0); }, 0); },
     get total() { return Number(this.amount || 0) + this.extraSum; },
+    get paidDisplay() { return this.paid === '' ? '' : formatVnd(this.paid); },
+    onPaid: function (e) { this.paid = e.target.value.replace(/\D/g, ''); e.target.value = this.paidDisplay; },
+    get debtAmount() { return Math.max(0, this.total - Number(this.paid || 0)); },
     get extraJson() {
       return JSON.stringify(this.cart.map(function (l) { return { item_id: l.item_id, name: l.item_id ? '' : l.name, kind: l.kind, price: l.price, warranty_months: l.warranty }; }));
     },

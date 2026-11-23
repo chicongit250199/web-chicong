@@ -36,7 +36,7 @@ const TASK_STATUS = {
   unrepairable: { label: 'Không sửa được', cls: 'badge-red' },
   completed: { label: 'Đã trả máy', cls: 'badge-gray' },
 };
-const PAYMENT = { cash: 'Tiền mặt', transfer: 'Chuyển khoản' };
+const PAYMENT = { cash: 'Tiền mặt', transfer: 'Chuyển khoản', debt: 'Công nợ' };
 const REVENUE_TYPE = { repair: 'Sửa chữa', sale: 'Bán hàng' };
 
 // 'YYYY-MM-DD' (ngày thuần, không giờ) -> dd/mm/yyyy, không lệch múi giờ

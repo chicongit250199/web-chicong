@@ -13,12 +13,16 @@ window.sellForm = function (staffName, preset, build) {
       this.applyUnit();
     },
     q: '', results: [], open: false, loading: false, hi: -1, timer: null,
-    group: null, unitId: '', price: '', payment: 'cash',
+    group: null, unitId: '', price: '', payment: 'cash', paid: '', paid_method: 'cash',
     customer_name: '', customer_phone: '', delivery_address: '', warranty: '', kind: 'repair',
     confirm: false, sending: false, error: '', success: '', receipt: '', confirmTime: '',
     buildId: null, buildCode: '',
     cart: [], sale_date: '', today: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10), // các món đã thêm vào đơn: { item_id, name, serial, kind, price, warranty, label }
 
+    get paidNum() { return Number(this.paid || 0); },
+    get paidDisplay() { return this.paid === '' ? '' : formatVnd(this.paid); },
+    get debtAmount() { return Math.max(0, this.total - this.paidNum); },
+    onPaid: function (e) { this.paid = e.target.value.replace(/\D/g, ''); e.target.value = this.paidDisplay; },
     get total() { return this.cart.reduce(function (s, l) { return s + Number(l.price || 0); }, 0); },
     get inCart() { return this.cart.filter(function (l) { return l.item_id; }).map(function (l) { return l.item_id; }); },
     // Serial còn chọn được (bỏ món đã có trong đơn)
@@ -111,6 +115,7 @@ window.sellForm = function (staffName, preset, build) {
       // Đang nhập dở 1 món -> tự thêm vào đơn
       if (this.draft || this.group) { var line = this.currentLine(); if (!line) return; this.cart.push(line); this.clearLine(); }
       if (!this.cart.length) { this.error = 'Chưa có món nào trong đơn.'; return; }
+      if (this.payment === 'debt' && !String(this.customer_name || '').trim() && !String(this.customer_phone || '').trim()) { this.error = 'Ghi nợ cần tên hoặc SĐT khách.'; return; }
       this.open = false;
       this.confirmTime = new Date().toLocaleString('vi-VN');
       this.confirm = true;
@@ -120,14 +125,14 @@ window.sellForm = function (staffName, preset, build) {
       this.sending = true;
       api('/staff/sell', { method: 'POST', body: {
         items: this.cart.map(function (l) { return { item_id: l.item_id, name: l.item_id ? '' : l.name, kind: l.kind, price: l.price, warranty_months: l.warranty }; }),
-        payment_method: this.payment, sale_date: this.sale_date, build_id: this.buildId, customer_name: this.customer_name, customer_phone: this.customer_phone, delivery_address: this.delivery_address,
+        payment_method: this.payment, paid_amount: this.payment === 'debt' ? this.paid : '', paid_method: this.paid_method, sale_date: this.sale_date, build_id: this.buildId, customer_name: this.customer_name, customer_phone: this.customer_phone, delivery_address: this.delivery_address,
       } }).then(function (d) {
         self.success = d.message; self.receipt = d.receipt || ''; self.confirm = false; self.reset(); if (window.liveRefresh) liveRefresh.schedule();
       }).catch(function (e) { self.error = e.message; self.confirm = false; })
         .finally(function () { self.sending = false; });
     },
     reset: function () {
-      this.q = ''; this.results = []; this.group = null; this.unitId = ''; this.price = ''; this.payment = 'cash';
+      this.q = ''; this.results = []; this.group = null; this.unitId = ''; this.price = ''; this.payment = 'cash'; this.paid = ''; this.paid_method = 'cash';
       this.customer_name = ''; this.customer_phone = ''; this.delivery_address = ''; this.warranty = ''; this.kind = 'repair';
       this.cart = []; this.sale_date = ''; this.buildId = null; this.buildCode = '';
     },

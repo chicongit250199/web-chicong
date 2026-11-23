@@ -85,8 +85,8 @@
       <% } %>
       <tr class="big"><td><%= T.total %>:</td><td class="r"><%= n(b.total) %> ₫</td></tr>
       <% if (b.deposit) { %>
-        <tr><td><%= T.dep %>:</td><td class="r"><%= n(b.deposit) %> ₫</td></tr>
-        <tr class="big"><td><%= T.rem %>:</td><td class="r"><%= n(Math.max(0, b.total - b.deposit)) %> ₫</td></tr>
+        <tr><td><%= b.depLabel || T.dep %>:</td><td class="r"><%= n(b.deposit) %> ₫</td></tr>
+        <tr class="big"><td><%= b.remLabel || T.rem %>:</td><td class="r"><%= n(Math.max(0, b.total - b.deposit)) %> ₫</td></tr>
       <% } %>
     </table>
     <div class="words"><%= T.words %>: <strong><%= b.deposit ? remainingWords : words %></strong></div>

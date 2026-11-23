@@ -1,0 +1,63 @@
+<%# Công nợ của 1 người nợ: số còn nợ, form thu nợ, các đơn nợ, các lần trả.
+    d = debts.detail(key); back = đường dẫn quay lại sau khi thu / xóa %>
+<div class="grid gap-3 sm:grid-cols-3">
+  <div class="stat"><p class="stat-label">Còn nợ</p><p class="stat-value text-2xl <%= d.balance > 0 ? 'text-red-600' : 'text-emerald-600' %>"><%= fmt.money(d.balance) %></p>
+    <% if (d.balance < 0) { %><p class="text-xs text-slate-500">khách trả dư</p><% } %></div>
+  <div class="stat"><p class="stat-label">Tổng nợ phát sinh</p><p class="stat-value text-lg"><%= fmt.money(d.owed) %></p><p class="text-xs text-slate-500"><%= d.charges.length %> đơn / máy</p></div>
+  <div class="stat"><p class="stat-label">Đã trả</p><p class="stat-value text-lg"><%= fmt.money(d.paid) %></p><p class="text-xs text-slate-500"><%= d.payments.length %> lần</p></div>
+</div>
+
+<% if (d.balance > 0) { %>
+<form method="post" action="/staff/debts/pay" x-data="moneyInput('')" class="card mt-4 grid gap-3 sm:grid-cols-[minmax(0,12rem)_11rem_minmax(0,1fr)_auto] sm:items-end">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="key" value="<%= d.key %>"><input type="hidden" name="back" value="<%= back %>">
+  <label class="block"><span class="label req">Thu nợ (₫)</span>
+    <input class="input text-right font-semibold tabular-nums" inputmode="numeric" :value="display" @input="onInput($event)" required placeholder="<%= fmt.num(d.balance) %>">
+    <input type="hidden" name="amount" :value="raw"></label>
+  <label class="block"><span class="label">Hình thức</span>
+    <select name="payment_method" class="input"><option value="cash">Tiền mặt</option><option value="transfer">Chuyển khoản</option></select></label>
+  <label class="block"><span class="label">Ghi chú</span><input name="note" maxlength="300" class="input" placeholder="VD: trả nợ tháng 11"></label>
+  <div class="flex gap-2">
+    <button type="button" @click="raw = '<%= d.balance %>'" class="btn-secondary whitespace-nowrap px-3" title="Điền số còn nợ">Trả hết</button>
+    <button class="btn-primary whitespace-nowrap"><%- icon('check', 'h-4 w-4') %>Thu nợ</button>
+  </div>
+</form>
+<% } %>
+
+<div class="mt-4 grid gap-4 xl:grid-cols-2">
+  <section>
+    <h3 class="mb-2 font-semibold">Các đơn / máy ghi nợ</h3>
+    <div class="tbl-wrap max-h-[480px] overflow-y-auto"><table class="tbl">
+      <thead class="sticky top-0"><tr><th>Ngày</th><th>Nội dung</th><th class="text-right">Số tiền</th><th></th></tr></thead>
+      <tbody>
+        <% d.charges.forEach(c => { %>
+          <tr><td class="whitespace-nowrap text-xs"><%= fmt.datetime(c.created_at) %><span class="block text-slate-500"><%= c.staff_name || '' %></span></td>
+            <td class="min-w-48 text-sm"><%= c.content %><% if (d.key.startsWith('p:') && c.customer_name) { %><span class="block text-xs text-slate-500"><%= c.customer_name %></span><% } %></td>
+            <td class="whitespace-nowrap text-right font-semibold tabular-nums"><%= fmt.num(c.amount) %></td>
+            <td class="whitespace-nowrap text-right">
+              <% if (c.task_id) { %><a href="/staff/tasks/<%= c.task_id %>" class="inline-grid h-7 w-7 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-slate-800" title="Mở task"><%- icon('external', 'h-4 w-4') %></a><% } %>
+              <a href="/staff/sell/receipt/<%= c.order_code || c.id %>" target="_blank" class="inline-grid h-7 w-7 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-slate-800" title="In phiếu"><%- icon('printer', 'h-4 w-4') %></a></td></tr>
+        <% }) %>
+        <% if (!d.charges.length) { %><tr><td colspan="4" class="py-6 text-center text-sm text-slate-500">Không có</td></tr><% } %>
+      </tbody>
+    </table></div>
+  </section>
+  <section>
+    <h3 class="mb-2 font-semibold">Các lần trả</h3>
+    <div class="tbl-wrap max-h-[480px] overflow-y-auto"><table class="tbl">
+      <thead class="sticky top-0"><tr><th>Ngày</th><th>Ghi chú</th><th class="text-right">Số tiền</th><th>TT</th><% if (user.role === 'manager') { %><th></th><% } %></tr></thead>
+      <tbody>
+        <% d.payments.forEach(p => { %>
+          <tr><td class="whitespace-nowrap text-xs"><%= fmt.datetime(p.created_at) %><span class="block text-slate-500"><%= p.staff_name || '' %></span></td>
+            <td class="text-sm"><%= p.note || '' %></td>
+            <td class="whitespace-nowrap text-right font-semibold tabular-nums text-emerald-700 dark:text-emerald-400"><%= fmt.num(p.amount) %></td>
+            <td class="text-xs"><%= p.payment_method === 'cash' ? 'TM' : 'CK' %></td>
+            <% if (user.role === 'manager') { %><td class="text-right">
+              <form method="post" action="/manager/debt-payments/<%= p.id %>/delete" data-confirm="Xóa lần trả <%= fmt.money(p.amount) %> (<%= fmt.datetime(p.created_at) %>)? Số còn nợ sẽ tăng lại.">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="back" value="<%= back %>">
+                <button class="inline-grid h-7 w-7 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950" title="Xóa"><%- icon('trash', 'h-4 w-4') %></button></form></td><% } %></tr>
+        <% }) %>
+        <% if (!d.payments.length) { %><tr><td colspan="5" class="py-6 text-center text-sm text-slate-500">Chưa trả lần nào</td></tr><% } %>
+      </tbody>
+    </table></div>
+  </section>
+</div>

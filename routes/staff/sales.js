@@ -91,10 +91,14 @@ router.get('/api/inventory/suggest', (req, res) => {
 });
 
 const { lineSchema, noDupSerial, newOrderCode, writeLines } = require('../../services/sales');
+const debts = require('../../services/debts');
 
 const sellSchema = v.z.object({
   items: v.z.array(lineSchema).min(1, 'Chưa có món nào trong đơn').max(50, 'Tối đa 50 món mỗi đơn'),
-  payment_method: v.oneOf(['cash', 'transfer'], 'Chọn hình thức thanh toán'),
+  payment_method: v.oneOf(['cash', 'transfer', 'debt'], 'Chọn hình thức thanh toán'),
+  // Công nợ: khách trả trước 1 phần (0 = nợ toàn bộ), phần còn lại ghi nợ
+  paid_amount: v.money,
+  paid_method: v.z.preprocess(x => (x === 'transfer' ? 'transfer' : 'cash'), v.z.enum(['cash', 'transfer'])),
   customer_name: v.text(120),
   customer_phone: v.phone(false),
   delivery_address: v.text(500),
@@ -114,12 +118,19 @@ router.post('/sell', (req, res) => {
   const now = saleDay === today ? new Date().toISOString()
     : new Date(`${saleDay}T${new Date(Date.now() + 7 * 3600e3).toISOString().slice(11, 23)}+07:00`).toISOString();
   const orderCode = newOrderCode(); // mọi đơn đều có số phiếu (để in lại)
+  const pay = debts.split(data.items.reduce((s, l) => s + l.price, 0), data.payment_method, data.paid_amount, data.paid_method);
+  const debtKey = pay.method === 'debt' ? debts.keyFor({ name: data.customer_name, phone: data.customer_phone }) : null;
+  if (pay.method === 'debt' && !debtKey) return res.status(422).json({ error: debts.NEED_CUSTOMER });
   let lines;
   try {
-    lines = db.transaction(() => writeLines(data.items, {
-      customer_name: data.customer_name, customer_phone: data.customer_phone, delivery_address: data.delivery_address,
-      payment_method: data.payment_method, staff_name: req.user.full_name, now, saleDay, orderCode,
-    }))();
+    lines = db.transaction(() => {
+      const out = writeLines(data.items, {
+        customer_name: data.customer_name, customer_phone: data.customer_phone, delivery_address: data.delivery_address,
+        payment_method: pay.method, staff_name: req.user.full_name, now, saleDay, orderCode,
+      });
+      if (debtKey) debts.recordOrder({ key: debtKey, orderCode, upfront: pay.upfront, upfrontMethod: data.paid_method, staff: req.user.full_name, now });
+      return out;
+    })();
   } catch (e) {
     if (e.gone) return res.status(409).json({ error: e.message });
     throw e;
@@ -130,7 +141,9 @@ router.post('/sell', (req, res) => {
   const what = lines.length === 1 ? lines[0].content : `${lines.length} món (${lines.map(l => l.content).join('; ')})`;
   const verb = lines.every(l => l.kind === 'repair') ? 'thu dịch vụ' : 'bán';
   const serial = lines.find(l => l.serial)?.serial;
-  notify('sale', `${req.user.full_name} ${verb} ${what} — ${fmt.money(total)} (${fmt.payment(data.payment_method)})`,
+  const payText = pay.method !== 'debt' ? fmt.payment(pay.method)
+    : `Công nợ${pay.upfront ? ` — trả trước ${fmt.money(pay.upfront)} ${fmt.payment(data.paid_method).toLowerCase()}, nợ ${fmt.money(total - pay.upfront)}` : ''}`;
+  notify('sale', `${req.user.full_name} ${verb} ${what} — ${fmt.money(total)} (${payText})`,
     `/staff/search?q=${encodeURIComponent(data.customer_phone || serial || '')}`, req.user.full_name);
   res.json({ ok: true, receipt: `/staff/sell/receipt/${orderCode}`, message: `${saleDay !== today ? '[Ngày ' + saleDay.split('-').reverse().join('/') + '] ' : ''}Đã ghi ${lines.length > 1 ? 'đơn ' + lines.length + ' món' : '"' + lines[0].content + '"'} — tổng ${fmt.money(total)}` });
 });
@@ -171,11 +184,18 @@ router.get('/sell/receipt/:key', (req, res, next) => {
     b: {
       code: first.order_code || `BH-${first.id}`, name: build ? `Cấu hình ${build.code}${build.name ? ' — ' + build.name : ''}` : '',
       customer_name: first.customer_name, customer_phone: first.customer_phone, customer_addr: first.delivery_address,
-      payment: en ? { cash: 'Cash', transfer: 'Bank transfer' }[first.payment_method] : fmt.payment(first.payment_method),
-      discount: 0, deposit: 0, total, note: null,
+      payment: en ? { cash: 'Cash', transfer: 'Bank transfer', debt: 'On credit' }[first.payment_method] : fmt.payment(first.payment_method),
+      // Đơn công nợ: hiện số đã trả lúc mua + còn nợ của đơn
+      ...(() => {
+        if (first.payment_method !== 'debt' || !first.order_code) return { deposit: 0 };
+        const paid = db.prepare('SELECT COALESCE(SUM(amount),0) s FROM debt_payments WHERE order_code = ?').get(first.order_code).s;
+        return paid ? { deposit: paid, depLabel: en ? 'Paid' : 'Đã trả', remLabel: en ? 'Owing' : 'Còn nợ' } : { deposit: 0 };
+      })(),
+      discount: 0, total, note: null,
     },
     items, subtotal: total, en, doc: 'receipt', dateText, docToggle: false,
-    words: en ? pc.enWords(total) : pc.vnWords(total), remainingWords: '',
+    words: en ? pc.enWords(total) : pc.vnWords(total),
+    remainingWords: en ? pc.enWords(total) : pc.vnWords(total), // phiếu bán: "bằng chữ" luôn là tổng tiền đơn
     printNote: en ? settings.get('pc_print_note_en') || DEF.DEFAULT_NOTE_EN : settings.get('pc_print_note_vi') || DEF.DEFAULT_NOTE_VI,
     staffName: first.staff_name || '',
   });

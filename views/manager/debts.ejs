@@ -1,0 +1,39 @@
+<%- include('../app/_top') %>
+<div class="page-title">
+  <h1><%- icon('chart', 'h-6 w-6 text-brand-600') %>Công nợ</h1>
+</div>
+<%- include('_revenue_tabs', { revTab: 'debts' }) %>
+
+<div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+  <div class="stat col-span-2 lg:col-span-1"><p class="stat-label">Tổng còn nợ</p><p class="stat-value text-red-600"><%= fmt.money(totals.balance) %></p>
+    <p class="text-xs text-slate-500"><%= list.filter(d => d.balance > 0).length %> người / đối tác đang nợ</p></div>
+  <div class="stat"><p class="stat-label">Đối tác nợ</p><p class="stat-value text-lg"><%= fmt.money(list.filter(d => d.partnerId && d.balance > 0).reduce((s, d) => s + d.balance, 0)) %></p></div>
+  <div class="stat"><p class="stat-label">Khách lẻ nợ</p><p class="stat-value text-lg"><%= fmt.money(list.filter(d => !d.partnerId && d.balance > 0).reduce((s, d) => s + d.balance, 0)) %></p></div>
+  <div class="stat"><p class="stat-label">Đã thu nợ (từ trước tới nay)</p><p class="stat-value text-lg text-emerald-600"><%= fmt.money(totals.paid) %></p></div>
+</div>
+
+<form method="get" class="mb-3 flex flex-wrap items-center gap-2">
+  <input name="q" value="<%= search %>" class="input w-64 max-w-full" placeholder="Tìm tên / SĐT...">
+  <label class="flex items-center gap-1.5 text-sm"><input type="checkbox" name="all" value="1" <%= all ? 'checked' : '' %> x-on:change="$el.form.submit()">Hiện cả người đã trả hết</label>
+  <button class="btn-secondary"><%- icon('search', 'h-4 w-4') %>Tìm</button>
+</form>
+
+<div class="tbl-wrap"><table class="tbl">
+  <thead><tr><th>Người nợ</th><th class="text-right">Nợ phát sinh</th><th class="text-right">Đã trả</th><th class="text-right">Còn nợ</th><th>Gần nhất</th></tr></thead>
+  <tbody>
+    <% list.forEach(d => { %>
+      <tr>
+        <td><a href="/manager/debts/view?k=<%= encodeURIComponent(d.key) %>" class="font-medium text-brand-600 hover:underline"><%= d.name || d.phone || '(không tên)' %></a>
+          <% if (d.partnerId) { %><span class="badge-violet ml-1">Đối tác</span><% } %>
+          <span class="block text-xs text-slate-500"><%= [d.name ? d.phone : '', d.orders + ' đơn / máy'].filter(Boolean).join(' · ') %></span></td>
+        <td class="text-right tabular-nums"><%= fmt.num(d.owed) %></td>
+        <td class="text-right tabular-nums text-emerald-700 dark:text-emerald-400"><%= fmt.num(d.paid) %></td>
+        <td class="whitespace-nowrap text-right font-semibold tabular-nums <%= d.balance > 0 ? 'text-red-600' : '' %>"><%= fmt.money(d.balance) %></td>
+        <td class="whitespace-nowrap text-xs text-slate-500"><%= fmt.datetime(d.last) %></td>
+      </tr>
+    <% }) %>
+    <% if (!list.length) { %><tr><td colspan="5" class="py-8 text-center text-sm text-slate-500"><%= search ? 'Không tìm thấy' : 'Không có ai đang nợ' %></td></tr><% } %>
+  </tbody>
+</table></div>
+<p class="mt-2 text-xs text-slate-500">Ghi nợ: chọn hình thức <b>Công nợ</b> khi bán hàng / trả máy (có thể cho trả trước 1 phần). Đối tác tự gộp mọi đơn / máy vào 1 công nợ. Doanh thu tính lúc bán; tiền thu nợ không cộng doanh thu lần nữa.</p>
+<%- include('../app/_bottom') %>
