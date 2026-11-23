@@ -6,7 +6,7 @@
 
 <%# Sidebar trái cố định, luôn mở rộng (quản lý và nhân viên) %>
 <aside class="fixed bottom-0 left-0 top-14 z-30 hidden w-60 overflow-y-auto border-r border-slate-200 bg-white px-3 py-4 lg:block dark:border-slate-800 dark:bg-slate-900">
-  <%- menuHtml %>
+  <div data-live-nav><%- menuHtml %></div>
 </aside>
 
 <%# Mobile: thanh dưới + drawer menu đầy đủ %>
@@ -23,7 +23,7 @@
     <span class="font-semibold">Menu</span>
     <button type="button" @click="menu = false" class="rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Đóng"><%- icon('x', 'h-5 w-5') %></button>
   </div>
-  <%- menuHtml %>
+  <div data-live-nav><%- menuHtml %></div>
 </aside>
 
 <div class="pb-20 lg:pb-6 lg:pl-60">

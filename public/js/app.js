@@ -80,6 +80,46 @@
     };
   })();
 
+  // ---- Cập nhật trang theo thời gian thực ----
+  // Có thông báo mới (SSE) -> tải lại ngầm trang hiện tại, thay phần <main> + số trên menu, giữ nguyên vị trí cuộn.
+  // Không làm khi người dùng đang thao tác: popup đang mở, đang gõ / đã sửa ô nhập, hoặc trang nhập liệu (bán hàng, nhận máy...).
+  var liveRefresh = (function () {
+    var SKIP = /^\/(staff\/(sell|build|tasks\/new|inventory\/new|products\/new)|manager\/(system|import|pc-parts\/new|products\/\d+))|\/(edit|new|print)(\/|$)/;
+    var timer = null, busy = false, again = false, dirty = false;
+    document.addEventListener('input', function (e) { if (e.target.closest && e.target.closest('main form')) dirty = true; }, true);
+    function userBusy() {
+      if (dirty || SKIP.test(location.pathname)) return true;
+      if (document.querySelector('.modal-backdrop')) return true;
+      var a = document.activeElement;
+      return !!(a && a.closest('main') && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.type !== 'button' && a.type !== 'submit');
+    }
+    function swap(sel, doc) {
+      var cur = document.querySelectorAll(sel), next = doc.querySelectorAll(sel);
+      if (cur.length !== next.length) return false;
+      for (var i = 0; i < cur.length; i++) if (cur[i].innerHTML !== next[i].innerHTML) cur[i].innerHTML = next[i].innerHTML;
+      return true;
+    }
+    function run() {
+      timer = null;
+      if (document.hidden) return;
+      if (busy) { again = true; return; }
+      busy = true;
+      var onlyNav = userBusy();
+      fetch(location.href, { credentials: 'same-origin', headers: { 'X-Live-Refresh': '1' } })
+        .then(function (r) { if (!r.ok || r.redirected) throw 0; return r.text(); })
+        .then(function (html) {
+          var doc = new DOMParser().parseFromString(html, 'text/html');
+          swap('[data-live-nav]', doc);
+          if (!onlyNav && !userBusy()) swap('main', doc);
+        })
+        .catch(function () {})
+        .then(function () { busy = false; if (again) { again = false; schedule(); } });
+    }
+    function schedule() { if (timer) clearTimeout(timer); timer = setTimeout(run, 400); }
+    return { schedule: schedule };
+  })();
+  window.liveRefresh = liveRefresh;
+
   window.notifPanel = function () {
     return {
       items: [], unread: 0, live: false, toasts: [], open: false, ring: false, pop: false, me: '', base: '/manager', sound: true,
@@ -102,6 +142,7 @@
           es.addEventListener('notification', function (ev) {
             var n = JSON.parse(ev.data);
             if (self.items.some(function (x) { return x.id === n.id; })) return;
+            liveRefresh.schedule(); // cập nhật nội dung trang (danh sách task, số trên menu) theo thay đổi mới
             self.items.unshift(n);
             if (self.items.length > 60) self.items.pop();
             self.unread++;
@@ -118,7 +159,7 @@
           api(self.base + '/notifications.json').then(function (d) { self.items = d.items; self.unread = d.unread; }).catch(function () {});
         };
         document.addEventListener('visibilitychange', function () {
-          if (document.hidden) disconnect(); else { refresh(); connect(); }
+          if (document.hidden) disconnect(); else { refresh(); connect(); liveRefresh.schedule(); }
         });
         window.addEventListener('pagehide', disconnect);
         if (!document.hidden) connect();
