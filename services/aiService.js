@@ -236,7 +236,7 @@ async function chatWithTools({ system, history = [], text, tools = [], run, maxS
     for (const c of calls) {
       let result;
       try { result = await run(c.name, c.args || {}); } catch (e) { result = { loi: e.message }; }
-      used.push(c.name);
+      used.push(c.name + JSON.stringify(c.args || {}).slice(0, 120));
       parts.push({ functionResponse: { id: c.id, name: c.name, response: { result } } });
     }
     contents.push({ role: 'user', parts });

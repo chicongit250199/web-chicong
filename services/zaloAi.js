@@ -28,6 +28,30 @@ const STATUS = { pending: 'chờ sửa', processing: 'đang sửa', done: 'sửa
 const CAT_KEYS = invCat.CATEGORIES.map(c => c.key);
 const catLabel = k => (invCat.CATEGORIES.find(c => c.key === k) || {}).label || k;
 
+// Giá trong câu chữ: "5tr", "5 triệu", "5tr5", "4.5tr", "500k", "5.000.000", "5000000" → số VNĐ
+const PRICE_RE = /(\d+(?:[.,]\d+)?)\s*(tr|trieu|cu|m)(\d{1,3})?(?![a-z])|(\d+(?:[.,]\d+)?)\s*(k|nghin|ngan)(?![a-z])|(\d{1,3}(?:[.,]\d{3}){2,})|(?<![a-z0-9])(\d{6,9})(?![a-z0-9])/;
+function parsePrice(s) {
+  const m = (db.vn(String(s)) || '').match(PRICE_RE);
+  if (!m) return null;
+  if (m[1]) return Math.round((parseFloat(m[1].replace(',', '.')) + (m[3] ? Number(m[3]) / 10 ** m[3].length : 0)) * 1e6);
+  if (m[4]) return Math.round(parseFloat(m[4].replace(',', '.')) * 1e3);
+  return Number((m[6] || m[7]).replace(/[.,]/g, ''));
+}
+const toVnd = v => (typeof v === 'number' ? Math.round(v) : v == null || v === '' ? null : parsePrice(v));
+// Lấy khoảng giá từ tham số (gia_tu / gia_den) hoặc từ chữ giá lẫn trong từ khóa ("laptop 5tr" → từ khóa "laptop", tầm 4–6tr)
+function priceRange(a) {
+  let kw = String(a.tu_khoa || '');
+  let lo = toVnd(a.gia_tu), hi = toVnd(a.gia_den);
+  const m = (db.vn(kw) || '').match(PRICE_RE);
+  if (m) {
+    const p = parsePrice(m[0]);
+    kw = (db.vn(kw) || '').replace(m[0], ' ').replace(/\b(tam|khoang|gia|duoi|tren|tu|den|tro xuong|tro len|vnd|d|dong)\b/g, ' ');
+    if (lo == null && hi == null && p) { lo = Math.round(p * 0.8); hi = Math.round(p * 1.2); }
+  }
+  return { ws: terms(kw), lo, hi };
+}
+const inRange = (v, lo, hi) => (lo == null && hi == null) || (v != null && (lo == null || v >= lo) && (hi == null || v <= hi));
+
 function cut(rows, n = LIMIT) { return { tong_so: rows.length, ds: rows.slice(0, n), ...(rows.length > n ? { ghi_chu: `chỉ hiện ${n}/${rows.length}, hỏi cụ thể hơn để lọc` } : {}) }; }
 
 // ---------- hàm tra cứu: nhân viên + quản lý ----------
@@ -47,10 +71,12 @@ const stockRow = r => ({ ten: r.name, danh_muc: catLabel(invCat.categorize(r.nam
 const STAFF_TOOLS = [
   {
     name: 'tim_kho',
-    description: 'Tra hàng trong kho (linh kiện, laptop, màn hình...). Mặc định hàng còn tồn (gộp cùng tên + giá, có số lượng, giá KT = giá kỹ thuật/giá sỉ, giá lẻ). da_ban=true để xem hàng đã bán (kèm ngày bán, khách).',
+    description: 'Tra hàng trong kho: laptop, PC, màn hình, linh kiện, phím chuột... (laptop / PC / màn hình CHỈ có ở đây). Mặc định hàng còn tồn (gộp cùng tên + giá, có số lượng, giá KT = giá kỹ thuật/giá sỉ, giá lẻ). da_ban=true để xem hàng đã bán (kèm ngày bán, khách).',
     parameters: { type: 'object', properties: {
       tu_khoa: { type: 'string', description: 'tên / model / serial, VD "ram 8gb ddr4", "i5 12400", "h610". Bỏ trống = tất cả' },
       danh_muc: { type: 'string', enum: CAT_KEYS, description: 'main, cpu, ram, vga, storage (ổ cứng SSD/HDD), psu (nguồn), case, cooling (tản nhiệt), monitor, gear (phím chuột tai nghe), laptop, pc, other' },
+      gia_tu: { type: 'number', description: 'giá bán lẻ tối thiểu (VNĐ, số nguyên). "tầm 5tr" → gia_tu 4000000, gia_den 6000000' },
+      gia_den: { type: 'number', description: 'giá bán lẻ tối đa (VNĐ). "dưới 5tr" → gia_den 5000000' },
       da_ban: { type: 'boolean' },
       tu_ngay: { type: 'string', description: 'YYYY-MM-DD, chỉ dùng khi da_ban' },
       den_ngay: { type: 'string', description: 'YYYY-MM-DD, chỉ dùng khi da_ban' },
@@ -63,9 +89,11 @@ const STAFF_TOOLS = [
   },
   {
     name: 'bao_gia',
-    description: 'Bảng báo giá linh kiện của cửa hàng (dùng để báo giá / ráp PC): giá bán, tình trạng, bảo hành, số đang có trong kho.',
+    description: 'Bảng báo giá LINH KIỆN ráp PC (không có laptop): giá bán, tình trạng, bảo hành, số đang có trong kho.',
     parameters: { type: 'object', properties: {
       tu_khoa: { type: 'string', description: 'VD "main b760", "ram 16gb", "3060"' },
+      gia_tu: { type: 'number', description: 'giá bán lẻ tối thiểu (VNĐ, số nguyên). "tầm 5tr" → gia_tu 4000000, gia_den 6000000' },
+      gia_den: { type: 'number', description: 'giá bán lẻ tối đa (VNĐ). "dưới 5tr" → gia_den 5000000' },
       nhom: { type: 'string', description: 'nhóm: Main, CPU, RAM, VGA, Ổ Cứng, Nguồn, Vỏ Case, Màn Hình, Bàn Phím, Chuột, Phụ kiện' },
     } },
   },
@@ -113,17 +141,17 @@ function taskRow(t, internal) {
 }
 
 function runStaff(user, name, a) {
-  const ws = terms(a.tu_khoa || '');
+  const { ws, lo, hi } = priceRange(a);
   if (name === 'tim_kho') {
     const cat = CAT_KEYS.includes(a.danh_muc) ? a.danh_muc : null;
     const okCat = n => !cat || invCat.categorize(n) === cat;
     if (a.da_ban) {
       const rows = q.sold.all({ from: ymd(a.tu_ngay), to: ymd(a.den_ngay) })
-        .filter(r => okCat(r.name) && hit(ws, flat(`${r.name} ${r.serial || ''} ${r.customer_name || ''} ${r.customer_phone || ''}`)))
+        .filter(r => okCat(r.name) && inRange(r.retail_price, lo, hi) && hit(ws, flat(`${r.name} ${r.serial || ''} ${r.customer_name || ''} ${r.customer_phone || ''}`)))
         .map(r => ({ ten: r.name, serial: r.serial, tinh_trang: r.condition, gia_le: money(r.retail_price), ngay_ban: r.sold_date, khach: r.customer_name, sdt: r.customer_phone }));
       return cut(rows);
     }
-    const rows = q.stock.all().filter(r => okCat(r.name) && hit(ws, flat(`${r.name} ${r.item_code || ''} ${r.condition || ''} ${r.supplier || ''}`))).map(stockRow);
+    const rows = q.stock.all().filter(r => okCat(r.name) && inRange(r.retail_price, lo, hi) && hit(ws, flat(`${r.name} ${r.item_code || ''} ${r.condition || ''} ${r.supplier || ''}`))).map(stockRow);
     return { tong_so_mon: rows.reduce((s, r) => s + r.so_luong, 0), ...cut(rows) };
   }
   if (name === 'thong_ke_kho') {
@@ -141,7 +169,7 @@ function runStaff(user, name, a) {
     let stock = new Map();
     try { stock = require('./pcParts').stockInfo().byPart; } catch { /* bỏ qua */ }
     const g = a.nhom ? flat(a.nhom) : null;
-    const rows = q.parts.all().filter(r => (!g || flat(r.category) === g) && hit(ws, flat(`${r.category} ${r.name} ${r.condition || ''}`)))
+    const rows = q.parts.all().filter(r => (!g || flat(r.category) === g) && inRange(r.price, lo, hi) && hit(ws, flat(`${r.category} ${r.name} ${r.condition || ''}`)))
       .map(r => ({ nhom: r.category, ten: r.name, tinh_trang: r.condition, gia: money(r.price) || 'liên hệ', bh_thang: r.warranty_months,
         ghi_chu: r.note_public || null, kho_co: (stock.get(r.id) || {}).qty || 0 }));
     return cut(rows, 30);
@@ -250,8 +278,10 @@ async function staffAnswer(user, chatId, text) {
   const system = `Bạn là trợ lý nội bộ của cửa hàng máy tính ${shop}, trả lời qua Zalo cho ${isMgr ? 'quản lý' : 'nhân viên'} tên ${user.full_name}. Hôm nay: ${today()}.\n` +
     'Luôn gọi hàm tra cứu để lấy số liệu thật; TUYỆT ĐỐI không bịa giá, số lượng, doanh thu. Không tìm thấy thì nói không có và gợi ý cách hỏi khác ' +
     '(VD thử từ khóa ngắn hơn: "h610" thay vì "main msi h610m pro"). Có thể gọi nhiều hàm / nhiều lần. ' +
+    'Giá viết tắt: "5tr" = 5.000.000, "5tr5" = 5.500.000, "500k" = 500.000; "tầm X" = khoảng X ±20%. Lọc giá bằng gia_tu / gia_den, KHÔNG đưa chữ giá vào tu_khoa. ' +
+    'Hỏi có hàng / còn hàng / giá laptop, PC, màn hình → dùng tim_kho (kèm danh_muc). Linh kiện → tra cả tim_kho và bao_gia. Một nơi không thấy thì thử nơi kia hoặc nới từ khóa / khoảng giá trước khi nói không có. ' +
     'Khi được nhờ báo giá ráp PC: dùng bao_gia cho từng linh kiện, cộng tổng, ghi rõ món nào kho hết. ' +
-    'Bạn chỉ đọc dữ liệu: không thể bán hàng, sửa, xóa hay tạo task — nếu được nhờ thì hướng dẫn làm trên web. ' +
+    'Bạn chỉ đọc dữ liệu: không thể bán hàng, giữ hàng, sửa, xóa hay tạo task — không tự đề nghị những việc đó; nếu được nhờ thì hướng dẫn làm trên web. ' +
     (isMgr ? '' : 'Người này là nhân viên: không có quyền xem doanh thu, chi phí, công nợ — nếu hỏi thì nói chỉ quản lý xem được. ') + STYLE;
   return answer(chatId, text, system, isMgr ? [...STAFF_TOOLS, ...MANAGER_TOOLS] : STAFF_TOOLS, (n, a) => runStaff(user, n, a));
 }
