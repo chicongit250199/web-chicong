@@ -8,6 +8,7 @@
 //  - Nhân viên: task mới; task được giao cho mình (chỉ người được giao)
 //  - Nhóm Zalo đối tác: máy của đối tác đó bắt đầu sửa / sửa xong / không sửa được (lời lẽ gửi khách);
 //    đối tác nhắn hỏi tên máy → bot tự trả lời tình trạng máy của đối tác đó (xem partnerAnswer)
+//  - Nhân viên / quản lý nhắn riêng tên linh kiện → bot trả giá trong kho + bảng báo giá (xem priceAnswer)
 //  - Mỗi ngày lúc giờ đặt (mặc định 8:00, trừ Chủ nhật): danh sách task quá hạn đang giao cho từng người
 //  - Các thông báo thay đổi khác gửi ngay lúc thay đổi
 //  - Không gửi cho chính người vừa làm thao tác
@@ -30,7 +31,7 @@ const PARTNER_KINDS = new Set(['task_processing', 'task_done', 'task_unrepairabl
 const q = {
   users: db.prepare(`SELECT id, full_name, role, zalo_chat_id FROM users
     WHERE is_active = 1 AND zalo_enabled = 1 AND zalo_chat_id IS NOT NULL`),
-  userByChat: db.prepare('SELECT id, full_name FROM users WHERE zalo_chat_id = ?'),
+  userByChat: db.prepare('SELECT id, full_name, is_active FROM users WHERE zalo_chat_id = ?'),
   partnerByChat: db.prepare('SELECT id, name FROM partners WHERE zalo_chat_id = ?'),
   user: db.prepare('SELECT id, full_name AS name, is_active, zalo_chat_id, zalo_name, zalo_enabled FROM users WHERE id = ?'),
   partner: db.prepare('SELECT id, name, zalo_chat_id, zalo_name, zalo_enabled FROM partners WHERE id = ?'),
@@ -253,9 +254,58 @@ function partnerAnswer(partner, text, isGroup) {
     (active.length ? `\nCác máy đang ở cửa hàng:\n${list(active, 10)}` : '') + '\nCần hỗ trợ thêm xin gọi cửa hàng.';
 }
 
-function canReply(chatId) {
+// ---------- Nhân viên / quản lý hỏi giá linh kiện ----------
+// Tài khoản đã liên kết nhắn riêng VD "giá ram 8gb", "kho i3 7100", "báo giá main h510":
+//  - Kho: hàng còn trong kho (gộp theo tên + tình trạng + giá) — số lượng, giá KT, giá lẻ
+//  - Báo giá: bảng giá linh kiện (Build PC) — giá, tình trạng, bảo hành, số đang có trong kho
+// Có chữ "kho"/"tồn" → chỉ tra kho; "báo giá"/"bg" → chỉ bảng báo giá; còn lại tra cả hai.
+// Mọi từ khóa phải khớp (không dấu, bỏ - . /), VD "i3 7100" khớp "CPU I3-7100".
+const PRICE_STOP = new Set(('gia bao nhieu bn bg con khong ko k hang kho ton trong cho hoi xem check tim ban co mot cai chiec may ' +
+  'nhe nha a oi em anh chi de la the nao gi vay linh kien lk sp san pham giup voi di thi va').split(/\s+/));
+const PRICE_MAX = 12;
+const pr = {
+  inv: db.prepare(`SELECT name, item_code, condition, tech_price, retail_price, COUNT(*) AS qty FROM inventory_items
+    WHERE status = 'in_stock' GROUP BY name, condition, tech_price, retail_price ORDER BY name`),
+  parts: db.prepare('SELECT id, category, name, condition, price, warranty_months, note_public FROM pc_parts WHERE hidden = 0 ORDER BY category, sort, id'),
+};
+const flat = t => ' ' + (db.vn(t) || '').replace(/[^a-z0-9]+/g, ' ').trim() + ' ';
+
+function priceAnswer(user, text) {
+  const norm = flat(text);
+  const onlyQuote = / bao gia | bg /.test(norm), onlyStock = !onlyQuote && / (kho|ton) /.test(norm);
+  const terms = [...new Set(norm.trim().split(' ').filter(w => w && !PRICE_STOP.has(w)))];
+  if (!terms.length) {
+    return `Chào ${user.full_name}! Nhắn tên linh kiện để tra giá, VD:\n• giá ram 8gb\n• kho i3 7100 (chỉ hàng trong kho)\n• báo giá main h510 (chỉ bảng báo giá)`;
+  }
+  const hit = hay => terms.every(w => hay.includes(' ' + w) || (/\d/.test(w) && hay.includes(w)));
+  const more = (n, link) => n > PRICE_MAX ? `\n… và ${n - PRICE_MAX} món khác — xem đủ: ${absLink(link)}` : '';
+  const out = [];
+  if (!onlyQuote) {
+    const rows = pr.inv.all().filter(r => hit(flat(`${r.name} ${r.item_code || ''} ${r.condition || ''}`)));
+    out.push(rows.length
+      ? `📦 Kho còn hàng (${rows.reduce((a, r) => a + r.qty, 0)} món):\n` + rows.slice(0, PRICE_MAX).map(r =>
+          `• ${r.name}${r.condition ? ` (${r.condition})` : ''} ×${r.qty} — KT ${r.tech_price != null ? fmt.money(r.tech_price) : '?'} · Lẻ ${r.retail_price != null ? fmt.money(r.retail_price) : '?'}`).join('\n')
+        + more(rows.length, '/staff/inventory?q=' + encodeURIComponent(terms.join(' ')))
+      : '📦 Kho: không có hàng khớp.');
+  }
+  if (!onlyStock) {
+    const rows = pr.parts.all().filter(r => hit(flat(`${r.category} ${r.name} ${r.condition || ''}`)));
+    let stock = new Map();
+    try { stock = require('./pcParts').stockInfo().byPart; } catch (e) { fail('đếm tồn kho báo giá', e); }
+    out.push(rows.length
+      ? '💲 Báo giá linh kiện:\n' + rows.slice(0, PRICE_MAX).map(r => {
+          const q = stock.get(r.id);
+          return `• [${r.category}] ${r.name}${r.condition ? ` (${r.condition})` : ''} — ${r.price != null ? fmt.money(r.price) : 'liên hệ'}`
+            + `${r.warranty_months ? ` · BH ${r.warranty_months} tháng` : ''}${r.note_public ? ` · ${r.note_public}` : ''} · ${q && q.qty ? `kho có ${q.qty}` : 'kho hết'}`;
+        }).join('\n') + more(rows.length, '/staff/build')
+      : '💲 Báo giá: không có linh kiện khớp.');
+  }
+  return `🔍 "${text.replace(/\s+/g, ' ').slice(0, 60)}"\n${out.join('\n\n')}`;
+}
+
+function canReply(chatId, perHour = REPLY_PER_HOUR) {
   const now = Date.now(), arr = (replyLog.get(chatId) || []).filter(x => now - x < 3600e3);
-  if (arr.length >= REPLY_PER_HOUR) { replyLog.set(chatId, arr); return false; }
+  if (arr.length >= perHour) { replyLog.set(chatId, arr); return false; }
   arr.push(now); replyLog.set(chatId, arr);
   if (replyLog.size > 500) replyLog.delete(replyLog.keys().next().value);
   return true;
@@ -309,7 +359,7 @@ function handleUpdate(up) {
     db.transaction(() => { T.users.freeChat.run(chatId); T.partners.freeChat.run(chatId); T[t.table].link.run(chatId, chatName, row.id); })();
     log(`liên kết ${c.kind === 'user' ? 'tài khoản' : 'đối tác'} ${row.name} ↔ ${chatName || chatId}`);
     return enqueue(chatId, c.kind === 'user'
-      ? `✅ Đã liên kết Zalo với tài khoản "${row.name}". Từ giờ thông báo của web sẽ gửi về đây.`
+      ? `✅ Đã liên kết Zalo với tài khoản "${row.name}". Từ giờ thông báo của web sẽ gửi về đây; muốn tra giá linh kiện thì nhắn tên linh kiện (VD: \"giá ram 8gb\").`
       : `✅ Đã liên kết với đối tác "${row.name}". Nhóm sẽ nhận thông báo khi máy của ${row.name} bắt đầu sửa và sửa xong; muốn hỏi tình trạng máy thì nhắn tên máy (VD: "main b760 sao rồi").`);
   }
   const partner = q.partnerByChat.get(chatId);
@@ -320,7 +370,11 @@ function handleUpdate(up) {
   }
   if (isGroup) return; // nhóm chưa liên kết: chỉ phản hồi mã liên kết, không làm phiền
   const owner = q.userByChat.get(chatId);
-  if (owner) return enqueue(chatId, `Bot chỉ gửi thông báo tự động cho "${owner.full_name}", không đọc tin nhắn. Cần hỗ trợ xin liên hệ cửa hàng.`);
+  if (owner) {
+    if (!owner.is_active) return enqueue(chatId, 'Tài khoản này đã bị khóa trên web.');
+    if (text && canReply(chatId, 60)) { log(`tra giá cho ${owner.full_name}: "${text.slice(0, 60)}"`); enqueue(chatId, priceAnswer(owner, text)); }
+    return;
+  }
   enqueue(chatId, match ? 'Mã liên kết không đúng hoặc đã dùng. Nhờ quản lý tạo mã mới trên web.'
     : 'Chào bạn! Bot gửi thông báo tự động của cửa hàng. Để nhận thông báo, nhắn mã liên kết 6 số (quản lý lấy trên web) vào đây.');
 }
@@ -379,4 +433,4 @@ function status() {
   };
 }
 
-module.exports = { start, onNotification, createLinkCode, linkInfo, sendTest, setEnabled, unlink, status, setOverdueAt, partnerAnswer, sendOverdue };
+module.exports = { start, onNotification, createLinkCode, linkInfo, sendTest, setEnabled, unlink, status, setOverdueAt, partnerAnswer, priceAnswer, sendOverdue };
