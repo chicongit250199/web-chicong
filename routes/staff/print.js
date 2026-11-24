@@ -52,6 +52,7 @@ const PRINT_BASE = /^\/staff\/(tasks\/\d+\/print|sell\/receipt\/[\w-]{1,40}|buil
 const PRINT_QUERY = { lang: /^(vi|en)$/, doc: /^(quote|receipt)$/, paper: /^80$/ };
 const DOC_KINDS = { intake: 'Phiếu nhận máy', return: 'Phiếu trả máy (thanh toán sửa chữa)', sale: 'Phiếu bán hàng', quote: 'Báo giá Build PC' };
 const THERMAL_KINDS = new Set(['intake', 'return', 'sale']); // loại phiếu có mẫu 80mm
+const THERMAL_COPIES = 2; // không nhập số bản: máy in bill in 2 bản (khách + cửa hàng), máy A4 in 1 bản
 
 function cleanPath(raw) {
   const [base, qs = ''] = String(raw || '').split('?');
@@ -85,6 +86,7 @@ router.post('/print/page', async (req, res) => {
     const thermal = printers.isThermal(pr);
     if (thermal && !THERMAL_KINDS.has(kind)) throw new Error(`${DOC_KINDS[kind]} chỉ có mẫu A4 — chọn máy in A4 cho loại phiếu này ở trang Hệ thống.`);
     await printers.ensureOnline(name); // kiểm tra trước khi dựng phiếu (mất vài giây)
+    const copies = parseInt(req.body.copies, 10) > 0 ? req.body.copies : (thermal ? THERMAL_COPIES : 1);
     const title = `${String(req.body.title || 'Phiếu').slice(0, 80)} (${req.user.full_name})`;
     const pagePdf = require('../../services/pagePdf');
     let job;
@@ -92,14 +94,14 @@ router.post('/print/page', async (req, res) => {
       p.query.set('paper', '80');
       const png = await pagePdf.screenshot(`${p.base}?${p.query}`, req.get('cookie'), 576, 2);
       const data = await require('../../services/escpos').fromPng(Buffer.from(png));
-      job = await printers.printRaw(name, data, { copies: req.body.copies, title });
+      job = await printers.printRaw(name, data, { copies, title });
     } else {
       const qs = p.query.toString();
       const pdf = await pagePdf.render(p.base + (qs ? '?' + qs : ''), req.get('cookie'));
-      job = await printers.printFile(name, { mimetype: 'application/pdf', buffer: Buffer.from(pdf), originalname: title }, { copies: req.body.copies, fit: false, title });
+      job = await printers.printFile(name, { mimetype: 'application/pdf', buffer: Buffer.from(pdf), originalname: title }, { copies, fit: false, title });
     }
-    console.log(`[print] ${req.user.full_name} in ${DOC_KINDS[kind]} ${p.base} ra ${name}${thermal ? ' (80mm)' : ''}`);
-    res.json({ ok: true, job, printer: (pr && pr.info) || name });
+    console.log(`[print] ${req.user.full_name} in ${DOC_KINDS[kind]} ${p.base} ra ${name}${thermal ? ' (80mm)' : ''} × ${copies}`);
+    res.json({ ok: true, job, copies: Number(copies), printer: (pr && pr.info) || name });
   } catch (e) {
     console.error('[print] in phiếu lỗi:', e.message);
     res.status(400).json({ error: e.message });

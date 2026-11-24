@@ -35,14 +35,14 @@
     .sign p { margin: 0; } .sign .space { height: 64px; }
     .actions { text-align: center; margin: 14px; } .actions a, .actions button { margin: 0 4px; padding: 7px 14px; font-size: 14px; cursor: pointer; }
     .actions .primary { background: #c00; color: #fff; border: 1px solid #a00; border-radius: 4px; font-weight: 600; }
-    .actions .copies { font-size: 13px; margin: 0 6px; } .actions .copies input { width: 48px; padding: 4px; }
+    .actions .copies { font-size: 13px; margin: 0 6px; } .actions .copies input { width: 76px; padding: 4px; }
     .psmsg { font-size: 13px; margin-top: 6px; min-height: 1em; }
     @media print { .actions { display: none; } .sheet { padding: 0; } }
   </style>
 </head>
 <body>
   <div class="actions">
-    <button type="button" id="print-server-btn" class="primary">🖨 In ra máy in cửa hàng</button><label class="copies">Số bản <input type="number" id="print-server-copies" min="1" max="20" value="1"></label>
+    <button type="button" id="print-server-btn" class="primary">🖨 In ra máy in cửa hàng</button><label class="copies">Số bản <input type="number" id="print-server-copies" min="1" max="20" placeholder="Tự động" title="Để trống: máy in bill in 2 bản, máy in A4 in 1 bản"></label>
     <button type="button" id="print-btn">In bằng máy này</button>
     <% if (typeof docToggle === 'undefined' || docToggle) { %><a href="?lang=<%= en ? 'en' : 'vi' %>&doc=<%= doc === 'receipt' ? 'quote' : 'receipt' %>"><%= doc === 'receipt' ? (en ? 'Quotation' : 'Báo giá') : (en ? 'Receipt' : 'Phiếu thanh toán - bảo hành') %></a><% } %>
     <a href="?lang=<%= en ? 'vi' : 'en' %>&doc=<%= doc %>"><%= en ? 'Tiếng Việt' : 'English' %></a>

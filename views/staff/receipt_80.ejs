@@ -9,7 +9,7 @@
   <%- include('_slip80_style') %>
 </head>
 <body>
-  <div class="actions"><button type="button" id="print-server-btn" class="primary">🖨 In ra máy in cửa hàng</button><label class="copies">Số bản <input type="number" id="print-server-copies" min="1" max="20" value="1"></label> <a href="?<%= en ? 'lang=en' : '' %>">Mẫu A4</a><div id="print-server-msg" class="psmsg"></div></div>
+  <div class="actions"><button type="button" id="print-server-btn" class="primary">🖨 In ra máy in cửa hàng</button><label class="copies">Số bản <input type="number" id="print-server-copies" min="1" max="20" placeholder="Tự động" title="Để trống: máy in bill in 2 bản, máy in A4 in 1 bản"></label> <a href="?<%= en ? 'lang=en' : '' %>">Mẫu A4</a><div id="print-server-msg" class="psmsg"></div></div>
   <div class="slip">
     <%- include('_slip80_head', { title: T.title, code: b.code, createdAt, en }) %>
     <div class="hr"></div>
