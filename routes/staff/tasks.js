@@ -111,17 +111,23 @@ const createSchema = v.z.object({
   note: v.text(1000),
 });
 
-router.get('/tasks/new', (req, res) => {
-  res.locals.nav = 'task-new';
-  res.render('staff/task_new', { partnerNames: db.prepare('SELECT name FROM partners ORDER BY name COLLATE NOCASE').all().map(p => p.name), title: 'Nhận máy', values: {}, error: null, now: new Date().toISOString() });
-});
+// Trang Nhận - Trả: form nhận máy (trái) + danh sách chờ trả (phải). ioTab chọn cột hiện trên điện thoại.
+function renderIntake(req, res, ioTab, { values = {}, error = null, status = 200 } = {}) {
+  const search = String(req.query.q || '').trim();
+  const sort = pickSort(req, 'return');
+  res.locals.nav = ioTab === 'return' ? 'return' : 'task-new';
+  res.status(status).render('staff/intake', {
+    title: ioTab === 'return' ? 'Trả máy' : 'Nhận máy', ioTab, values, error, now: new Date().toISOString(),
+    partnerNames: db.prepare('SELECT name FROM partners ORDER BY name COLLATE NOCASE').all().map(p => p.name),
+    search, sort, sorts: SORTS, tasks: listTasks('ready', req.user, search, sort),
+  });
+}
+
+router.get('/tasks/new', (req, res) => renderIntake(req, res, 'new'));
 
 router.post('/tasks', (req, res) => {
   const { data, error } = v.parse(createSchema, req.body);
-  if (error) {
-    res.locals.nav = 'task-new';
-    return res.status(422).render('staff/task_new', { title: 'Nhận máy', values: req.body, error, now: new Date().toISOString() });
-  }
+  if (error) return renderIntake(req, res, 'new', { values: req.body, error, status: 422 });
   const task = db.transaction(() => {
     const ticket_code = nextTicketCode();
     const { lastInsertRowid } = q.insert.run({ ...data, ticket_code, received_by: req.user.id, partner_id: partners.detect(data.customer_name, data.customer_phone) });
@@ -143,12 +149,7 @@ router.get('/tasks', (req, res) => {
 });
 
 // ---------- Trả máy: tìm theo SĐT / Model trong các task done + unrepairable ----------
-router.get('/return', (req, res) => {
-  const search = String(req.query.q || '').trim();
-  res.locals.nav = 'return';
-  const sort = pickSort(req, 'return');
-  res.render('staff/tasks', { title: 'Trả máy', view: 'ready', search, sort, sorts: SORTS, tasks: listTasks('ready', req.user, search, sort), returnMode: true });
-});
+router.get('/return', (req, res) => renderIntake(req, res, 'return'));
 
 // ---------- Chi tiết ----------
 router.get('/tasks/:id', (req, res, next) => {
