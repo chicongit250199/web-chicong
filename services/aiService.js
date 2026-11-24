@@ -215,4 +215,32 @@ async function extractInvoice(buffer, mimeType) {
     'Chỉ liệt kê dòng hàng hóa/dịch vụ thật, bỏ dòng chiết khấu/ghi chú. Không đoán nếu không có, để trống.');
 }
 
-module.exports = { isEnabled, writeProductDescription, researchProduct, researchPcPart, translateProduct, extractInvoice };
+// ---- Chat có gọi công cụ (Zalo Bot): AI tự gọi hàm tra dữ liệu, ta chạy hàm rồi trả kết quả cho AI viết câu trả lời ----
+// tools: [{ name, description, parameters (JSON Schema) }]; run(name, args) → object kết quả (chạy đồng bộ / async)
+// history: [{ role: 'user' | 'model', text }] các lượt trước. Tối đa maxSteps lượt gọi hàm. forceTool: lượt đầu bắt buộc gọi hàm.
+async function chatWithTools({ system, history = [], text, tools = [], run, maxSteps = 5, forceTool = false }) {
+  const contents = [...history.map(h => ({ role: h.role, parts: [{ text: h.text }] })), { role: 'user', parts: [{ text }] }];
+  const decl = tools.length ? [{ functionDeclarations: tools.map(t => ({ name: t.name, description: t.description, parametersJsonSchema: t.parameters })) }] : undefined;
+  const used = [];
+  for (let step = 0; ; step++) {
+    const last = step >= maxSteps || !decl;
+    const mode = last ? 'NONE' : forceTool && step === 0 ? 'ANY' : null; // ANY = bắt buộc gọi hàm ở lượt đầu
+    const res = await withFallback((model, ai) => ai.models.generateContent({
+      model, contents,
+      config: { systemInstruction: system, temperature: 0.2, ...(decl ? { tools: decl } : {}), ...(decl && mode ? { toolConfig: { functionCallingConfig: { mode } } } : {}) },
+    }));
+    const calls = res.functionCalls || [];
+    if (!calls.length || last) return { text: (res.text || '').trim(), used };
+    contents.push(res.candidates[0].content);
+    const parts = [];
+    for (const c of calls) {
+      let result;
+      try { result = await run(c.name, c.args || {}); } catch (e) { result = { loi: e.message }; }
+      used.push(c.name);
+      parts.push({ functionResponse: { id: c.id, name: c.name, response: { result } } });
+    }
+    contents.push({ role: 'user', parts });
+  }
+}
+
+module.exports = { isEnabled, chatWithTools, writeProductDescription, researchProduct, researchPcPart, translateProduct, extractInvoice };

@@ -9,6 +9,8 @@
 //  - Nhóm Zalo đối tác: máy của đối tác đó bắt đầu sửa / sửa xong / không sửa được (lời lẽ gửi khách);
 //    đối tác nhắn hỏi tên máy → bot tự trả lời tình trạng máy của đối tác đó (xem partnerAnswer)
 //  - Nhân viên / quản lý nhắn riêng tên linh kiện → bot trả giá trong kho + bảng báo giá (xem priceAnswer)
+//  - Bật "Trả lời bằng AI": 2 loại trả lời trên do Gemini viết, hỏi tự nhiên được (services/zaloAi.js, chỉ đọc dữ liệu);
+//    AI lỗi / hết lượt → quay về câu trả lời theo luật
 //  - Mỗi ngày lúc giờ đặt (mặc định 8:00, trừ Chủ nhật): danh sách task quá hạn đang giao cho từng người
 //  - Các thông báo thay đổi khác gửi ngay lúc thay đổi
 //  - Không gửi cho chính người vừa làm thao tác
@@ -32,6 +34,7 @@ const q = {
   users: db.prepare(`SELECT id, full_name, role, zalo_chat_id FROM users
     WHERE is_active = 1 AND zalo_enabled = 1 AND zalo_chat_id IS NOT NULL`),
   userByChat: db.prepare('SELECT id, full_name, is_active FROM users WHERE zalo_chat_id = ?'),
+  userRole: db.prepare('SELECT role FROM users WHERE id = ?'),
   partnerByChat: db.prepare('SELECT id, name FROM partners WHERE zalo_chat_id = ?'),
   user: db.prepare('SELECT id, full_name AS name, is_active, zalo_chat_id, zalo_name, zalo_enabled FROM users WHERE id = ?'),
   partner: db.prepare('SELECT id, name, zalo_chat_id, zalo_name, zalo_enabled FROM partners WHERE id = ?'),
@@ -52,7 +55,7 @@ const TARGET = { user: { table: 'users', get: id => q.user.get(id) }, partner: {
 
 const state = {
   bot: null, polling: false, lastPollOk: null, lastError: null, lastErrorAt: null,
-  sent: 0, failed: 0, lastSentAt: null, lastOverdue: null,
+  sent: 0, failed: 0, lastSentAt: null, lastOverdue: null, aiReplies: 0, aiFailed: 0, aiBusy: 0,
 };
 const codes = new Map(); // mã → { kind: 'user' | 'partner', id, exp }
 const queue = [];
@@ -303,6 +306,23 @@ function priceAnswer(user, text) {
   return `🔍 "${text.replace(/\s+/g, ' ').slice(0, 60)}"\n${out.join('\n\n')}`;
 }
 
+// Trả lời bằng AI (nếu bật trong Hệ thống → Nhân viên - Zalo); AI tắt / lỗi → câu trả lời theo luật (fallback)
+function viaAi(chatId, fallback, aiCall) {
+  const plain = () => (typeof fallback === 'function' ? fallback() : fallback);
+  let zai;
+  try { zai = require('./zaloAi'); } catch (e) { fail('nạp AI', e); }
+  if (!zai || !zai.isOn()) return enqueue(chatId, plain());
+  state.aiBusy++;
+  aiCall().then(out => {
+    state.aiReplies++;
+    if (out.used.length) log(`AI dùng: ${out.used.join(', ')}`);
+    enqueue(chatId, out.text);
+  }).catch(e => {
+    state.aiFailed++; fail('AI trả lời', e);
+    enqueue(chatId, plain());
+  }).finally(() => { state.aiBusy--; });
+}
+
 function canReply(chatId, perHour = REPLY_PER_HOUR) {
   const now = Date.now(), arr = (replyLog.get(chatId) || []).filter(x => now - x < 3600e3);
   if (arr.length >= perHour) { replyLog.set(chatId, arr); return false; }
@@ -359,20 +379,27 @@ function handleUpdate(up) {
     db.transaction(() => { T.users.freeChat.run(chatId); T.partners.freeChat.run(chatId); T[t.table].link.run(chatId, chatName, row.id); })();
     log(`liên kết ${c.kind === 'user' ? 'tài khoản' : 'đối tác'} ${row.name} ↔ ${chatName || chatId}`);
     return enqueue(chatId, c.kind === 'user'
-      ? `✅ Đã liên kết Zalo với tài khoản "${row.name}". Từ giờ thông báo của web sẽ gửi về đây; muốn tra giá linh kiện thì nhắn tên linh kiện (VD: \"giá ram 8gb\").`
+      ? `✅ Đã liên kết Zalo với tài khoản "${row.name}". Từ giờ thông báo của web sẽ gửi về đây; muốn tra giá linh kiện, kho, máy đang sửa thì nhắn hỏi bot (VD: \"giá ram 8gb\", \"máy của anh Hùng xong chưa\").`
       : `✅ Đã liên kết với đối tác "${row.name}". Nhóm sẽ nhận thông báo khi máy của ${row.name} bắt đầu sửa và sửa xong; muốn hỏi tình trạng máy thì nhắn tên máy (VD: "main b760 sao rồi").`);
   }
   const partner = q.partnerByChat.get(chatId);
   if (partner && text) {
-    const ans = partnerAnswer(partner, text, isGroup);
-    if (ans && canReply(chatId)) { log(`trả lời ${partner.name}: "${text.slice(0, 60)}"`); enqueue(chatId, ans); }
+    const ans = partnerAnswer(partner, text, isGroup); // null = tin trong nhóm không phải câu hỏi về máy → im lặng
+    if (ans && canReply(chatId)) {
+      log(`trả lời ${partner.name}: "${text.slice(0, 60)}"`);
+      viaAi(chatId, ans, () => require('./zaloAi').partnerAiAnswer(partner, chatId, text));
+    }
     return;
   }
   if (isGroup) return; // nhóm chưa liên kết: chỉ phản hồi mã liên kết, không làm phiền
   const owner = q.userByChat.get(chatId);
   if (owner) {
     if (!owner.is_active) return enqueue(chatId, 'Tài khoản này đã bị khóa trên web.');
-    if (text && canReply(chatId, 60)) { log(`tra giá cho ${owner.full_name}: "${text.slice(0, 60)}"`); enqueue(chatId, priceAnswer(owner, text)); }
+    if (text && canReply(chatId, 60)) {
+      log(`${owner.full_name} hỏi: "${text.slice(0, 60)}"`);
+      const u = { ...owner, role: q.userRole.get(owner.id).role };
+      viaAi(chatId, () => priceAnswer(owner, text), () => require('./zaloAi').staffAnswer(u, chatId, text));
+    }
     return;
   }
   enqueue(chatId, match ? 'Mã liên kết không đúng hoặc đã dùng. Nhờ quản lý tạo mã mới trên web.'
@@ -422,6 +449,12 @@ async function sendTest(kind, id) {
   state.sent++; state.lastSentAt = new Date().toISOString();
 }
 
+function aiStatus() {
+  const aiSvc = require('./aiService');
+  return { configured: aiSvc.isEnabled(), on: aiSvc.isEnabled() && settings.get('zalo_ai') !== '0' };
+}
+function setAi(on) { require('./zaloAi').setOn(!!on); return status(); }
+
 function setEnabled(kind, id, on) { const t = target(kind, id); T[t.table].setEnabled.run(on ? 1 : 0, t.row.id); return linkInfo(kind, id); }
 function unlink(kind, id) { const t = target(kind, id); T[t.table].unlink.run(t.row.id); return linkInfo(kind, id); }
 
@@ -430,7 +463,8 @@ function status() {
     configured: !!TOKEN, enabled: ENABLED, bot: botName(), polling: state.polling, lastPollOk: state.lastPollOk,
     lastError: state.lastError, lastErrorAt: state.lastErrorAt, sent: state.sent, failed: state.failed,
     lastSentAt: state.lastSentAt, queue: queue.length, overdueAt: overdueAt(), lastOverdue: state.lastOverdue,
+    ai: aiStatus(), aiReplies: state.aiReplies, aiFailed: state.aiFailed,
   };
 }
 
-module.exports = { start, onNotification, createLinkCode, linkInfo, sendTest, setEnabled, unlink, status, setOverdueAt, partnerAnswer, priceAnswer, sendOverdue };
+module.exports = { start, onNotification, createLinkCode, linkInfo, sendTest, setEnabled, unlink, status, setOverdueAt, setAi, partnerAnswer, priceAnswer, sendOverdue };

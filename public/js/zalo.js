@@ -48,6 +48,11 @@ window.zaloLink = function (base, extra) {
       api('/manager/users/zalo/overdue-at', { method: 'POST', body: { at: this.overdueAt } }).then(function (d) { self.zs = d; self.zmsg = 'Đã lưu giờ nhắc.'; })
         .catch(function (e) { self.zerr = e.message; }).finally(function () { self.busy = false; });
     },
+    setAi: function (on) {
+      var self = this; this.busy = true; this.zerr = ''; this.zmsg = '';
+      api('/manager/users/zalo/ai', { method: 'POST', body: { on: on } }).then(function (d) { self.zs = d; self.zmsg = on ? 'Đã bật trả lời bằng AI.' : 'Đã tắt trả lời bằng AI.'; })
+        .catch(function (e) { self.zerr = e.message; self.loadStatus(); }).finally(function () { self.busy = false; });
+    },
     overdueNow: function () {
       var self = this; this.busy = true; this.zerr = ''; this.zmsg = '';
       api('/manager/users/zalo/overdue-now', { method: 'POST' }).then(function (d) { self.zs = d; self.zmsg = d.people ? 'Đã gửi nhắc cho ' + d.people + ' người.' : 'Không ai có task quá hạn.'; })

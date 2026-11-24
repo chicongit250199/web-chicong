@@ -99,6 +99,7 @@ const zj = fn => async (req, res) => {
 };
 router.get('/users/zalo/status', zj(() => zalo.status()));
 router.post('/users/zalo/overdue-at', zj(req => zalo.setOverdueAt(req.body.at)));
+router.post('/users/zalo/ai', zj(req => zalo.setAi(req.body.on === true || req.body.on === '1')));
 router.post('/users/zalo/overdue-now', zj(() => ({ people: zalo.sendOverdue(), ...zalo.status() })));
 require('../../services/zaloRoutes')(router, '/users', 'user');
 

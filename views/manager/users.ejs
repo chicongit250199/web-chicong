@@ -29,6 +29,13 @@
         <button type="button" @click="overdueNow()" :disabled="busy || !zs.enabled" class="btn-secondary px-3 py-1 text-sm">Gửi nhắc ngay</button>
       </form>
       <span class="mt-1 block text-xs text-slate-500">Các thông báo khác (task mới, giao task, sửa xong, giao dịch...) gửi ngay lúc thay đổi.</span></dd>
+      <dt class="text-slate-500 pt-1">Trả lời bằng AI</dt>
+      <dd><label class="flex items-center gap-2">
+          <input type="checkbox" class="h-4 w-4" :checked="zs.ai && zs.ai.on" :disabled="busy || !(zs.ai && zs.ai.configured)" @change="setAi($event.target.checked)">
+          <span x-text="!(zs.ai && zs.ai.configured) ? 'Chưa cấu hình GEMINI_API_KEY' : zs.ai.on ? 'Đang bật' : 'Đang tắt'"></span>
+          <span x-show="zs.aiReplies || zs.aiFailed" x-cloak class="text-xs text-slate-500" x-text="'· đã trả lời ' + (zs.aiReplies || 0) + (zs.aiFailed ? ', lỗi ' + zs.aiFailed : '')"></span>
+        </label>
+        <span class="mt-1 block text-xs text-slate-500">Nhân viên / quản lý hỏi tự nhiên về kho, báo giá, máy đang sửa, task quá hạn (quản lý hỏi thêm doanh thu, công nợ); đối tác hỏi tình trạng máy của mình. AI chỉ đọc, không sửa dữ liệu; lỗi thì bot trả lời kiểu cũ.</span></dd>
       <dt x-show="zs.lastError" x-cloak class="text-slate-500">Lỗi gần nhất</dt>
       <dd x-show="zs.lastError" x-cloak class="text-xs text-red-600" x-text="zs.lastError + (zs.lastErrorAt ? ' (' + new Date(zs.lastErrorAt).toLocaleString('vi-VN') + ')' : '')"></dd>
     </dl>
