@@ -1,7 +1,7 @@
 // Liên kết Zalo: tài khoản nhân viên (base '/manager/users') và nhóm Zalo đối tác (base '/staff/partners')
 window.zaloLink = function (base, extra) {
   return Object.assign({
-    m: null, u: {}, zs: {}, zerr: '', zmsg: '', code: '', linked: false, linkedName: '', timer: null, busy: false, sendTo: '', overdueAt: '',
+    m: null, u: {}, zs: {}, zerr: '', zmsg: '', code: '', linked: false, linkedName: '', timer: null, busy: false, overdueAt: '',
     init: function () { this.loadStatus(); },
     loadStatus: function () {
       var self = this;
@@ -52,12 +52,6 @@ window.zaloLink = function (base, extra) {
       var self = this; this.busy = true; this.zerr = ''; this.zmsg = '';
       api('/manager/users/zalo/overdue-now', { method: 'POST' }).then(function (d) { self.zs = d; self.zmsg = d.people ? 'Đã gửi nhắc cho ' + d.people + ' người.' : 'Không ai có task quá hạn.'; })
         .catch(function (e) { self.zerr = e.message; }).finally(function () { self.busy = false; });
-    },
-    sendPreview: function (key) {
-      var self = this; this.busy = true; this.zerr = ''; this.zmsg = '';
-      api('/manager/users/zalo/send', { method: 'POST', body: { target: this.sendTo, key: key } })
-        .then(function (d) { self.zmsg = 'Đã gửi tin mẫu tới ' + d.to + '.'; self.loadStatus(); })
-        .catch(function (e) { self.zerr = e.message; self.loadStatus(); }).finally(function () { self.busy = false; });
     },
   }, extra || {});
 };

@@ -22,9 +22,7 @@ const createSchema = v.z.object({
 
 router.get('/users', (req, res) => {
   res.locals.nav = 'm-users'; // tab trong trang Hệ thống
-  res.render('manager/users', { title: 'Tài khoản nhân viên', users: q.list.all(), scripts: ['/js/zalo.js'],
-    zaloPreviews: require('../../services/zaloBot').previews(),
-    zaloPartners: db.prepare('SELECT id, name, zalo_name FROM partners WHERE zalo_chat_id IS NOT NULL ORDER BY name COLLATE NOCASE').all() });
+  res.render('manager/users', { title: 'Nhân viên - Zalo', users: q.list.all(), scripts: ['/js/zalo.js'] });
 });
 
 router.post('/users', (req, res) => {
@@ -102,7 +100,6 @@ const zj = fn => async (req, res) => {
 router.get('/users/zalo/status', zj(() => zalo.status()));
 router.post('/users/zalo/overdue-at', zj(req => zalo.setOverdueAt(req.body.at)));
 router.post('/users/zalo/overdue-now', zj(() => ({ people: zalo.sendOverdue(), ...zalo.status() })));
-router.post('/users/zalo/send', zj(req => zalo.sendPreview(req.body.target, req.body.key)));
 require('../../services/zaloRoutes')(router, '/users', 'user');
 
 module.exports = router;

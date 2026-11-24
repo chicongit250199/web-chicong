@@ -1,7 +1,7 @@
 <%# Tab trang Hệ thống. sysTab: tab đang mở %>
 <nav class="tabs" aria-label="Hệ thống">
   <% [['overview', 'Máy chủ', 'cpu', '/manager/system'], ['printers', 'Máy in & phiếu', 'printer', '/manager/system?tab=printers'], ['settings', 'Cài đặt', 'settings', '/manager/system?tab=settings'],
-      ['backup', 'Sao lưu', 'lock', '/manager/system?tab=backup'], ['import', 'Import Excel', 'fileSheet', '/manager/import'], ['users', 'Tài khoản nhân viên', 'key', '/manager/users']].forEach(([k, l, ic, href]) => { %>
+      ['backup', 'Sao lưu', 'lock', '/manager/system?tab=backup'], ['import', 'Import Excel', 'fileSheet', '/manager/import'], ['users', 'Nhân viên - Zalo', 'key', '/manager/users']].forEach(([k, l, ic, href]) => { %>
     <a href="<%= href %>" class="tab flex items-center gap-1.5 <%= sysTab === k ? 'tab-active' : '' %>"><%- icon(ic, 'h-4 w-4') %><%= l %></a>
   <% }) %>
 </nav>

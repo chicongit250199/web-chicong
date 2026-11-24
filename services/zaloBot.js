@@ -6,7 +6,8 @@
 // Ai nhận gì (gọi từ events.notify, kèm meta { kind, taskId, userId }):
 //  - Quản lý: giao dịch (bán hàng, trả máy thu tiền, thu nợ), sửa xong / không sửa được, yêu cầu nhập hàng
 //  - Nhân viên: task mới; task được giao cho mình (chỉ người được giao)
-//  - Nhóm Zalo đối tác: máy của đối tác đó bắt đầu sửa / sửa xong / không sửa được (lời lẽ gửi khách)
+//  - Nhóm Zalo đối tác: máy của đối tác đó bắt đầu sửa / sửa xong / không sửa được (lời lẽ gửi khách);
+//    đối tác nhắn hỏi tên máy → bot tự trả lời tình trạng máy của đối tác đó (xem partnerAnswer)
 //  - Mỗi ngày lúc giờ đặt (mặc định 8:00, trừ Chủ nhật): danh sách task quá hạn đang giao cho từng người
 //  - Các thông báo thay đổi khác gửi ngay lúc thay đổi
 //  - Không gửi cho chính người vừa làm thao tác
@@ -189,40 +190,75 @@ function scheduleOverdue() {
 }
 
 
-// ---------- Mẫu tin nhắn (mục Thử tin nhắn): xem trước nội dung bot sẽ gửi, dữ liệu minh họa ----------
-// Lời nội bộ giống chuỗi thông báo trong routes (sales / tasks / assign / pcParts) — sửa ở đó thì sửa cả đây
-function previews() {
-  const t = { id: 1, device_model: 'Laptop Dell Latitude 5420', ticket_code: 'CC-20261123-001', final_price: 450000, fail_reason: 'Hỏng chip VGA, không có linh kiện thay' };
-  const nv = 'Nhân viên A', ql = 'Quản lý', link = `/staff/tasks/${t.id}`, dev = `${t.device_model} (${t.ticket_code})`;
-  const pay = fmt.payment('cash'), money = fmt.money(t.final_price);
-  return [
-    { key: 'sale', group: 'Quản lý', label: 'Bán hàng', text: internalText(`${nv} bán RAM DDR4 8GB 3200 — ${fmt.money(500000)} (${pay})`, '/staff/search?q=0901234567') },
-    { key: 'task_completed', group: 'Quản lý', label: 'Trả máy, thu tiền', text: internalText(`${nv} trả máy ${dev} — thu ${money} (${pay})`, link) },
-    { key: 'debt_payment', group: 'Quản lý', label: 'Thu nợ', text: internalText(`${nv} thu nợ Quốc Computer: ${fmt.money(2000000)} (${pay}) — còn nợ ${fmt.money(1350000)}`, '/manager/debts') },
-    { key: 'task_done', group: 'Quản lý', label: 'Sửa xong', text: internalText(`${nv} sửa xong ${dev} — ${money}`, link) },
-    { key: 'task_unrepairable', group: 'Quản lý', label: 'Không sửa được', text: internalText(`${nv}: không sửa được ${dev} — ${t.fail_reason}`, link) },
-    { key: 'stock_request', group: 'Quản lý', label: 'Yêu cầu nhập hàng', text: internalText(`${nv} yêu cầu nhập 2 × SSD Samsung 980 500GB — khách đặt`, '/manager/pc-parts?req=1') },
-    { key: 'task_new', group: 'Nhân viên', label: 'Task mới', text: internalText(`${ql} nhận máy ${dev} — KH Anh Ba`, link) },
-    { key: 'task_assigned', group: 'Nhân viên', label: 'Được giao task', text: internalText(`${ql} giao ${dev} cho ${nv}`, link) },
-    { key: 'overdue', group: 'Nhân viên', label: 'Nhắc quá hạn (mỗi sáng)', text: overdueText(nv, [
-      { ...t, status: 'processing', age: 2.5 }, { device_model: 'PC văn phòng i5', ticket_code: 'CC-20261120-004', status: 'pending', age: 3.2 }]) },
-    { key: 'p_processing', group: 'Nhóm đối tác', label: 'Bắt đầu sửa', text: partnerText('task_processing', t) },
-    { key: 'p_done', group: 'Nhóm đối tác', label: 'Sửa xong', text: partnerText('task_done', t) },
-    { key: 'p_unrepairable', group: 'Nhóm đối tác', label: 'Không sửa được', text: partnerText('task_unrepairable', t) },
-  ];
+// ---------- Đối tác hỏi tình trạng máy ----------
+// Chat đã liên kết với 1 đối tác (nhóm hoặc nhắn riêng) nhắn VD "main b760 sao rồi" → tìm trong máy của
+// đúng đối tác đó (không bao giờ lộ máy của khách khác), trả lời trạng thái bằng lời gửi khách.
+//  - Nhắn riêng: luôn trả lời. Trong nhóm: chỉ trả lời khi tin khớp máy (theo từ có số / mã phiếu)
+//    hoặc có từ hỏi ("tình trạng", "xong chưa", "bot"...), để không chen vào chuyện khác của nhóm.
+//  - Giới hạn số tin trả lời mỗi giờ cho mỗi chat (gói bot giới hạn tin/tháng).
+const STOP = new Set(('a anh chi em oi a. ah nhe nha nhi voi cho hoi xin cai con chiec bo may main cua ben minh shop ' +
+  'sao roi chua xong the nao gi vay vay. duoc khong ko k di la thi va cho toi tui tao minh dang da den bao gio khi nao ' +
+  'tinh trang thai check kiem tra xem giup dum ho bot nay do kia').split(/\s+/));
+const ASK_RE = /tinh trang|trang thai|xong chua|sao roi|the nao|bao gio|khi nao|check|kiem tra|\bbot\b|may cua (minh|em|toi|tui|anh|chi)/;
+const REPLY_PER_HOUR = 20;
+const replyLog = new Map(); // chatId → [mốc thời gian trả lời]
+
+const pq = {
+  tasks: db.prepare(`SELECT id, ticket_code, device_model, specs, issue_desc, status, final_price, fail_reason, created_at, completed_at
+    FROM tasks WHERE partner_id = ? AND (status <> 'completed' OR completed_at >= ?)
+    ORDER BY CASE status WHEN 'done' THEN 0 WHEN 'unrepairable' THEN 1 WHEN 'processing' THEN 2 WHEN 'pending' THEN 3 ELSE 4 END, created_at DESC
+    LIMIT 300`),
+};
+
+function words(text) { return (db.vn(text) || '').replace(/[^a-z0-9\-]+/g, ' ').split(/\s+/).filter(Boolean); }
+const vnDate = iso => { const d = new Date(new Date(iso).getTime() + 7 * 3600e3); return `${d.getUTCDate()}/${d.getUTCMonth() + 1}`; };
+
+function taskLine(t) {
+  const dev = `${t.device_model} (${t.ticket_code}, nhận ${vnDate(t.created_at)})`;
+  if (t.status === 'pending') return `⏳ ${dev}: đang chờ sửa.`;
+  if (t.status === 'processing') return `🔧 ${dev}: đang sửa.`;
+  if (t.status === 'done') return `✅ ${dev}: đã sửa xong${t.final_price ? ` — chi phí ${fmt.money(t.final_price)}` : ''}, mời qua nhận máy.`;
+  if (t.status === 'unrepairable') return `⚠️ ${dev}: không sửa được${t.fail_reason ? ' (' + t.fail_reason + ')' : ''}, mời qua nhận lại máy.`;
+  return `☑️ ${dev}: đã trả máy ngày ${vnDate(t.completed_at)}.`;
 }
 
-// Gửi thử 1 mẫu tới tài khoản / nhóm đã liên kết: target 'user:ID' | 'partner:ID'
-async function sendPreview(targetKey, key) {
-  if (!ENABLED) throw httpErr(TOKEN ? 'Bot đang tắt (máy chủ thử)' : 'Chưa cấu hình ZALO_BOT_TOKEN trong .env');
-  const p = previews().find(x => x.key === key);
-  if (!p) throw httpErr('Không có mẫu này');
-  const [kind, id] = String(targetKey || '').split(':');
-  const { row } = target(kind, Number(id));
-  if (!row.zalo_chat_id) throw httpErr('Chưa liên kết Zalo');
-  await call('sendMessage', { chat_id: row.zalo_chat_id, text: clip(`🧪 TIN MẪU (thử, không phải thông báo thật)\n\n${p.text}`) });
-  state.sent++; state.lastSentAt = new Date().toISOString();
-  return { to: row.zalo_name || row.name };
+// Trả về lời trả lời, hoặc null nếu (trong nhóm) tin không phải câu hỏi về máy
+function partnerAnswer(partner, text, isGroup) {
+  const norm = (db.vn(text) || '').replace(/\s+/g, ' ');
+  const asked = ASK_RE.test(norm);
+  const terms = [...new Set(words(text).filter(w => !STOP.has(w) && (w.length >= 2 || /\d/.test(w))))];
+  const strong = terms.filter(w => /\d/.test(w) || w.length >= 4); // từ có số (b760, 3060...) / mã phiếu / tên hãng
+  const since = new Date(Date.now() - 60 * 86400e3).toISOString(); // máy đã trả: chỉ tính 60 ngày gần đây
+  const all = pq.tasks.all(partner.id, since);
+  let hits = [];
+  if (terms.length) {
+    const scored = all.map(t => {
+      const hay = ' ' + words(`${t.device_model} ${t.specs || ''} ${t.issue_desc} ${t.ticket_code}`).join(' ') + ' ';
+      const has = w => hay.includes(' ' + w) || (/\d/.test(w) && w.length >= 3 && hay.includes(w));
+      return { t, n: terms.filter(has).length, strongHit: strong.some(has) };
+    }).filter(x => x.n);
+    const best = Math.max(0, ...scored.map(x => x.n));
+    hits = scored.filter(x => x.n === best);
+    if (isGroup && !asked && !hits.some(x => x.strongHit)) return null;
+    hits = hits.map(x => x.t);
+  } else if (isGroup && !asked) return null;
+
+  const shop = settings.get('company_name') || 'Chí Công Computer';
+  const active = all.filter(t => t.status !== 'completed');
+  const list = (rows, max) => rows.slice(0, max).map(taskLine).join('\n') + (rows.length > max ? `\n… và ${rows.length - max} máy khác.` : '');
+  if (hits.length) return `${shop} gửi ${partner.name} — tình trạng máy:\n${list(hits, 8)}`;
+  if (!terms.length) return active.length ? `${shop} gửi ${partner.name} — các máy đang ở cửa hàng:\n${list(active, 10)}`
+    : `${shop}: hiện không có máy nào của ${partner.name} đang ở cửa hàng.`;
+  return `${shop}: không tìm thấy máy nào của ${partner.name} khớp "${text.slice(0, 60)}".` +
+    (active.length ? `\nCác máy đang ở cửa hàng:\n${list(active, 10)}` : '') + '\nCần hỗ trợ thêm xin gọi cửa hàng.';
+}
+
+function canReply(chatId) {
+  const now = Date.now(), arr = (replyLog.get(chatId) || []).filter(x => now - x < 3600e3);
+  if (arr.length >= REPLY_PER_HOUR) { replyLog.set(chatId, arr); return false; }
+  arr.push(now); replyLog.set(chatId, arr);
+  if (replyLog.size > 500) replyLog.delete(replyLog.keys().next().value);
+  return true;
 }
 
 // ---------- Liên kết ----------
@@ -274,11 +310,17 @@ function handleUpdate(up) {
     log(`liên kết ${c.kind === 'user' ? 'tài khoản' : 'đối tác'} ${row.name} ↔ ${chatName || chatId}`);
     return enqueue(chatId, c.kind === 'user'
       ? `✅ Đã liên kết Zalo với tài khoản "${row.name}". Từ giờ thông báo của web sẽ gửi về đây.`
-      : `✅ Đã liên kết với đối tác "${row.name}". Nhóm sẽ nhận thông báo khi máy của ${row.name} bắt đầu sửa và sửa xong.`);
+      : `✅ Đã liên kết với đối tác "${row.name}". Nhóm sẽ nhận thông báo khi máy của ${row.name} bắt đầu sửa và sửa xong; muốn hỏi tình trạng máy thì nhắn tên máy (VD: "main b760 sao rồi").`);
   }
-  if (isGroup) return; // trong nhóm chỉ phản hồi mã liên kết, không làm phiền
-  const owner = q.userByChat.get(chatId) || q.partnerByChat.get(chatId);
-  if (owner) return enqueue(chatId, `Bot chỉ gửi thông báo tự động cho "${owner.full_name || owner.name}", không đọc tin nhắn. Cần hỗ trợ xin liên hệ cửa hàng.`);
+  const partner = q.partnerByChat.get(chatId);
+  if (partner && text) {
+    const ans = partnerAnswer(partner, text, isGroup);
+    if (ans && canReply(chatId)) { log(`trả lời ${partner.name}: "${text.slice(0, 60)}"`); enqueue(chatId, ans); }
+    return;
+  }
+  if (isGroup) return; // nhóm chưa liên kết: chỉ phản hồi mã liên kết, không làm phiền
+  const owner = q.userByChat.get(chatId);
+  if (owner) return enqueue(chatId, `Bot chỉ gửi thông báo tự động cho "${owner.full_name}", không đọc tin nhắn. Cần hỗ trợ xin liên hệ cửa hàng.`);
   enqueue(chatId, match ? 'Mã liên kết không đúng hoặc đã dùng. Nhờ quản lý tạo mã mới trên web.'
     : 'Chào bạn! Bot gửi thông báo tự động của cửa hàng. Để nhận thông báo, nhắn mã liên kết 6 số (quản lý lấy trên web) vào đây.');
 }
@@ -337,4 +379,4 @@ function status() {
   };
 }
 
-module.exports = { start, onNotification, createLinkCode, linkInfo, sendTest, setEnabled, unlink, status, previews, sendPreview, setOverdueAt, sendOverdue };
+module.exports = { start, onNotification, createLinkCode, linkInfo, sendTest, setEnabled, unlink, status, setOverdueAt, partnerAnswer, sendOverdue };
