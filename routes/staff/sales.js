@@ -180,8 +180,7 @@ router.get('/sell/receipt/:key', (req, res, next) => {
     : `Đà Nẵng, Ngày ${d.getUTCDate()} Tháng ${d.getUTCMonth() + 1} Năm ${d.getUTCFullYear()}`;
   const settings = require('../../services/settings');
   const DEF = require('../manager/pcParts');
-  res.render('staff/build_print', {
-    b: {
+  const b = {
       code: first.order_code || `BH-${first.id}`, name: build ? `Cấu hình ${build.code}${build.name ? ' — ' + build.name : ''}` : '',
       customer_name: first.customer_name, customer_phone: first.customer_phone, customer_addr: first.delivery_address,
       payment: en ? { cash: 'Cash', transfer: 'Bank transfer', debt: 'On credit' }[first.payment_method] : fmt.payment(first.payment_method),
@@ -192,11 +191,20 @@ router.get('/sell/receipt/:key', (req, res, next) => {
         return paid ? { deposit: paid, depLabel: en ? 'Paid' : 'Đã trả', remLabel: en ? 'Owing' : 'Còn nợ' } : { deposit: 0 };
       })(),
       discount: 0, total, note: null,
-    },
+  };
+  const printNote = en ? settings.get('pc_print_note_en') || DEF.DEFAULT_NOTE_EN : settings.get('pc_print_note_vi') || DEF.DEFAULT_NOTE_VI;
+  // Khổ 80mm (máy in bill): mẫu riêng, kèm thông tin máy nếu là phiếu trả máy
+  if (req.query.paper === '80') {
+    const rep = rows.find(r => r.type === 'repair' && r.ref_id);
+    const task = rep ? db.prepare('SELECT ticket_code, device_model, repair_detail, replaced_parts, created_at, completed_at FROM tasks WHERE id = ?').get(rep.ref_id) : null;
+    return res.render('staff/receipt_80', { b, items, total, en, task, printNote, staffName: first.staff_name || '', createdAt: first.created_at });
+  }
+  res.render('staff/build_print', {
+    b,
     items, subtotal: total, en, doc: 'receipt', dateText, docToggle: false,
     words: en ? pc.enWords(total) : pc.vnWords(total),
     remainingWords: en ? pc.enWords(total) : pc.vnWords(total), // phiếu bán: "bằng chữ" luôn là tổng tiền đơn
-    printNote: en ? settings.get('pc_print_note_en') || DEF.DEFAULT_NOTE_EN : settings.get('pc_print_note_vi') || DEF.DEFAULT_NOTE_VI,
+    printNote,
     staffName: first.staff_name || '',
   });
 });

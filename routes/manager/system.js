@@ -15,12 +15,16 @@ const { backup } = require('../../services/backup');
 
 const router = express.Router();
 
-router.get('/system', (req, res) => {
+router.get('/system', async (req, res) => {
   res.locals.nav = 'm-system';
   const DEF = require('./pcParts');
   const tab = ['printers', 'settings', 'backup'].includes(req.query.tab) ? req.query.tab : 'overview';
+  const { DOC_KINDS, THERMAL_KINDS } = require('../staff/print');
+  const prList = tab === 'printers' ? (await printers.status().catch(() => ({ printers: [] }))).printers || [] : [];
   res.render('manager/system', {
     title: 'Hệ thống', tab, scripts: ['/js/system.js'], sysUser: require('os').userInfo().username,
+    printTo: Object.keys(DOC_KINDS).map(k => ({ key: k, label: DOC_KINDS[k], thermalOk: THERMAL_KINDS.has(k), value: settings.get('print_to_' + k) || '' })),
+    printerOpts: prList.map(p => ({ name: p.name, label: (p.info || p.name) + (printers.isThermal(p) ? ' — máy in bill 80mm' : '') + (p.isDefault ? ' (mặc định)' : ''), thermal: printers.isThermal(p) })),
     printNote: { vi: settings.get('pc_print_note_vi') || DEF.DEFAULT_NOTE_VI, en: settings.get('pc_print_note_en') || DEF.DEFAULT_NOTE_EN },
   });
 });
@@ -30,6 +34,23 @@ router.post('/system/print-note', (req, res) => {
   settings.set({ pc_print_note_vi: String(req.body.note_vi || '').slice(0, 3000), pc_print_note_en: String(req.body.note_en || '').slice(0, 3000) });
   req.flash('success', 'Đã lưu lưu ý in trên phiếu.');
   res.redirect('/manager/system?tab=printers#print-note');
+});
+
+// Mỗi loại phiếu in ra máy in nào ('' = máy mặc định)
+router.post('/system/print-to', async (req, res) => {
+  const { DOC_KINDS, THERMAL_KINDS } = require('../staff/print');
+  const list = (await printers.status().catch(() => ({ printers: [] }))).printers || [];
+  const upd = {};
+  for (const k of Object.keys(DOC_KINDS)) {
+    const v = String(req.body[k] || '');
+    const pr = list.find(p => p.name === v);
+    if (v && !pr) continue; // máy in không còn -> giữ nguyên
+    if (pr && printers.isThermal(pr) && !THERMAL_KINDS.has(k)) { req.flash('error', `${DOC_KINDS[k]} chỉ có mẫu A4, không in ra máy in bill được.`); continue; }
+    upd['print_to_' + k] = v;
+  }
+  settings.set(upd);
+  req.flash('success', 'Đã lưu máy in cho từng loại phiếu.');
+  res.redirect('/manager/system?tab=printers#print-to');
 });
 
 router.get('/system.json', (req, res) => {

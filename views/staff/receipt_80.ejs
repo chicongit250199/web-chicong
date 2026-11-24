@@ -1,0 +1,50 @@
+<%# Phiếu thanh toán - bảo hành khổ 80mm (máy in bill): trả máy (kèm thông tin máy) hoặc bán hàng. Mẫu A4: build_print.ejs %>
+<% const T = en ? { title: task ? 'REPAIR RECEIPT' : 'PAYMENT AND WARRANTY RECEIPT', cust: 'Customer', phone: 'Phone', ticket: 'Ticket', dev: 'Device', fixed: 'Work done', parts: 'Parts', war: 'Warranty', m: 'months', total: 'TOTAL', pay: 'Payment', paid: 'Paid', owe: 'Owing', by: 'Staff', thanks: 'Thank you!' }
+  : { title: task ? 'PHIẾU TRẢ MÁY' : 'PHIẾU THANH TOÁN - BẢO HÀNH', cust: 'Khách hàng', phone: 'SĐT', ticket: 'Phiếu nhận', dev: 'Model máy', fixed: 'Đã sửa', parts: 'Thay thế', war: 'BH', m: 'tháng', total: 'TỔNG CỘNG', pay: 'Thanh toán', paid: 'Đã trả', owe: 'Còn nợ', by: 'Nhân viên', thanks: 'Cảm ơn quý khách!' }; %>
+<!doctype html>
+<html lang="<%= en ? 'en' : 'vi' %>">
+<head>
+  <meta charset="utf-8"><meta name="csrf-token" content="<%= csrfToken %>"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= b.code %><%= b.customer_name ? ' - ' + b.customer_name : '' %></title>
+  <%- include('_slip80_style') %>
+</head>
+<body>
+  <div class="actions"><button type="button" id="print-server-btn" class="primary">🖨 In ra máy in cửa hàng</button><label class="copies">Số bản <input type="number" id="print-server-copies" min="1" max="20" value="1"></label> <a href="?<%= en ? 'lang=en' : '' %>">Mẫu A4</a><div id="print-server-msg" class="psmsg"></div></div>
+  <div class="slip">
+    <div class="shop"><%= settings.company_name || settings.legal_name %></div>
+    <div class="addr"><%= settings.address %><br><%= en ? 'Tel' : 'ĐT' %> <%= settings.phone %></div>
+    <h1><%= T.title %></h1>
+    <div class="code"><%= b.code %></div>
+    <div class="c" style="font-weight:500"><%= fmt.datetime(createdAt) %></div>
+    <div class="hr"></div>
+    <% if (b.customer_name) { %><div class="row"><span class="k"><%= T.cust %></span><span class="v b"><%= b.customer_name %></span></div><% } %>
+    <% if (b.customer_phone) { %><div class="row"><span class="k"><%= T.phone %></span><span class="v b"><%= b.customer_phone %></span></div><% } %>
+    <% if (task) { %>
+      <div class="row"><span class="k"><%= T.ticket %></span><span class="v"><%= task.ticket_code %> (<%= fmt.date(task.created_at) %>)</span></div>
+      <div class="row"><span class="k"><%= T.dev %></span><span class="v big"><%= task.device_model %></span></div>
+      <% if (task.repair_detail) { %><div class="row"><span class="k"><%= T.fixed %></span><span class="v"><%= task.repair_detail %></span></div><% } %>
+      <% if (task.replaced_parts) { %><div class="row"><span class="k"><%= T.parts %></span><span class="v"><%= task.replaced_parts %></span></div><% } %>
+    <% } %>
+    <div class="hr"></div>
+    <% items.forEach((it, i) => { %>
+      <div class="item">
+        <div class="n"><%= i + 1 %>. <%= it.label %></div>
+        <div class="d"><span><%= it.qty %> × <%= fmt.num(it.price) %><%= it.warranty_months ? ` · ${T.war} ${it.warranty_months} ${T.m}` : '' %></span><span class="b"><%= fmt.num(it.amount) %></span></div>
+        <% if (it.note) { %><div style="font-weight:500;font-size:18px"><%= it.note %></div><% } %>
+      </div>
+    <% }) %>
+    <div class="hr"></div>
+    <div class="tot big"><span><%= T.total %></span><span><%= fmt.money(total) %></span></div>
+    <div class="tot"><span style="font-weight:500"><%= T.pay %></span><span><%= b.payment %></span></div>
+    <% if (b.deposit) { %>
+      <div class="tot"><span style="font-weight:500"><%= T.paid %></span><span><%= fmt.money(b.deposit) %></span></div>
+      <div class="tot b"><span><%= T.owe %></span><span><%= fmt.money(total - b.deposit) %></span></div>
+    <% } %>
+    <% if (staffName) { %><div class="tot"><span style="font-weight:500"><%= T.by %></span><span><%= staffName %></span></div><% } %>
+    <% if (printNote) { %><div class="hr"></div><div class="note"><%= printNote %></div><% } %>
+    <div class="hr"></div>
+    <div class="c b" style="font-size:23px"><%= T.thanks %></div>
+  </div>
+  <script src="/js/print-server.js" defer></script>
+</body>
+</html>

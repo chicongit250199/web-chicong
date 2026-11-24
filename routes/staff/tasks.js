@@ -167,7 +167,7 @@ router.get('/tasks/:id', (req, res, next) => {
 router.get('/tasks/:id/print', (req, res, next) => {
   const task = q.get.get(req.params.id);
   if (!task) return next();
-  res.render('staff/task_print', { title: task.ticket_code, task });
+  res.render(req.query.paper === '80' ? 'staff/task_print_80' : 'staff/task_print', { title: task.ticket_code, task });
 });
 
 // ---------- Sửa thông tin task (chỉ khi còn chờ xử lý) ----------

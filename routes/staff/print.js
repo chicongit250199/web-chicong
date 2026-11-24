@@ -43,22 +43,62 @@ router.post('/print', upload.array('files', 10), async (req, res) => {
   res.json({ results, ...(await view()) });
 });
 
-// In phiếu (nhận máy / thanh toán - bảo hành / báo giá) ra máy in NUC: Chrome headless dựng trang thành PDF -> CUPS
-const PRINTABLE = /^\/staff\/(tasks\/\d+\/print|sell\/receipt\/[\w-]{1,40}|build\/\d+\/print)(\?(lang=(vi|en)|doc=(quote|receipt))(&(lang=(vi|en)|doc=(quote|receipt)))*)?$/;
+// In phiếu (nhận máy / thanh toán - bảo hành / báo giá) ra máy in NUC: Chrome headless dựng trang thành PDF -> CUPS.
+// Mỗi loại phiếu in ra máy đặt ở trang Hệ thống (settings print_to_*), không đặt thì máy mặc định.
+// Máy in bill (Raw, khổ 80mm): dựng mẫu phiếu 80mm (?paper=80) thành ảnh rồi gửi lệnh ESC/POS.
+const settings = require('../../services/settings');
+const db = require('../../db');
+const PRINT_BASE = /^\/staff\/(tasks\/\d+\/print|sell\/receipt\/[\w-]{1,40}|build\/\d+\/print)$/;
+const PRINT_QUERY = { lang: /^(vi|en)$/, doc: /^(quote|receipt)$/, paper: /^80$/ };
+const DOC_KINDS = { intake: 'Phiếu nhận máy', return: 'Phiếu trả máy (thanh toán sửa chữa)', sale: 'Phiếu bán hàng', quote: 'Báo giá Build PC' };
+const THERMAL_KINDS = new Set(['intake', 'return', 'sale']); // loại phiếu có mẫu 80mm
+
+function cleanPath(raw) {
+  const [base, qs = ''] = String(raw || '').split('?');
+  if (!PRINT_BASE.test(base)) return null;
+  const q = new URLSearchParams(qs), out = new URLSearchParams();
+  for (const [k, v] of q) { if (!PRINT_QUERY[k] || !PRINT_QUERY[k].test(v)) return null; if (k !== 'paper') out.set(k, v); }
+  return { base, query: out };
+}
+function docKind(base) {
+  if (/^\/staff\/tasks\//.test(base)) return 'intake';
+  if (/^\/staff\/build\//.test(base)) return 'quote';
+  const key = base.split('/').pop();
+  const row = /^\d+$/.test(key) ? db.prepare('SELECT order_code, type, ref_id FROM revenues WHERE id = ?').get(key) : { order_code: key };
+  if (!row) return 'sale';
+  const rep = row.order_code ? db.prepare(`SELECT 1 FROM revenues WHERE order_code = ? AND type = 'repair' AND ref_id IS NOT NULL LIMIT 1`).get(row.order_code)
+    : row.type === 'repair' && row.ref_id;
+  return rep ? 'return' : 'sale';
+}
+
 router.post('/print/page', async (req, res) => {
-  const urlPath = String(req.body.path || '');
-  if (!PRINTABLE.test(urlPath)) return res.status(400).json({ error: 'Trang này không in ra máy in cửa hàng được.' });
+  const p = cleanPath(req.body.path);
+  if (!p) return res.status(400).json({ error: 'Trang này không in ra máy in cửa hàng được.' });
   try {
+    const kind = docKind(p.base);
     const st = await printers.status();
-    const ready = st.printers.filter(p => p.state !== 'disabled');
-    const name = req.body.printer && ready.some(p => p.name === req.body.printer) ? req.body.printer : (ready.find(p => p.isDefault) || ready[0] || {}).name;
+    const ready = st.printers.filter(x => x.state !== 'disabled');
+    const want = settings.get('print_to_' + kind);
+    const name = [req.body.printer, want].find(n => n && ready.some(x => x.name === n)) || (ready.find(x => x.isDefault) || ready[0] || {}).name;
     if (!name) throw new Error('Chưa có máy in nào sẵn sàng — báo quản lý.');
-    await printers.ensureOnline(name); // kiểm tra trước khi dựng PDF (mất vài giây)
-    const pdf = await require('../../services/pagePdf').render(urlPath, req.get('cookie'));
+    const pr = st.printers.find(x => x.name === name);
+    const thermal = printers.isThermal(pr);
+    if (thermal && !THERMAL_KINDS.has(kind)) throw new Error(`${DOC_KINDS[kind]} chỉ có mẫu A4 — chọn máy in A4 cho loại phiếu này ở trang Hệ thống.`);
+    await printers.ensureOnline(name); // kiểm tra trước khi dựng phiếu (mất vài giây)
     const title = `${String(req.body.title || 'Phiếu').slice(0, 80)} (${req.user.full_name})`;
-    const job = await printers.printFile(name, { mimetype: 'application/pdf', buffer: Buffer.from(pdf), originalname: title }, { copies: req.body.copies, fit: false, title });
-    console.log(`[print] ${req.user.full_name} in phiếu ${urlPath} ra ${name}`);
-    const pr = st.printers.find(p => p.name === name);
+    const pagePdf = require('../../services/pagePdf');
+    let job;
+    if (thermal) {
+      p.query.set('paper', '80');
+      const png = await pagePdf.screenshot(`${p.base}?${p.query}`, req.get('cookie'), 576, 2);
+      const data = await require('../../services/escpos').fromPng(Buffer.from(png));
+      job = await printers.printRaw(name, data, { copies: req.body.copies, title });
+    } else {
+      const qs = p.query.toString();
+      const pdf = await pagePdf.render(p.base + (qs ? '?' + qs : ''), req.get('cookie'));
+      job = await printers.printFile(name, { mimetype: 'application/pdf', buffer: Buffer.from(pdf), originalname: title }, { copies: req.body.copies, fit: false, title });
+    }
+    console.log(`[print] ${req.user.full_name} in ${DOC_KINDS[kind]} ${p.base} ra ${name}${thermal ? ' (80mm)' : ''}`);
     res.json({ ok: true, job, printer: (pr && pr.info) || name });
   } catch (e) {
     console.error('[print] in phiếu lỗi:', e.message);
@@ -71,3 +111,5 @@ router.post('/print/jobs/:id/cancel', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.DOC_KINDS = DOC_KINDS;
+module.exports.THERMAL_KINDS = THERMAL_KINDS;

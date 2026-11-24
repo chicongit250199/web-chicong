@@ -46,6 +46,7 @@
     <button type="button" id="print-btn">In bằng máy này</button>
     <% if (typeof docToggle === 'undefined' || docToggle) { %><a href="?lang=<%= en ? 'en' : 'vi' %>&doc=<%= doc === 'receipt' ? 'quote' : 'receipt' %>"><%= doc === 'receipt' ? (en ? 'Quotation' : 'Báo giá') : (en ? 'Receipt' : 'Phiếu thanh toán - bảo hành') %></a><% } %>
     <a href="?lang=<%= en ? 'vi' : 'en' %>&doc=<%= doc %>"><%= en ? 'Tiếng Việt' : 'English' %></a>
+    <% if (doc === 'receipt' && typeof docToggle !== 'undefined' && !docToggle) { %><a href="?paper=80<%= en ? '&lang=en' : '' %>"><%= en ? '80mm' : 'Mẫu 80mm' %></a><% } %>
     <div id="print-server-msg" class="psmsg"></div>
   </div>
   <div class="sheet">

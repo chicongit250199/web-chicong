@@ -431,6 +431,27 @@
     <p x-show="msg" x-cloak class="mt-2 text-sm text-emerald-700 dark:text-emerald-400" x-text="msg"></p>
   </section>
 
+  <%# ---- Mỗi loại phiếu in ra máy nào ---- %>
+  <section id="print-to" class="card mt-4 scroll-mt-20">
+    <h2 class="flex items-center gap-2 font-semibold"><%- icon('printer', 'h-5 w-5 text-brand-600') %>In phiếu ra máy nào</h2>
+    <p class="mt-1 text-sm text-slate-500">Nút <b>In ra máy in cửa hàng</b> trên trang phiếu sẽ gửi tới máy chọn ở đây. Chọn máy in bill thì phiếu tự in khổ 80mm (in dạng ảnh, có dấu tiếng Việt, tự cắt giấy).</p>
+    <form method="post" action="/manager/system/print-to" class="mt-3 space-y-3">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="grid gap-3 sm:grid-cols-2">
+        <% printTo.forEach(d => { %>
+          <label class="block"><span class="label"><%= d.label %></span>
+            <select name="<%= d.key %>" class="input">
+              <option value="">Máy in mặc định</option>
+              <% printerOpts.filter(o => d.thermalOk || !o.thermal || o.name === d.value).forEach(o => { %><option value="<%= o.name %>" <%= o.name === d.value ? 'selected' : '' %>><%= o.label %></option><% }) %>
+              <% if (d.value && !printerOpts.some(o => o.name === d.value)) { %><option value="<%= d.value %>" selected><%= d.value %> (không thấy máy này)</option><% } %>
+            </select>
+            <% if (!d.thermalOk) { %><span class="mt-1 block text-xs text-slate-500">Chỉ có mẫu A4.</span><% } %></label>
+        <% }) %>
+      </div>
+      <div class="flex justify-end"><button class="btn-primary"><%- icon('check', 'h-4 w-4') %>Lưu</button></div>
+    </form>
+  </section>
+
   <%# ---- Lưu ý in trên phiếu (báo giá / thanh toán - bảo hành) ---- %>
   <section id="print-note" class="card mt-4 scroll-mt-20">
     <h2 class="flex items-center gap-2 font-semibold"><%- icon('receipt', 'h-5 w-5 text-brand-600') %>Lưu ý in trên phiếu</h2>

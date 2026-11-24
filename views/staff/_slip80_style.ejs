@@ -1,0 +1,24 @@
+<%# Kiểu chung cho phiếu khổ 80mm (máy in bill): trang rộng 576px = vùng in 72mm; chữ đen đậm, không màu nền (in nhiệt) %>
+<style>
+  @page { size: 80mm auto; margin: 0; }
+  html, body { margin: 0; background: #fff; }
+  body { font: 600 21px/1.35 Arial, "Helvetica Neue", Helvetica, sans-serif; color: #000; }
+  .slip { width: 576px; box-sizing: border-box; padding: 4px 6px 10px; margin: 0 auto; }
+  .c { text-align: center; } .r { text-align: right; } .b { font-weight: 800; }
+  .shop { font-size: 30px; font-weight: 900; text-align: center; text-transform: uppercase; line-height: 1.15; }
+  .addr { font-size: 18px; font-weight: 500; text-align: center; }
+  h1 { font-size: 27px; font-weight: 900; text-align: center; margin: 10px 0 2px; }
+  .code { font-size: 30px; font-weight: 900; text-align: center; letter-spacing: 1px; margin: 2px 0 4px; }
+  .hr { border-top: 2px dashed #000; margin: 8px 0; }
+  .row { display: flex; gap: 10px; padding: 2px 0; } .row .k { flex: 0 0 150px; font-weight: 500; } .row .v { flex: 1; min-width: 0; word-break: break-word; }
+  .big { font-size: 25px; font-weight: 900; }
+  .item { padding: 4px 0; } .item .n { font-weight: 700; } .item .d { display: flex; justify-content: space-between; font-weight: 500; }
+  .tot { display: flex; justify-content: space-between; padding: 2px 0; } .tot.big { font-size: 27px; }
+  .note { font-size: 17px; font-weight: 500; white-space: pre-line; }
+  .sign { display: flex; justify-content: space-around; text-align: center; margin-top: 10px; font-size: 19px; } .sign .sp { height: 70px; }
+  .actions { text-align: center; margin: 14px; font: 14px system-ui, sans-serif; } .actions button { padding: 7px 14px; font-size: 14px; cursor: pointer; margin: 0 4px; }
+  .actions .primary { background: #c00; color: #fff; border: 1px solid #a00; border-radius: 4px; font-weight: 600; }
+  .actions .copies input { width: 48px; padding: 4px; } .psmsg { font-size: 13px; margin-top: 6px; min-height: 1em; }
+  @media screen { body { background: #e5e7eb; } .slip { background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.2); margin: 0 auto 20px; } }
+  @media print { .actions { display: none; } }
+</style>

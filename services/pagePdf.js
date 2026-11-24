@@ -47,8 +47,8 @@ function scheduleClose() {
   idle.unref();
 }
 
-// urlPath: đường dẫn nội bộ (đã kiểm tra), cookieHeader: header Cookie của người bấm in
-function render(urlPath, cookieHeader) {
+// Mở trang trong Chrome (cookie đăng nhập của người bấm in) rồi gọi fn(page) để xuất PDF / ảnh
+function withPage(urlPath, cookieHeader, setup, fn) {
   const job = queue.then(async () => {
     const browser = await getBrowser();
     const page = await browser.newPage();
@@ -56,12 +56,13 @@ function render(urlPath, cookieHeader) {
       const origin = `http://127.0.0.1:${config.port}`;
       const cookies = String(cookieHeader || '').split(/;\s*/).map(c => { const i = c.indexOf('='); return i > 0 ? { name: c.slice(0, i), value: c.slice(i + 1), url: origin } : null; }).filter(Boolean);
       if (cookies.length) await page.setCookie(...cookies);
+      if (setup) await setup(page);
       await page.emulateMediaType('print');
       const res = await page.goto(origin + urlPath, { waitUntil: 'networkidle0', timeout: 30000 });
       if (!res || !res.ok()) throw new Error(`Không mở được phiếu (mã ${res ? res.status() : '?'})`);
       if (/\/login(\?|$)/.test(page.url())) throw new Error('Phiên đăng nhập hết hạn, tải lại trang');
       await page.evaluate(() => document.fonts && document.fonts.ready);
-      return await page.pdf({ format: 'A4', preferCSSPageSize: true, printBackground: true, margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } });
+      return await fn(page);
     } finally {
       await page.close().catch(() => {});
       scheduleClose();
@@ -71,4 +72,16 @@ function render(urlPath, cookieHeader) {
   return job;
 }
 
-module.exports = { render, chromePath };
+// urlPath: đường dẫn nội bộ (đã kiểm tra), cookieHeader: header Cookie của người bấm in
+function render(urlPath, cookieHeader) {
+  return withPage(urlPath, cookieHeader, null, page =>
+    page.pdf({ format: 'A4', preferCSSPageSize: true, printBackground: true, margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } }));
+}
+
+// Ảnh PNG cả trang, rộng widthCss px (CSS) × scale — dùng cho máy in bill (ảnh rồi đổi sang ESC/POS)
+function screenshot(urlPath, cookieHeader, widthCss = 576, scale = 2) {
+  return withPage(urlPath, cookieHeader, page => page.setViewport({ width: widthCss, height: 400, deviceScaleFactor: scale }),
+    page => page.screenshot({ fullPage: true, type: 'png', omitBackground: false }));
+}
+
+module.exports = { render, screenshot, chromePath };

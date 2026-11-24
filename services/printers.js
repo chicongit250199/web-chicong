@@ -256,6 +256,17 @@ async function printFile(name, file, { copies = 1, fit = true, title = '', duple
   return (out.match(/request id is (\S+)/) || [])[1] || '';
 }
 
+// Gửi thẳng dữ liệu cho máy in (lệnh ESC/POS của máy in bill), CUPS không xử lý gì thêm
+async function printRaw(name, buffer, { copies = 1, title = '' } = {}) {
+  checkName(name);
+  await ensureOnline(name);
+  const n = Math.min(20, Math.max(1, parseInt(copies, 10) || 1));
+  const out = await lpStdin(['-d', name, '-n', String(n), '-o', 'raw', '-t', String(title || 'Phiếu').slice(0, 100), '-'], buffer);
+  return (out.match(/request id is (\S+)/) || [])[1] || '';
+}
+// Máy in bill nhiệt: cài kiểu "Raw" (không driver) — CUPS không in được PDF cho máy này, phải gửi ESC/POS
+const isThermal = pr => !!pr && /raw/i.test(pr.model || '') && !(pr.pageSizes || []).length;
+
 // Chia sẻ máy in trong mạng LAN (Mac / Windows / điện thoại in thẳng, không qua web)
 async function serverSharing() {
   const out = await run('cupsctl', []).catch(() => '');
@@ -275,4 +286,4 @@ async function setPageSize(name, size) {
 const cancelJob = id => run('cancel', [checkJob(id)]);
 const cancelAll = name => run('cancel', ['-a', checkName(name)]);
 
-module.exports = { ensureOnline, setPageSize, serverSharing, setShared, typeOf, available, status, discover, models, add, remove, setDefault, setEnabled, testPage, printFile, cancelJob, cancelAll, suggestName, PRINT_TYPES };
+module.exports = { printRaw, isThermal, ensureOnline, setPageSize, serverSharing, setShared, typeOf, available, status, discover, models, add, remove, setDefault, setEnabled, testPage, printFile, cancelJob, cancelAll, suggestName, PRINT_TYPES };
