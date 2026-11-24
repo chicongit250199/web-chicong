@@ -11,11 +11,7 @@
 <body>
   <div class="actions"><button type="button" id="print-server-btn" class="primary">🖨 In ra máy in cửa hàng</button><label class="copies">Số bản <input type="number" id="print-server-copies" min="1" max="20" value="1"></label> <a href="?<%= en ? 'lang=en' : '' %>">Mẫu A4</a><div id="print-server-msg" class="psmsg"></div></div>
   <div class="slip">
-    <div class="shop"><%= settings.company_name || settings.legal_name %></div>
-    <div class="addr"><%= settings.address %><br><%= en ? 'Tel' : 'ĐT' %> <%= settings.phone %></div>
-    <h1><%= T.title %></h1>
-    <div class="code"><%= b.code %></div>
-    <div class="c" style="font-weight:500"><%= fmt.datetime(createdAt) %></div>
+    <%- include('_slip80_head', { title: T.title, code: b.code, createdAt, en }) %>
     <div class="hr"></div>
     <% if (b.customer_name) { %><div class="row"><span class="k"><%= T.cust %></span><span class="v b"><%= b.customer_name %></span></div><% } %>
     <% if (b.customer_phone) { %><div class="row"><span class="k"><%= T.phone %></span><span class="v b"><%= b.customer_phone %></span></div><% } %>

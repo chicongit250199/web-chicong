@@ -5,10 +5,14 @@
   body { font: 600 21px/1.35 Arial, "Helvetica Neue", Helvetica, sans-serif; color: #000; }
   .slip { width: 576px; box-sizing: border-box; padding: 4px 6px 10px; margin: 0 auto; }
   .c { text-align: center; } .r { text-align: right; } .b { font-weight: 800; }
-  .shop { font-size: 30px; font-weight: 900; text-align: center; text-transform: uppercase; line-height: 1.15; }
-  .addr { font-size: 18px; font-weight: 500; text-align: center; }
-  h1 { font-size: 27px; font-weight: 900; text-align: center; margin: 10px 0 2px; }
-  .code { font-size: 30px; font-weight: 900; text-align: center; letter-spacing: 1px; margin: 2px 0 4px; }
+  .head { display: flex; align-items: center; gap: 12px; border-bottom: 3px solid #000; padding-bottom: 8px; }
+  .head img { height: 96px; width: auto; max-width: 150px; object-fit: contain; filter: grayscale(1) contrast(1.4); }
+  .head .ht { flex: 1; min-width: 0; }
+  .brand { font-size: 29px; font-weight: 900; letter-spacing: .5px; line-height: 1.15; }
+  .muted { font-size: 17px; font-weight: 500; line-height: 1.3; } .muted strong { font-weight: 800; }
+  h1 { font-size: 27px; font-weight: 900; text-align: center; margin: 12px 0 2px; }
+  .date { text-align: center; font-style: italic; font-weight: 500; font-size: 18px; }
+  .code { text-align: center; font-size: 21px; font-weight: 500; margin: 2px 0 4px; } .code strong { font-size: 26px; font-weight: 900; letter-spacing: .5px; }
   .hr { border-top: 2px dashed #000; margin: 8px 0; }
   .row { display: flex; gap: 10px; padding: 2px 0; } .row .k { flex: 0 0 150px; font-weight: 500; } .row .v { flex: 1; min-width: 0; word-break: break-word; }
   .big { font-size: 25px; font-weight: 900; }

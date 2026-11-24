@@ -1,0 +1,16 @@
+<%# Phần đầu phiếu 80mm — cùng bố cục với phiếu thanh toán - bảo hành A4 (build_print.ejs): logo + tên cửa hàng + công ty/MST/địa chỉ/ĐT,
+    tiêu đề, dòng "Đà Nẵng, Ngày ...", số phiếu. Tham số: title, code, createdAt, en %>
+<% const d = new Date(new Date(createdAt).getTime() + 7 * 3600e3);
+   const hm = d.toISOString().slice(11, 16);
+   const dateText = en ? `Da Nang, ${d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })} ${hm}`
+     : `Đà Nẵng, ${hm} Ngày ${d.getUTCDate()} Tháng ${d.getUTCMonth() + 1} Năm ${d.getUTCFullYear()}`; %>
+<div class="head">
+  <% if (settings.logo_url) { %><img src="<%= settings.logo_url %>" alt=""><% } %>
+  <div class="ht">
+    <div class="brand"><%= (settings.company_name || '').toUpperCase() %></div>
+    <div class="muted"><strong><%= settings.legal_name %></strong><br><%= en ? 'Tax code' : 'MST' %>: <%= settings.tax_id %><br><%= settings.address %><br><%= en ? 'Phone' : 'Điện thoại' %>: <%= settings.phone %></div>
+  </div>
+</div>
+<h1><%= title %></h1>
+<div class="date"><%= dateText %></div>
+<div class="code"><%= en ? 'No.' : 'Số phiếu' %>: <strong><%= code %></strong></div>
