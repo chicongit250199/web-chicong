@@ -10,12 +10,19 @@
   <div class="stat"><p class="stat-label">Giá trị tồn (bán lẻ)</p><p class="stat-value text-lg"><%= fmt.money(stockValue.retail) %></p></div>
 </div>
 <%- include('_inv_tabs', { invTab: tab }) %>
+<% const catQs = c => '?' + new URLSearchParams(Object.entries({ tab, q: search, cat: c }).filter(([, v]) => v)).toString();
+   const catAll = Object.values(catCounts).reduce((a, b) => a + b, 0); %>
+<nav class="tabs" aria-label="Danh mục hàng">
+  <a href="<%= catQs('') %>" class="tab <%= !cat ? 'tab-active' : '' %>">Tất cả <span class="text-xs text-slate-400"><%= catAll %></span></a>
+  <% categories.filter(c => catCounts[c.key] || cat === c.key).forEach(c => { %><a href="<%= catQs(c.key) %>" class="tab <%= cat === c.key ? 'tab-active' : '' %>"><%= c.label %> <span class="text-xs text-slate-400"><%= catCounts[c.key] || 0 %></span></a><% }) %>
+</nav>
 <form class="mb-3 flex gap-2">
   <input type="hidden" name="tab" value="<%= tab %>">
+  <% if (cat) { %><input type="hidden" name="cat" value="<%= cat %>"><% } %>
   <input name="q" value="<%= search %>" class="input" placeholder="Tên hàng, mã hàng, Serial, NPP<%= tab === 'sold' ? ', khách hàng, SĐT' : '' %>...">
   <button class="btn-primary"><%- icon('search', 'h-4 w-4') %></button>
 </form>
-<% const canDel = tab === 'in_stock' || isManager; const backUrl = `/staff/inventory?tab=${tab}${search ? '&q=' + encodeURIComponent(search) : ''}${page > 1 ? '&page=' + page : ''}`; %>
+<% const canDel = tab === 'in_stock' || isManager; const backUrl = `/staff/inventory?tab=${tab}${search ? '&q=' + encodeURIComponent(search) : ''}${cat ? '&cat=' + cat : ''}${page > 1 ? '&page=' + page : ''}`; %>
 <div @keydown.escape.window="ed = null" x-data="{ ed: null, sel: [], all: <%= JSON.stringify(items.map(i => i.id)) %>,
                toggleAll(e) { this.sel = e.target.checked ? [...this.all] : [] },
                ask(ids, label) {
@@ -130,7 +137,7 @@
 </div>
 <% if (pages > 1) { %>
   <nav class="mt-4 flex flex-wrap items-center justify-center gap-1 text-sm">
-    <% const link = p => `?tab=${tab}&page=${p}${search ? '&q=' + encodeURIComponent(search) : ''}`; %>
+    <% const link = p => `?tab=${tab}&page=${p}${search ? '&q=' + encodeURIComponent(search) : ''}${cat ? '&cat=' + cat : ''}`; %>
     <% if (page > 1) { %><a href="<%= link(page - 1) %>" class="btn-secondary px-3 py-1.5">‹</a><% } %>
     <span class="px-3">Trang <%= page %> / <%= pages %> · <%= fmt.num(total) %> món</span>
     <% if (page < pages) { %><a href="<%= link(page + 1) %>" class="btn-secondary px-3 py-1.5">›</a><% } %>

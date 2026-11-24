@@ -5,6 +5,7 @@ const v = require('../../services/validate');
 const fmt = require('../../services/format');
 const inv = require('../../services/inventory');
 const { notify } = require('../../services/events');
+const invCat = require('../../services/invCategory');
 
 const router = express.Router();
 const PAGE = 50;
@@ -20,6 +21,10 @@ router.get('/inventory', (req, res) => {
     WHERE g.item_code = inventory_items.item_code AND g.status = 'in_stock' AND COALESCE(g.serial,'') = ''))`);
   if (s) where.push('(name LIKE @s OR item_code LIKE @s OR serial LIKE @s OR supplier LIKE @s OR customer_phone LIKE @s OR customer_name LIKE @s)');
   const params = { tab, s: `%${s}%` };
+  // Tab danh mục (Main, CPU, RAM...): số món theo danh mục trong tab + từ khóa hiện tại
+  const catCounts = Object.fromEntries(db.prepare(`SELECT inv_cat(name) k, COUNT(*) c FROM inventory_items WHERE status = @tab${s ? ' AND ' + where[where.length - 1] : ''} GROUP BY k`).all(params).map(r => [r.k, r.c]));
+  const cat = invCat.isCategory(req.query.cat) ? req.query.cat : '';
+  if (cat) { where.push('inv_cat(name) = @cat'); params.cat = cat; }
   const total = db.prepare(`SELECT COUNT(*) c FROM inventory_items WHERE ${where.join(' AND ')}`).get(params).c;
   const pages = Math.max(1, Math.ceil(total / PAGE));
   const page = Math.min(Math.max(parseInt(req.query.page, 10) || 1, 1), pages);
@@ -31,7 +36,7 @@ router.get('/inventory', (req, res) => {
     .map(i => ({ ...i, warranty_end: inv.warrantyEnd(i.sold_date, i.warranty_out_months) }));
   const counts = Object.fromEntries(db.prepare('SELECT status, COUNT(*) c FROM inventory_items GROUP BY status').all().map(r => [r.status, r.c]));
   const stockValue = db.prepare(`SELECT COALESCE(SUM(tech_price),0) tech, COALESCE(SUM(retail_price),0) retail FROM inventory_items WHERE status = 'in_stock'`).get();
-  res.render('staff/inventory', { title: 'Xem kho', tab, search: s, items, total, page, pages, counts, stockValue, today: fmt.todayYmd() });
+  res.render('staff/inventory', { title: 'Xem kho', tab, search: s, items, total, page, pages, counts, stockValue, cat, catCounts, categories: invCat.CATEGORIES, today: fmt.todayYmd() });
 });
 
 // ---------- Nhập kho ----------

@@ -1,9 +1,10 @@
 <%# Tab của mục Quản lý kho: tồn kho, đã bán, nhập kho, tra cứu bảo hành. invTab: tab đang mở; counts/search: chỉ có ở trang Xem kho %>
 <% const qs = typeof search !== 'undefined' && search && (invTab === 'in_stock' || invTab === 'sold') ? '&q=' + encodeURIComponent(search) : '';
+   const cq = typeof cat !== 'undefined' && cat ? '&cat=' + cat : '';
    const cnt = k => typeof counts !== 'undefined' && counts ? ' (' + (counts[k] || 0) + ')' : ''; %>
 <div class="tabs">
-  <a href="/staff/inventory?tab=in_stock<%= qs %>" class="tab <%= invTab === 'in_stock' ? 'tab-active' : '' %>">Tồn kho<%= cnt('in_stock') %></a>
-  <a href="/staff/inventory?tab=sold<%= qs %>" class="tab <%= invTab === 'sold' ? 'tab-active' : '' %>">Đã bán<%= cnt('sold') %></a>
+  <a href="/staff/inventory?tab=in_stock<%= qs + cq %>" class="tab <%= invTab === 'in_stock' ? 'tab-active' : '' %>">Tồn kho<%= cnt('in_stock') %></a>
+  <a href="/staff/inventory?tab=sold<%= qs + cq %>" class="tab <%= invTab === 'sold' ? 'tab-active' : '' %>">Đã bán<%= cnt('sold') %></a>
   <a href="/staff/inventory/new" class="tab flex items-center gap-1.5 <%= invTab === 'new' ? 'tab-active' : '' %>"><%- icon('plusSquare', 'h-4 w-4') %>Nhập kho</a>
   <a href="/staff/search" class="tab flex items-center gap-1.5 <%= invTab === 'search' ? 'tab-active' : '' %>"><%- icon('search', 'h-4 w-4') %>Tra cứu bảo hành</a>
 </div>

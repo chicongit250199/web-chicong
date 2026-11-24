@@ -34,6 +34,8 @@ db.prepare = sql => {
 const vn = s => (s == null ? null : String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toLowerCase());
 db.function('vn', { deterministic: true }, vn);
 db.vn = vn;
+// inv_cat(name): danh mục hàng trong kho đoán theo tên (Main, CPU, RAM...) — services/invCategory.js
+db.function('inv_cat', { deterministic: true }, n => require('../services/invCategory').categorize(n));
 
 function migrate() {
   db.exec('CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)');
