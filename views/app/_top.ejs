@@ -29,7 +29,7 @@
 <div class="pb-20 lg:pb-6 lg:pl-60">
   <main class="mx-auto max-w-[1600px] p-4 md:p-6">
     <% if (taskAlerts.length && !(typeof hideTaskAlerts !== 'undefined' && hideTaskAlerts)) { const pend = taskAlerts.filter(x => x.alert && x.alert.kind === 'pending').length; %>
-      <div x-data="{ open: <%= taskAlerts.length <= 3 ? 'true' : 'false' %> }" class="mb-4 overflow-hidden rounded-xl border border-orange-300 bg-orange-50 text-sm text-orange-900 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-100">
+      <div x-data="{ open: false }" class="mb-4 overflow-hidden rounded-xl border border-orange-300 bg-orange-50 text-sm text-orange-900 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-100">
         <div class="flex flex-wrap items-center gap-2 px-4 py-2.5">
           <%- icon('alert', 'h-5 w-5 shrink-0 text-orange-600') %>
           <p class="flex-1 font-semibold">Có <%= taskAlerts.length %> task cần chú ý<span class="font-normal"><%= pend ? ` · ${pend} task chờ quá ${taskAlertDays.pending} ngày` : '' %><%= taskAlerts.length - pend ? ` · ${taskAlerts.length - pend} task đang sửa quá ${taskAlertDays.processing} ngày` : '' %> <span class="opacity-70">(không tính Chủ nhật)</span></span></p>
