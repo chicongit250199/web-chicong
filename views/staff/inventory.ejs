@@ -103,7 +103,7 @@
           <label class="block sm:col-span-2"><span class="label req">Tên hàng hóa</span><input name="name" x-model="ed.name" class="input" required maxlength="300"></label>
           <label class="block"><span class="label">Serial</span><input name="serial" x-model="ed.serial" class="input font-mono"></label>
           <label class="block"><span class="label">Ngày nhập</span><input type="date" name="import_date" x-model="ed.import_date" class="input"></label>
-          <label class="block"><span class="label">Tình trạng</span><input name="condition" x-model="ed.condition" list="conds" class="input"></label>
+          <label class="block"><span class="label">Tình trạng</span><select name="condition" x-model="ed.condition" class="input"><option value="">— Chưa ghi —</option><option value="New">New</option><option value="2nd">2nd</option><option value="Like New">Like New</option></select></label>
           <label class="block"><span class="label">NPP</span><input name="supplier" x-model="ed.supplier" class="input"></label>
           <label class="block"><span class="label">BH nhập (tháng)</span><input type="number" min="0" name="warranty_in_months" x-model="ed.warranty_in_months" class="input"></label>
           <label class="block"><span class="label">BH xuất (tháng)</span><input type="number" min="0" name="warranty_out_months" x-model="ed.warranty_out_months" class="input"></label>
@@ -116,7 +116,6 @@
                 <span class="text-xs text-slate-600 dark:text-slate-300">Tăng: thêm món giống món này · Giảm: xóa bớt các món cùng mã · 0 = hết hàng</span></span></label>
           </template>
         </div>
-        <datalist id="conds"><option value="Mới"><option value="Cũ"><option value="Like new"><option value="Đã qua sử dụng"></datalist>
         <% if (isManager) { %>
           <template x-if="ed.status === 'sold'">
             <div class="grid gap-3 rounded-lg bg-violet-50 p-3 sm:grid-cols-3 dark:bg-violet-950/30">

@@ -65,4 +65,15 @@ function warrantyEnd(soldDate, months) {
   return d.toISOString().slice(0, 10);
 }
 
-module.exports = { stripVi, makeItemCode, parseWarrantyMonths, parseDate, parseMoney, existingSerials, warrantyEnd };
+// Tình trạng hàng trong kho: chỉ 3 giá trị. Chuẩn hóa cách ghi cũ (Mới, Cũ, LIKE NEW, Tray New...) về đúng 3 giá trị này.
+const CONDITIONS = ['New', '2nd', 'Like New'];
+function normCondition(v) {
+  const c = stripVi(v == null ? '' : String(v)).toLowerCase().trim();
+  if (!c) return null;
+  if (/like ?new|99|98/.test(c)) return 'Like New';
+  if (/2nd|\bcu\b|used|qua su dung|tray(?! new)/.test(c)) return '2nd';
+  if (/new|moi/.test(c)) return 'New';
+  return undefined; // không nhận ra
+}
+
+module.exports = { CONDITIONS, normCondition, stripVi, makeItemCode, parseWarrantyMonths, parseDate, parseMoney, existingSerials, warrantyEnd };

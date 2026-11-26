@@ -190,7 +190,7 @@ router.post('/pc-parts/:id/receive', (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'in_stock')`);
   db.transaction(() => {
     for (let i = 0; i < count; i++) {
-      ins.run(itemCode, part.name, serials[i] || null, data.import_date || fmt.todayYmd(), part.condition, data.supplier, data.tech_price, part.price, part.warranty_months);
+      ins.run(itemCode, part.name, serials[i] || null, data.import_date || fmt.todayYmd(), inv.normCondition(part.condition) || null, data.supplier, data.tech_price, part.price, part.warranty_months);
     }
     pc.link(part.name, part.id);
   })();

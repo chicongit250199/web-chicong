@@ -68,7 +68,7 @@ function parseWorkbook(buffer) {
         item_code: get('item_code') == null || get('item_code') === '' ? inv.makeItemCode(name) : String(get('item_code')).trim(),
         name, serial: serial || null,
         import_date: inv.parseDate(get('import_date')),
-        condition: get('condition') == null ? null : String(get('condition')).trim(),
+        condition: get('condition') == null ? null : (inv.normCondition(get('condition')) ?? String(get('condition')).trim()),
         supplier: get('supplier') == null ? null : String(get('supplier')).trim(),
         warranty_in_months: inv.parseWarrantyMonths(get('warranty_in_months')),
         tech_price: inv.parseMoney(get('tech_price')),

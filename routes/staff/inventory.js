@@ -39,6 +39,10 @@ router.get('/inventory', (req, res) => {
   res.render('staff/inventory', { title: 'Xem kho', tab, search: s, items, total, page, pages, counts, stockValue, cat, catCounts, categories: invCat.CATEGORIES, today: fmt.todayYmd() });
 });
 
+// Tình trạng: chỉ New / 2nd / Like New (để trống được)
+const condField = v.z.preprocess(x => { const c = inv.normCondition(x); return c === undefined ? String(x) : c; },
+  v.z.enum(inv.CONDITIONS, { message: 'Tình trạng chỉ được chọn New, 2nd hoặc Like New' }).nullable());
+
 // ---------- Nhập kho ----------
 const importSchema = v.z.object({
   item_code: v.text(64),
@@ -46,7 +50,7 @@ const importSchema = v.z.object({
   serials: v.text(20000),
   quantity: v.z.preprocess(x => (x === '' || x == null ? 1 : Number(x)), v.z.number().int().min(1, 'Số lượng tối thiểu 1').max(500, 'Tối đa 500 / lần')),
   import_date: v.date,
-  condition: v.text(100),
+  condition: condField,
   supplier: v.text(200),
   warranty_in_months: v.intOpt,
   tech_price: v.money,
@@ -93,7 +97,7 @@ const editSchema = v.z.object({
   name: v.reqText('Nhập tên hàng hóa', 300),
   serial: v.text(100),
   import_date: v.date,
-  condition: v.text(100),
+  condition: condField,
   supplier: v.text(200),
   warranty_in_months: v.intOpt,
   tech_price: v.money,

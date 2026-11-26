@@ -22,8 +22,7 @@
   <div class="grid gap-4 sm:grid-cols-3">
     <label class="block"><span class="label">Ngày nhập</span><input type="date" name="import_date" value="<%= val('import_date') %>" class="input"></label>
     <label class="block"><span class="label">Tình trạng</span>
-      <input name="condition" value="<%= val('condition') %>" list="conditions" class="input" placeholder="Mới / Cũ / Like new...">
-      <datalist id="conditions"><option value="Mới"><option value="Cũ"><option value="Like new"><option value="Đã qua sử dụng"></datalist></label>
+      <select name="condition" class="input"><option value="">— Chọn —</option><% ['New', '2nd', 'Like New'].forEach(c => { %><option value="<%= c %>" <%= val('condition') === c ? 'selected' : '' %>><%= c %></option><% }) %></select></label>
     <label class="block"><span class="label">Nhà phân phối (NPP)</span>
       <input name="supplier" value="<%= val('supplier') %>" list="suppliers" class="input">
       <datalist id="suppliers"><% suppliers.forEach(s => { %><option value="<%= s %>"><% }) %></datalist></label>
