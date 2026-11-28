@@ -5,8 +5,8 @@ const GROUPS = [
   {
     title: 'Tổng quan',
     items: [
-      { key: 'm-home', also: ['m-revenue', 'm-debts'], href: '/manager', icon: 'chart', label: 'Doanh thu', roles: ['manager'] },
-      { key: 'm-expenses', href: '/manager/expenses', icon: 'cash', label: 'Chi phí', roles: ['manager'] },
+      // 1 mục Doanh thu gồm tab Hôm nay / Thống kê / Chi phí / Công nợ
+      { key: 'm-home', also: ['m-revenue', 'm-expenses', 'm-debts'], href: '/manager', icon: 'chart', label: 'Doanh thu', roles: ['manager'] },
       { key: 'home', href: '/staff', icon: 'home', label: 'Bảng công việc', roles: ['staff', 'manager'] },
     ],
   },

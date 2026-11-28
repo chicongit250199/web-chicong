@@ -4,6 +4,7 @@
 <div class="page-title">
   <h1><%- icon('cash', 'h-6 w-6 text-brand-600') %>Chi phí</h1>
 </div>
+<%- include('_revenue_tabs', { revTab: 'expenses' }) %>
 
 <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
   <div class="stat col-span-2 lg:col-span-1"><p class="stat-label">Tổng chi</p><p class="stat-value text-red-600 dark:text-red-400"><%= fmt.money(agg.total) %></p><p class="text-xs text-slate-500"><%= fmt.num(agg.c) %> khoản · <%= fmt.date(from) %> – <%= fmt.date(to) %></p></div>
