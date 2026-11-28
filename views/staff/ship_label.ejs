@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phiếu gửi hàng <%= l.to_name %></title>
+  <%# Phiếu gửi hàng khổ A4 ngang (mẫu theo ảnh cửa hàng gửi) — nhãn chiếm cả tờ %>
+  <style>
+    @page { size: A4 landscape; margin: 10mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; color: #000; background: #fff; margin: 0; }
+    .label { width: 277mm; padding: 8mm 6mm; }
+    table { border-collapse: collapse; width: 100%; }
+    td { padding: 1.5mm 0; vertical-align: top; font-size: 30pt; line-height: 1.2; }
+    td.k { width: 66mm; text-align: right; padding-right: 4mm; font-weight: 700; font-style: italic; white-space: nowrap; }
+    tr.head td { font-weight: 700; }
+    tr.head td.k { text-align: left; font-style: normal; padding-left: 2mm; border-bottom: 1.5px solid #000; }
+    tr.gap td { height: 7mm; padding: 0; }
+    .note { text-align: center; margin-top: 10mm; font-size: 38pt; font-weight: 700; line-height: 1.25; }
+    .note i { display: block; }
+    .actions { text-align: center; margin: 12px; font: 14px system-ui, sans-serif; }
+    .actions button { padding: 8px 16px; font-size: 14px; cursor: pointer; }
+    @media print { .actions { display: none; } }
+  </style>
+</head>
+<body>
+  <% if (!pdf) { %><div class="actions"><button type="button" id="print-btn">In bằng máy này</button></div><% } %>
+  <div class="label">
+    <table>
+      <tr class="head"><td class="k">Người Nhận:</td><td><%= l.to_name %></td></tr>
+      <% if (l.to_phone) { %><tr><td class="k">SĐT:</td><td><%= l.to_phone %></td></tr><% } %>
+      <% if (l.to_addr) { %><tr><td class="k">Địa Chỉ:</td><td><%= l.to_addr %></td></tr><% } %>
+      <tr class="gap"><td colspan="2"></td></tr>
+      <tr class="head"><td class="k">Người Gửi:</td><td><%= l.from_name %></td></tr>
+      <% if (l.from_phone) { %><tr><td class="k">SĐT:</td><td><%= l.from_phone %></td></tr><% } %>
+      <% if (l.from_addr) { %><tr><td class="k">Địa Chỉ:</td><td><%= l.from_addr %></td></tr><% } %>
+    </table>
+    <% if (l.fragile) { %><div class="note">HÀNG DỄ VỠ - XIN NHẸ TAY!<i>Xin Cảm Ơn!</i></div><% } %>
+  </div>
+  <% if (!pdf) { %><script nonce="<%= nonce %>">document.getElementById('print-btn').onclick = function () { window.print(); };</script><% } %>
+</body>
+</html>

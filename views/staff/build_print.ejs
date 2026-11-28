@@ -42,10 +42,10 @@
 </head>
 <body>
   <div class="actions">
-    <button type="button" id="print-server-btn" class="primary">🖨 In ra máy in cửa hàng</button><label class="copies">Số bản <input type="number" id="print-server-copies" min="1" max="20" placeholder="Tự động" title="Để trống: máy in bill in 2 bản, máy in A4 in 1 bản"></label>
+    <button type="button" id="print-server-btn" class="primary">🖨 In ra máy in cửa hàng</button><label class="copies">Số bản <input type="number" id="print-server-copies" min="1" max="20" value="1"></label>
     <button type="button" id="print-btn">In bằng máy này</button>
     <% if (typeof docToggle === 'undefined' || docToggle) { %><a href="?lang=<%= en ? 'en' : 'vi' %>&doc=<%= doc === 'receipt' ? 'quote' : 'receipt' %>"><%= doc === 'receipt' ? (en ? 'Quotation' : 'Báo giá') : (en ? 'Receipt' : 'Phiếu thanh toán - bảo hành') %></a><% } %>
-    <a href="?lang=<%= en ? 'vi' : 'en' %>&doc=<%= doc %>"><%= en ? 'Tiếng Việt' : 'English' %></a>
+    <a href="?lang=<%= en ? 'vi' : 'en' %>&doc=<%= doc %><%= typeof docToggle !== 'undefined' && !docToggle ? '&paper=a4' : '' %>"><%= en ? 'Tiếng Việt' : 'English' %></a>
     <% if (doc === 'receipt' && typeof docToggle !== 'undefined' && !docToggle) { %><a href="?paper=80<%= en ? '&lang=en' : '' %>"><%= en ? '80mm' : 'Mẫu 80mm' %></a><% } %>
     <div id="print-server-msg" class="psmsg"></div>
   </div>

@@ -167,31 +167,33 @@ router.get('/tasks/:id', (req, res, next) => {
   });
 });
 
-router.get('/tasks/:id/print', (req, res, next) => {
+router.get('/tasks/:id/print', async (req, res, next) => {
   const task = q.get.get(req.params.id);
   if (!task) return next();
-  res.render(req.query.paper === '80' ? 'staff/task_print_80' : 'staff/task_print', { title: task.ticket_code, task });
+  const paper = await require('./print').previewPaper(req, `/staff/tasks/${task.id}/print`); // xem trước đúng mẫu sẽ in ra
+  res.render(paper === '80' ? 'staff/task_print_80' : 'staff/task_print', { title: task.ticket_code, task });
 });
 
-// ---------- Sửa thông tin task (chỉ khi còn chờ xử lý) ----------
+// ---------- Sửa thông tin task (khi chờ xử lý hoặc đang sửa) ----------
 // Quản lý, người nhận máy, hoặc người được giao / task chưa giao
+const EDITABLE = ['pending', 'processing'];
 function canEdit(task, user) {
-  return task.status === 'pending' && (canWork(task, user) || task.received_by === user.id);
+  return EDITABLE.includes(task.status) && (canWork(task, user) || task.received_by === user.id);
 }
 
 router.post('/tasks/:id/edit', (req, res, next) => {
   const task = q.get.get(req.params.id);
   if (!task) return next();
-  if (task.status !== 'pending') return back(req, res, task.id, 'error', 'Chỉ sửa được task đang chờ xử lý.');
+  if (!EDITABLE.includes(task.status)) return back(req, res, task.id, 'error', 'Chỉ sửa được task đang chờ xử lý hoặc đang sửa.');
   if (!canEdit(task, req.user)) return back(req, res, task.id, 'error', `Task đã được giao cho ${task.assigned_name}.`);
   const { data, error } = v.parse(createSchema, req.body);
   if (error) return back(req, res, task.id, 'error', error);
   const r = db.prepare(`UPDATE tasks SET customer_name = @customer_name, customer_phone = @customer_phone, device_model = @device_model, specs = @specs,
                         issue_desc = @issue_desc, estimated_price = @estimated_price, expected_return_date = @expected_return_date,
                         accessories = @accessories, note = @note, partner_id = @partner_id, updated_at = @now
-                        WHERE id = @id AND status = 'pending'`)
+                        WHERE id = @id AND status IN ('pending','processing')`)
     .run({ ...data, partner_id: partners.detect(data.customer_name, data.customer_phone), now: new Date().toISOString(), id: task.id });
-  if (!r.changes) return back(req, res, task.id, 'error', 'Task không còn ở trạng thái chờ xử lý.');
+  if (!r.changes) return back(req, res, task.id, 'error', 'Task không còn ở trạng thái chờ xử lý / đang sửa.');
   notify('task_edited', `${req.user.full_name} sửa thông tin ${data.device_model} (${task.ticket_code})`, `/staff/tasks/${task.id}`, req.user.full_name);
   back(req, res, task.id, 'success', 'Đã cập nhật thông tin task.');
 });

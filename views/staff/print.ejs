@@ -1,12 +1,19 @@
 <%- include('../app/_top') %>
 <div class="page-title"><h1><%- icon('printer', 'h-6 w-6 text-brand-600') %>In tài liệu</h1></div>
 <script type="application/json" id="print-data"><%- JSON.stringify(p).replace(/</g, '\\u003c') %></script>
+<script type="application/json" id="ship-data"><%- JSON.stringify(ship).replace(/</g, '\\u003c') %></script>
 <div x-data="printPage()" class="mx-auto max-w-3xl space-y-4">
   <template x-if="!s.available || !s.printers.length">
     <p class="card text-sm text-amber-700 dark:text-amber-400" x-text="!s.available ? 'Máy chủ chưa cài hệ thống in — báo quản lý.' : (s.all && s.all.length ? 'Máy in đang tạm dừng — báo quản lý bật lại ở trang Hệ thống.' : 'Chưa có máy in nào — quản lý thêm máy in ở trang Hệ thống.')"></p>
   </template>
 
-  <form x-show="s.printers.length" @submit.prevent="send()" class="card space-y-4">
+  <%# 2 tab: Phiếu gửi hàng (mặc định) / In file — nhớ tab qua #file trên địa chỉ %>
+  <nav class="tabs" aria-label="In tài liệu">
+    <a href="#ship" @click.prevent="setTab('ship')" class="tab flex items-center gap-1.5" :class="tab === 'ship' && 'tab-active'"><%- icon('box', 'h-4 w-4') %>Phiếu gửi hàng</a>
+    <a href="#file" @click.prevent="setTab('file')" class="tab flex items-center gap-1.5" :class="tab === 'file' && 'tab-active'"><%- icon('upload', 'h-4 w-4') %>In file</a>
+  </nav>
+
+  <form x-show="tab === 'file' && s.printers.length" x-cloak @submit.prevent="send()" class="card space-y-4">
     <label class="block text-sm">
       <span class="mb-1 block font-medium">Máy in</span>
       <select x-model="printer" class="input w-full">
@@ -47,6 +54,42 @@
       </template>
     </ul>
     <p class="text-xs text-slate-500">File chỉ dùng để in, in xong không lưu lại trên máy chủ.</p>
+  </form>
+
+  <%# ---- Phiếu gửi hàng (A4 ngang, mặc định máy HP P2035) ---- %>
+  <form x-data="shipForm()" x-show="tab === 'ship'" @submit.prevent="send()" class="card space-y-4">
+    <h2 class="flex items-center gap-2 font-semibold"><%- icon('box', 'h-5 w-5 text-brand-600') %>Phiếu gửi hàng</h2>
+    <div class="grid gap-3 sm:grid-cols-2">
+      <label class="block sm:col-span-2"><span class="label req">Người nhận</span>
+        <input x-model="f.to_name" @change="pick()" list="ship-names" class="input" required maxlength="120" autocomplete="off" placeholder="Gõ tên hoặc chọn người đã gửi trước">
+        <datalist id="ship-names"><template x-for="r in names()" :key="r.n + '|' + r.p"><option :value="r.n" x-text="[r.p, r.a].filter(Boolean).join(' · ')"></option></template></datalist></label>
+      <label class="block"><span class="label">SĐT người nhận</span>
+        <input x-model="f.to_phone" class="input" inputmode="tel" maxlength="40" autocomplete="off"></label>
+      <label class="block"><span class="label">Địa chỉ người nhận</span>
+        <input x-model="f.to_addr" class="input" maxlength="300" autocomplete="off"></label>
+    </div>
+    <details class="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700">
+      <summary class="cursor-pointer text-slate-600 dark:text-slate-300">Người gửi: <strong x-text="f.from_name"></strong> <span class="text-xs text-slate-500">(bấm để sửa)</span></summary>
+      <div class="mt-2 grid gap-3 sm:grid-cols-3">
+        <label class="block"><span class="label">Tên người gửi</span><input x-model="f.from_name" class="input" maxlength="120"></label>
+        <label class="block"><span class="label">SĐT</span><input x-model="f.from_phone" class="input" maxlength="40"></label>
+        <label class="block"><span class="label">Địa chỉ</span><input x-model="f.from_addr" class="input" maxlength="300"></label>
+      </div>
+    </details>
+    <div class="flex flex-wrap items-end gap-4 text-sm">
+      <label class="block"><span class="mb-1 block font-medium">Máy in</span>
+        <select x-model="printer" class="input">
+          <template x-for="pr in a4()" :key="pr.name"><option :value="pr.name" :selected="pr.name === printer" x-text="pr.info || pr.name"></option></template>
+        </select></label>
+      <label class="block"><span class="mb-1 block font-medium">Số bản</span>
+        <input type="number" min="1" max="20" x-model="copies" class="input w-24"></label>
+      <label class="flex items-center gap-2 pb-2"><input type="checkbox" x-model="f.fragile"> Hàng dễ vỡ - xin nhẹ tay</label>
+      <div class="ml-auto flex gap-2">
+        <a :href="previewUrl()" target="_blank" class="btn-secondary px-3 py-2" :class="!f.to_name && 'pointer-events-none opacity-50'">Xem trước</a>
+        <button type="submit" :disabled="busy || !f.to_name || !printer" class="btn-primary px-4 py-2"><%- icon('printer', 'h-4 w-4') %><span x-text="busy ? 'Đang in...' : 'In phiếu gửi hàng'"></span></button>
+      </div>
+    </div>
+    <p x-show="msg" x-cloak class="text-sm" :class="ok ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600'" x-text="msg"></p>
   </form>
 
   <section x-show="s.jobs && s.jobs.length" x-cloak class="card">

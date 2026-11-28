@@ -151,7 +151,7 @@ router.post('/sell', (req, res) => {
 // ---------- In phiếu thanh toán - bảo hành cho đơn bán (mẫu giống báo giá Build PC, khổ A4) ----------
 // key = số phiếu (BH-...) hoặc id dòng doanh thu (đơn cũ chưa có số phiếu)
 const COND_EN_SALE = { new: 'New', '2nd': 'Used', 'like new': 'Like New', 'tray new': 'Tray New' };
-router.get('/sell/receipt/:key', (req, res, next) => {
+router.get('/sell/receipt/:key', async (req, res, next) => {
   const key = String(req.params.key);
   let rows = [];
   if (/^\d+$/.test(key)) {
@@ -194,7 +194,7 @@ router.get('/sell/receipt/:key', (req, res, next) => {
   };
   const printNote = en ? settings.get('pc_print_note_en') || DEF.DEFAULT_NOTE_EN : settings.get('pc_print_note_vi') || DEF.DEFAULT_NOTE_VI;
   // Khổ 80mm (máy in bill): mẫu riêng, kèm thông tin máy nếu là phiếu trả máy
-  if (req.query.paper === '80') {
+  if (await require('./print').previewPaper(req, `/staff/sell/receipt/${key}`) === '80') { // xem trước đúng mẫu sẽ in ra
     const rep = rows.find(r => r.type === 'repair' && r.ref_id);
     const task = rep ? db.prepare('SELECT ticket_code, device_model, repair_detail, replaced_parts, created_at, completed_at FROM tasks WHERE id = ?').get(rep.ref_id) : null;
     return res.render('staff/receipt_80', { b, items, total, en, task, printNote, staffName: first.staff_name || '', createdAt: first.created_at });
