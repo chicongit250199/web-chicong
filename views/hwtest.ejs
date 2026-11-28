@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="vi" class="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Test phần cứng · Chí Công Computer</title>
+  <% if (logo) { %><link rel="icon" href="<%= logo %>"><% } %>
+  <link rel="stylesheet" href="/css/app.css?v=<%= v %>">
+  <script defer src="/js/hwtest.js?v=<%= v %>"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 antialiased">
+  <header class="sticky top-0 z-10 border-b border-slate-800 bg-slate-950/95 px-4 py-3">
+    <div class="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <% if (logo) { %><span class="rounded-lg bg-white px-2 py-1"><img src="<%= logo %>" alt="Chí Công Computer" class="h-10 w-auto"></span><% } %>
+        <h1 class="text-lg font-bold leading-tight">Test phần cứng<span class="block text-xs font-normal text-slate-400">Chí Công Computer</span></h1>
+      </div>
+    </div>
+  </header>
+  <main class="mx-auto max-w-[1800px] px-4 py-4">
+    <%- include('_hwtest_body') %>
+  </main>
+</body>
+</html>

@@ -10,6 +10,7 @@ router.use(require('./notifications'));
 router.use(appShell);
 
 router.use(require('./tasks'));
+router.use(require('./pcReports'));
 router.use(require('./sales'));
 router.use(require('./inventory'));
 router.use(require('./icParts'));

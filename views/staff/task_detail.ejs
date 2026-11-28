@@ -29,6 +29,8 @@
         </dl>
       </section>
 
+      <%- include('_pc_reports_card') %>
+
       <% if (['done','unrepairable','completed'].includes(task.status)) { %>
         <section class="card">
           <h2 class="mb-3 font-semibold">Kết quả sửa chữa</h2>

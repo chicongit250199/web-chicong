@@ -11,8 +11,9 @@
       <span class="text-sm text-slate-500">Người nhận: <strong><%= user.full_name %></strong></span>
     </div>
     <% if (error) { %><div class="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-200 dark:bg-red-950 dark:text-red-200 dark:ring-red-900"><%= error %></div><% } %>
-    <form method="post" action="/staff/tasks" class="card space-y-4" x-data x-ref="form">
+    <form method="post" action="/staff/tasks" class="card space-y-4" x-data="pcPick('intake')" x-ref="form">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="pc_report_id" value="<%= val('pc_report_id') %>">
       <div class="grid gap-4 sm:grid-cols-2">
         <label class="block"><span class="label">Ngày giờ nhận</span>
           <input class="input bg-slate-50 dark:bg-slate-800/50" value="<%= fmt.datetime(now) %>" disabled></label>
@@ -24,8 +25,15 @@
         <label class="block"><span class="label req">Model máy / linh kiện</span>
           <input name="device_model" value="<%= val('device_model') %>" class="input" required maxlength="200" placeholder="VD: Dell Latitude 5420" autocomplete="off"></label>
       </div>
-      <label class="block"><span class="label">Cấu hình</span>
-        <textarea name="specs" rows="2" class="input" placeholder="CPU, RAM, ổ cứng..."><%= val('specs') %></textarea></label>
+      <div>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <label for="intake-specs" class="label">Cấu hình</label>
+          <button type="button" @click="show()" class="mb-1 inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline"><%- icon('cpu', 'h-3.5 w-3.5') %>Lấy từ máy đã kiểm tra</button>
+        </div>
+        <textarea id="intake-specs" name="specs" rows="2" class="input" placeholder="CPU, RAM, ổ cứng..."><%= val('specs') %></textarea>
+        <p x-show="chosen" x-cloak class="mt-1 text-xs text-emerald-700 dark:text-emerald-400">Đã chọn báo cáo kiểm tra <span x-text="chosen && (chosen.computer_name || chosen.model)"></span> — sẽ lưu kèm phiếu. <button type="button" @click="unpick()" class="text-slate-500 underline">Bỏ chọn</button></p>
+      </div>
+      <%- include('_pc_pick') %>
       <label class="block"><span class="label req">Mô tả lỗi</span>
         <textarea name="issue_desc" rows="3" class="input" required><%= val('issue_desc') %></textarea></label>
       <div class="grid gap-4 sm:grid-cols-3">

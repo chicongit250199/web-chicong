@@ -1,0 +1,32 @@
+<%# Hộp chọn báo cáo "Kiểm tra cấu hình máy" — đặt trong phần tử có x-data="pcPick(...)" %>
+<template x-if="open">
+  <div class="modal-backdrop" @click.self="hide()" @keydown.escape.window="hide()">
+    <div class="modal max-w-2xl space-y-3">
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="flex items-center gap-2 text-lg font-semibold"><%- icon('cpu', 'h-5 w-5 text-brand-600') %>Chọn máy đã kiểm tra</h3>
+        <button type="button" @click="hide()" class="text-slate-400 hover:text-slate-700" aria-label="Đóng"><%- icon('x', 'h-5 w-5') %></button>
+      </div>
+      <p class="text-xs text-slate-500">Trên máy khách mở PowerShell (Admin) gõ <code class="rounded bg-slate-100 px-1 dark:bg-slate-800">irm chicongcomputer.local/<%= settings.shel_path || 'shel' %> | iex</code> → chọn <b>Kiểm tra cấu hình máy</b>. Kết quả tự hiện ở đây (giữ 24 giờ, chưa gắn vào máy nào thì tự xóa).</p>
+      <p x-show="err" x-cloak class="text-sm text-red-600" x-text="err"></p>
+      <p x-show="loading" class="py-4 text-center text-sm text-slate-500">Đang tải...</p>
+      <p x-show="!loading && !items.length" x-cloak class="py-6 text-center text-sm text-slate-500">Chưa có máy nào gửi lên trong 24 giờ qua. Danh sách tự làm mới mỗi 5 giây.</p>
+      <div class="max-h-[60vh] space-y-2 overflow-y-auto">
+        <template x-for="r in items" :key="r.id">
+          <button type="button" @click="pick(r)" :disabled="busy" class="block w-full rounded-xl border border-slate-200 p-3 text-left hover:border-brand-400 hover:bg-brand-50/40 dark:border-slate-700 dark:hover:bg-slate-800">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="font-semibold" x-text="r.model || 'Không rõ model'"></span>
+              <span class="text-xs text-slate-500" x-text="ago(r.created_at)"></span>
+            </div>
+            <p class="mt-0.5 text-xs text-slate-500">
+              <span x-text="'Tên máy: ' + (r.computer_name || '—')"></span>
+              <span x-show="r.serial" x-text="' · S/N: ' + r.serial"></span>
+              <span x-show="r.ip" x-text="' · IP ' + r.ip"></span>
+              <span x-show="r.ticket_code" class="badge-violet ml-1" x-text="'đã gắn ' + r.ticket_code"></span>
+            </p>
+            <p class="mt-1 line-clamp-3 whitespace-pre-line text-xs text-slate-600 dark:text-slate-300" x-text="r.summary"></p>
+          </button>
+        </template>
+      </div>
+    </div>
+  </div>
+</template>

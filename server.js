@@ -82,6 +82,7 @@ app.use('/vendor/alpine.js', (req, res) => res.sendFile(require.resolve('alpinej
 // CSS/JS/SVG: nén gzip sẵn 1 lần, giữ trong RAM (CPU yếu: khỏi nén lại 80KB CSS ở mỗi lần tải)
 if (config.isProd) app.use(require('./services/staticGzip')(path.join(__dirname, 'public'), { maxAge: 30 * 86400 }));
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: config.isProd ? '30d' : 0 }));
+app.use(require('./routes/shel')); // irm chicongcomputer.local/shel | iex — bộ công cụ PowerShell, không cần đăng nhập
 
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 app.use(express.json({ limit: '2mb' }));

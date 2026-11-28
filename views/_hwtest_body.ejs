@@ -1,0 +1,98 @@
+<%# Nội dung trang test phần cứng — dùng chung cho /test (script mở) và Test máy - In trong web. JS: /js/hwtest.js %>
+<div class="flex flex-wrap items-center justify-between gap-2">
+<nav id="tabs" class="flex flex-wrap gap-1" aria-label="Các bài test">
+      <button data-tab="kb" class="hw-tab">Bàn phím</button>
+      <button data-tab="screen" class="hw-tab">Màn hình</button>
+      <button data-tab="audio" class="hw-tab">Loa & Mic</button>
+      <button data-tab="cam" class="hw-tab">Webcam</button>
+      <button data-tab="mouse" class="hw-tab">Chuột / Touchpad</button>
+    </nav>
+  <div id="chips" class="flex flex-wrap gap-1.5 text-xs"></div>
+</div>
+<div class="pt-5">
+    <div id="insecure" class="mb-4 hidden rounded-lg border border-amber-700 bg-amber-950/60 p-3 text-sm text-amber-200">
+      Trình duyệt đang chặn Mic / Webcam vì trang không phải https. Trên máy khách chạy script <b>Test phần cứng</b> trong bộ công cụ PowerShell (Hệ thống → Script Windows) — script tự mở trình duyệt cho phép Mic / Webcam. Bàn phím, màn hình, loa, chuột vẫn test được bình thường.
+    </div>
+
+    <%# ---- Bàn phím ---- %>
+    <section data-pane="kb" class="hidden">
+      <div class="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+        <p class="text-slate-400">Bấm lần lượt từng phím — phím đã nhận chuyển <span class="font-semibold text-emerald-400">xanh</span>, đang giữ thì <span class="font-semibold text-sky-400">sáng</span>. Phím Fn và một số phím đặc biệt (Win, PrtSc) Windows có thể không báo cho trình duyệt.</p>
+        <div class="flex items-center gap-3">
+          <span>Đã bấm: <b id="kb-count">0</b>/<span id="kb-total">0</span></span>
+          <span class="text-slate-400">Phím cuối: <code id="kb-last">—</code></span>
+          <button id="kb-reset" class="rounded-lg bg-slate-800 px-3 py-1.5 hover:bg-slate-700">Làm lại</button>
+          <button id="kb-full" class="rounded-lg bg-brand-600 px-3 py-1.5 font-semibold hover:bg-brand-700">Toàn màn hình</button>
+        </div>
+      </div>
+      <div id="kb-wrap" class="overflow-x-auto pb-2"><div id="kb" class="inline-flex gap-4"></div></div>
+      <div class="mt-4 flex gap-2" data-result="kb"></div>
+    </section>
+
+    <%# ---- Màn hình ---- %>
+    <section data-pane="screen" class="hidden">
+      <p class="text-sm text-slate-400">Chạy màn hình toàn màu để tìm <b>điểm chết</b> (chấm đen / chấm màu không đổi), hở sáng, ố màu. Bấm chuột / Space / → để đổi màu, ← để quay lại, Esc để thoát.</p>
+      <button id="screen-start" class="mt-3 rounded-xl bg-brand-600 px-5 py-3 font-semibold hover:bg-brand-700">Bắt đầu test màn hình</button>
+      <div class="mt-4 grid max-w-xl grid-cols-8 gap-1" id="screen-swatches"></div>
+      <div class="mt-4 flex gap-2" data-result="screen"></div>
+    </section>
+
+    <%# ---- Loa & Mic ---- %>
+    <section data-pane="audio" class="hidden">
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="rounded-xl border border-slate-800 p-4">
+          <h2 class="font-semibold">Loa</h2>
+          <p class="mt-1 text-sm text-slate-400">Bật âm lượng vừa phải. Tiếng phải phát đúng bên trái / phải, không rè.</p>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button data-tone="-1" class="rounded-lg bg-slate-800 px-4 py-2 hover:bg-slate-700">◀ Loa trái</button>
+            <button data-tone="1" class="rounded-lg bg-slate-800 px-4 py-2 hover:bg-slate-700">Loa phải ▶</button>
+            <button data-tone="0" class="rounded-lg bg-slate-800 px-4 py-2 hover:bg-slate-700">Cả hai</button>
+            <button id="sweep" class="rounded-lg bg-slate-800 px-4 py-2 hover:bg-slate-700">Quét tần số (rè?)</button>
+          </div>
+          <div class="mt-4 flex gap-2" data-result="speaker"></div>
+        </div>
+        <div class="rounded-xl border border-slate-800 p-4">
+          <h2 class="font-semibold">Micro</h2>
+          <p class="mt-1 text-sm text-slate-400">Nói vào mic — thanh mức âm phải nhảy. Bấm Ghi 5 giây rồi nghe lại.</p>
+          <select id="mic-dev" class="input mt-3 bg-slate-900 text-slate-100"></select>
+          <div class="mt-3 h-4 overflow-hidden rounded-full bg-slate-800"><div id="mic-level" class="h-full w-0 bg-emerald-500 transition-[width] duration-75"></div></div>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button id="mic-start" class="rounded-lg bg-slate-800 px-4 py-2 hover:bg-slate-700">Bật mic</button>
+            <button id="mic-rec" class="rounded-lg bg-slate-800 px-4 py-2 hover:bg-slate-700 disabled:opacity-40" disabled>Ghi 5 giây</button>
+          </div>
+          <audio id="mic-play" controls class="mt-3 hidden w-full"></audio>
+          <p id="mic-msg" class="mt-2 text-sm text-amber-300"></p>
+          <div class="mt-4 flex gap-2" data-result="mic"></div>
+        </div>
+      </div>
+    </section>
+
+    <%# ---- Webcam ---- %>
+    <section data-pane="cam" class="hidden">
+      <div class="flex flex-wrap items-center gap-2">
+        <select id="cam-dev" class="input w-auto bg-slate-900 text-slate-100"></select>
+        <button id="cam-start" class="rounded-lg bg-slate-800 px-4 py-2 hover:bg-slate-700">Bật webcam</button>
+        <span id="cam-info" class="text-sm text-slate-400"></span>
+      </div>
+      <video id="cam-video" autoplay playsinline muted class="mt-3 aspect-video w-full max-w-3xl rounded-xl bg-black"></video>
+      <p id="cam-msg" class="mt-2 text-sm text-amber-300"></p>
+      <div class="mt-4 flex gap-2" data-result="cam"></div>
+    </section>
+
+    <%# ---- Chuột / Touchpad ---- %>
+    <section data-pane="mouse" class="hidden">
+      <p class="text-sm text-slate-400">Bấm trái / phải / giữa, cuộn lên xuống, kéo rê trong khung để kiểm tra touchpad có giật / chết vùng nào không.</p>
+      <div class="mt-3 grid grid-cols-2 gap-2 text-center text-sm sm:grid-cols-6">
+        <div class="rounded-lg bg-slate-900 p-2">Trái<br><b id="m-0" class="text-xl">0</b></div>
+        <div class="rounded-lg bg-slate-900 p-2">Giữa<br><b id="m-1" class="text-xl">0</b></div>
+        <div class="rounded-lg bg-slate-900 p-2">Phải<br><b id="m-2" class="text-xl">0</b></div>
+        <div class="rounded-lg bg-slate-900 p-2">Nhấp đúp<br><b id="m-dbl" class="text-xl">0</b></div>
+        <div class="rounded-lg bg-slate-900 p-2">Cuộn lên<br><b id="m-up" class="text-xl">0</b></div>
+        <div class="rounded-lg bg-slate-900 p-2">Cuộn xuống<br><b id="m-down" class="text-xl">0</b></div>
+      </div>
+      <canvas id="m-pad" class="mt-3 h-[50vh] w-full cursor-crosshair touch-none rounded-xl border border-slate-800 bg-slate-900"></canvas>
+      <button id="m-clear" class="mt-2 rounded-lg bg-slate-800 px-3 py-1.5 text-sm hover:bg-slate-700">Xóa nét vẽ</button>
+      <div class="mt-4 flex gap-2" data-result="mouse"></div>
+    </section>
+</div>
+<div id="screen-full" class="fixed inset-0 z-[80] hidden cursor-none"></div>

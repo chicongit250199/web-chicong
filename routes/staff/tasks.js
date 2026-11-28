@@ -9,6 +9,7 @@ const taskAlerts = require('../../services/taskAlerts');
 const partners = require('../../services/partners');
 const sales = require('../../services/sales');
 const debts = require('../../services/debts');
+const pcReports = require('../../services/pcReports');
 
 const router = express.Router();
 
@@ -117,7 +118,7 @@ function renderIntake(req, res, ioTab, { values = {}, error = null, status = 200
   const sort = pickSort(req, 'return');
   res.locals.nav = ioTab === 'return' ? 'return' : 'task-new';
   res.status(status).render('staff/intake', {
-    title: ioTab === 'return' ? 'Trả máy' : 'Nhận máy', ioTab, values, error, now: new Date().toISOString(),
+    title: ioTab === 'return' ? 'Trả máy' : 'Nhận máy', ioTab, values, error, now: new Date().toISOString(), scripts: ['/js/pc-reports.js'],
     partnerNames: db.prepare('SELECT name FROM partners ORDER BY name COLLATE NOCASE').all().map(p => p.name),
     search, sort, sorts: SORTS, tasks: listTasks('ready', req.user, search, sort),
   });
@@ -133,6 +134,8 @@ router.post('/tasks', (req, res) => {
     const { lastInsertRowid } = q.insert.run({ ...data, ticket_code, received_by: req.user.id, partner_id: partners.detect(data.customer_name, data.customer_phone) });
     return { id: lastInsertRowid, ticket_code };
   })();
+  // Chọn từ báo cáo "Kiểm tra cấu hình máy" → gắn vào task (giữ luôn, không tự xóa sau 1 ngày)
+  if (req.body.pc_report_id) { try { pcReports.link(Number(req.body.pc_report_id), task.id); } catch { /* báo cáo đã hết hạn */ } }
   notify('task_new', `${req.user.full_name} nhận máy ${data.device_model} (${task.ticket_code}) — KH ${data.customer_name || data.customer_phone || 'khách lẻ'}`, `/staff/tasks/${task.id}`, req.user.full_name);
   req.flash('success', `Đã lưu phiếu ${task.ticket_code}.`);
   res.redirect(req.body.print ? `/staff/tasks/${task.id}/print` : '/staff/tasks/new');
@@ -157,9 +160,9 @@ router.get('/tasks/:id', (req, res, next) => {
   if (!task) return next();
   res.locals.nav = { done: 'return', unrepairable: 'return' }[task.status] || 'm-tasks'; // chờ trả -> Nhận - Trả, còn lại -> Quản lý task
   res.render('staff/task_detail', {
-    title: task.ticket_code, task, histories: q.histories.all(task.id), staffList: q.staff.all(),
+    title: task.ticket_code, task, histories: q.histories.all(task.id), staffList: q.staff.all(), pcReports: pcReports.forTask(task.id),
     revenues: q.revenue.all(task.id), extras: extrasOf(task.id), canWork: canWork(task, req.user), canEdit: canEdit(task, req.user), canDelete: canDelete(task, req.user), warrantyOptions: v.WARRANTY_OPTIONS,
-    scripts: ['/js/task-complete.js'],
+    scripts: ['/js/task-complete.js', '/js/pc-reports.js'],
     fromReturn: req.query.from === 'return', // nút Hoàn thành (trả máy) chỉ hiện khi mở từ trang Trả máy — tránh bấm nhầm ngay sau khi sửa xong
   });
 });
