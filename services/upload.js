@@ -26,16 +26,17 @@ const PRESETS = {
   logo: { width: 512, height: 512, fit: 'inside' },
   banner: { width: 1920, height: 1920, fit: 'inside' }, // giữ nguyên tỉ lệ ảnh gốc, không cắt
   product: { width: 1200, height: 1200, fit: 'inside' },
+  qr: { width: 1000, height: 1000, fit: 'inside', quality: 92 }, // mã QR: nét hơn để quét được
 };
 
 async function saveImage(file, preset = 'product') {
   if (!file || !file.buffer) return null;
-  const opts = PRESETS[preset] || PRESETS.product;
+  const { quality = 80, ...opts } = PRESETS[preset] || PRESETS.product;
   const name = `${preset}-${Date.now().toString(36)}-${crypto.randomBytes(4).toString('hex')}.webp`;
   await sharp(file.buffer, { failOn: 'none' })
     .rotate() // xoay theo EXIF của ảnh chụp điện thoại
     .resize({ ...opts, withoutEnlargement: true })
-    .webp({ quality: 80, effort: 3 })
+    .webp({ quality, effort: 3 })
     .toFile(path.join(config.uploadDir, name));
   return `/uploads/${name}`;
 }

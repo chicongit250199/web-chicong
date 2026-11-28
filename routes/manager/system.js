@@ -7,7 +7,7 @@ const gitBackup = require('../../services/gitBackup');
 const revenueReport = require('../../services/revenueReport');
 const taskAlerts = require('../../services/taskAlerts');
 const printers = require('../../services/printers');
-const { fileUpload } = require('../../services/upload');
+const { fileUpload, imageUpload, saveImage, removeImage } = require('../../services/upload');
 const serverLog = require('../../services/serverLog');
 const db = require('../../db');
 const settings = require('../../services/settings');
@@ -27,6 +27,22 @@ router.get('/system', async (req, res) => {
     printerOpts: prList.map(p => ({ name: p.name, label: (p.info || p.name) + (printers.isThermal(p) ? ' — máy in bill 80mm' : '') + (p.isDefault ? ' (mặc định)' : ''), thermal: printers.isThermal(p) })),
     printNote: { vi: settings.get('pc_print_note_vi') || DEF.DEFAULT_NOTE_VI, en: settings.get('pc_print_note_en') || DEF.DEFAULT_NOTE_EN },
   });
+});
+
+// Mã QR Zalo / WhatsApp hiện ở trang Nhận máy (settings qr_zalo_url, qr_whatsapp_url)
+router.post('/system/qr', imageUpload.fields([{ name: 'zalo', maxCount: 1 }, { name: 'whatsapp', maxCount: 1 }]), async (req, res, next) => {
+  try {
+    const files = req.files || {}; const patch = {};
+    for (const k of ['zalo', 'whatsapp']) {
+      if (!files[k]) continue;
+      patch['qr_' + k + '_url'] = await saveImage(files[k][0], 'qr');
+      removeImage(settings.get('qr_' + k + '_url'));
+    }
+    if (!Object.keys(patch).length) { req.flash('error', 'Chọn ảnh mã QR cần thay.'); return res.redirect('/manager/system?tab=settings#qr'); }
+    settings.set(patch);
+    req.flash('success', 'Đã thay mã QR.');
+    res.redirect('/manager/system?tab=settings#qr');
+  } catch (e) { next(e); }
 });
 
 // Lưu ý in trên phiếu báo giá / thanh toán - bảo hành (Build PC, bán hàng)

@@ -191,10 +191,10 @@
 
       <%# ---- Mạng ---- %>
       <section class="card" x-show="d.network && d.network.length">
-        <h2 class="mb-3 flex items-center justify-between font-semibold">Mạng <span class="text-xs font-normal text-slate-500">tốc độ đang truyền thực tế · 10 phút gần nhất</span></h2>
-        <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-          <div class="space-y-3">
-            <div class="grid grid-cols-2 gap-3">
+        <h2 class="mb-3 flex items-center justify-between font-semibold">Mạng <span class="text-xs font-normal text-slate-500">tốc độ đang truyền thực tế</span></h2>
+        <div class="space-y-3">
+          <div class="grid gap-3 lg:grid-cols-2">
+            <div class="grid grid-cols-2 content-start gap-3">
               <div class="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/60">
                 <p class="flex items-center gap-1.5 text-xs text-slate-500"><span class="inline-block h-2 w-2 rounded-full bg-brand-500"></span>Tải xuống</p>
                 <p class="text-xl font-bold tabular-nums" x-text="bps(netRx)"></p>
@@ -203,6 +203,7 @@
                 <p class="flex items-center gap-1.5 text-xs text-slate-500"><span class="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>Tải lên</p>
                 <p class="text-xl font-bold tabular-nums" x-text="bps(netTx)"></p>
               </div>
+              <p x-show="d.gateway" class="col-span-2 text-xs text-slate-500" x-text="d.gateway ? 'Gateway (router): ' + d.gateway.ip + ' qua ' + d.gateway.iface : ''"></p>
             </div>
             <%# Đo tốc độ Internet %>
             <div class="rounded-lg border border-brand-200 bg-brand-50/50 p-3 text-sm dark:border-brand-900 dark:bg-brand-950/20">
@@ -223,7 +224,8 @@
               <p x-show="d.speedTest && d.speedTest.error" class="mt-1 text-xs text-red-600" x-text="d.speedTest && d.speedTest.error"></p>
               <p x-show="!d.speedTest || (!d.speedTest.last && !d.speedTest.running && !d.speedTest.error)" class="mt-1 text-xs text-slate-500">Đo qua speed.cloudflare.com — mỗi lần dùng khoảng 35MB dữ liệu.</p>
             </div>
-            <p x-show="d.gateway" class="text-xs text-slate-500" x-text="d.gateway ? 'Gateway (router): ' + d.gateway.ip + ' qua ' + d.gateway.iface : ''"></p>
+          </div>
+          <div class="grid gap-3 md:grid-cols-2">
             <template x-for="n in d.network" :key="n.name">
               <div class="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700" :class="!n.up && 'opacity-60'">
                 <p class="flex items-center justify-between gap-2 font-medium">
@@ -245,20 +247,6 @@
               </div>
             </template>
           </div>
-          <figure>
-            <svg viewBox="0 0 300 60" preserveAspectRatio="none" class="h-32 w-full" role="img" aria-label="Tốc độ mạng 10 phút">
-              <polygon :points="spark('rx', netMax).area" class="fill-brand-500/10"/>
-              <polyline :points="spark('rx', netMax).line" fill="none" class="stroke-brand-500" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
-              <polyline :points="spark('tx', netMax).line" fill="none" class="stroke-emerald-500" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
-            </svg>
-            <figcaption class="mt-1 flex flex-wrap justify-between gap-x-3 text-xs text-slate-500">
-              <span class="flex items-center gap-3">
-                <span class="flex items-center gap-1"><span class="inline-block h-0.5 w-3 bg-brand-500"></span>Tải xuống</span>
-                <span class="flex items-center gap-1"><span class="inline-block h-0.5 w-3 bg-emerald-500"></span>Tải lên</span>
-              </span>
-              <span x-text="'đỉnh 10 phút: ' + bps(netMax)"></span>
-            </figcaption>
-          </figure>
         </div>
       </section>
 
@@ -311,6 +299,28 @@
       <button type="submit" :disabled="busy" class="btn-primary px-3 py-1.5 text-sm" x-text="busy ? 'Đang lưu...' : 'Lưu'"></button>
       <span x-show="msg" x-cloak class="text-emerald-700 dark:text-emerald-400" x-text="msg"></span>
       <span x-show="err" x-cloak class="text-red-600" x-text="err"></span>
+    </form>
+  </section>
+
+  <%# ---- Mã QR liên hệ (nút QR ở trang Nhận máy) ---- %>
+  <section id="qr" class="card">
+    <h2 class="flex items-center gap-2 font-semibold"><%- icon('phone', 'h-5 w-5 text-brand-600') %>Mã QR liên hệ</h2>
+    <p class="mt-0.5 text-sm text-slate-500">Hiện khi bấm nút QR Zalo / QR WhatsApp ở trang Nhận máy cho khách quét. Nên cắt ảnh gọn quanh mã QR trước khi tải lên.</p>
+    <form method="post" action="/manager/system/qr?_csrf=<%= encodeURIComponent(csrfToken) %>" enctype="multipart/form-data" class="mt-3 space-y-3">
+      <div class="grid gap-4 sm:grid-cols-2">
+        <% [['zalo', 'Zalo', settings.qr_zalo_url || '/uploads/zalo.jpeg?v=2'], ['whatsapp', 'WhatsApp', settings.qr_whatsapp_url || '/uploads/whatsaap.jpeg?v=2']].forEach(([k, label, url]) => { %>
+        <div x-data="{ p: '' }">
+          <span class="label flex items-center gap-1.5"><%- icon(k, 'h-4 w-4') %>QR <%= label %></span>
+          <div class="flex items-center gap-3">
+            <div class="grid h-28 w-28 shrink-0 place-items-center overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700">
+              <img :src="p || '<%= url %>'" alt="QR <%= label %>" class="h-full w-full object-contain">
+            </div>
+            <input type="file" name="<%= k %>" accept="image/*" class="input min-w-0 flex-1 p-1.5 text-xs" @change="p = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : ''">
+          </div>
+        </div>
+        <% }) %>
+      </div>
+      <div class="flex justify-end"><button class="btn-primary px-3 py-1.5 text-sm"><%- icon('upload', 'h-4 w-4') %>Lưu mã QR</button></div>
     </form>
   </section>
 

@@ -5,10 +5,22 @@
 <div class="xl:hidden"><%- include('_intake_tabs', { ioTab }) %></div>
 <div class="grid items-start gap-6 xl:grid-cols-2">
   <%# ---------- Nhận máy ---------- %>
-  <section class="<%= ioTab === 'new' ? '' : 'hidden xl:block' %>">
+  <section class="<%= ioTab === 'new' ? '' : 'hidden xl:block' %>" x-data="{ qr: null }" @keydown.escape.window="qr = null">
     <div class="page-title">
       <h1><%- icon('inbox', 'h-6 w-6 text-brand-600') %>Nhận máy</h1>
-      <span class="text-sm text-slate-500">Người nhận: <strong><%= user.full_name %></strong></span>
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-sm text-slate-500">Người nhận: <strong><%= user.full_name %></strong></span>
+        <button type="button" class="btn-secondary py-1.5 text-sm" @click="qr = 'zalo'"><%- icon('zalo', 'h-4 w-4') %>QR Zalo</button>
+        <button type="button" class="btn-secondary py-1.5 text-sm" @click="qr = 'whatsapp'"><%- icon('whatsapp', 'h-4 w-4') %>QR WhatsApp</button>
+      </div>
+    </div>
+    <%# Hiện QR cho khách quét — bấm ra ngoài / Esc để đóng %>
+    <div x-show="qr" x-cloak x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4" @click.self="qr = null">
+      <div class="relative max-h-full w-full max-w-sm">
+        <button type="button" class="absolute -right-2 -top-2 rounded-full bg-white p-1.5 text-slate-700 shadow ring-1 ring-slate-200" @click="qr = null"><%- icon('x', 'h-5 w-5') %></button>
+        <img x-show="qr === 'zalo'" src="<%= settings.qr_zalo_url || '/uploads/zalo.jpeg?v=2' %>" alt="QR Zalo" class="max-h-[85vh] w-full rounded-xl object-contain">
+        <img x-show="qr === 'whatsapp'" src="<%= settings.qr_whatsapp_url || '/uploads/whatsaap.jpeg?v=2' %>" alt="QR WhatsApp" class="max-h-[85vh] w-full rounded-xl object-contain">
+      </div>
     </div>
     <% if (error) { %><div class="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-200 dark:bg-red-950 dark:text-red-200 dark:ring-red-900"><%= error %></div><% } %>
     <form method="post" action="/staff/tasks" class="card space-y-4" x-data="pcPick('intake')" x-ref="form">
