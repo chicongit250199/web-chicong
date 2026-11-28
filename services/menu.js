@@ -25,7 +25,7 @@ const GROUPS = [
     items: [
       { key: 'sell', href: '/staff/sell', icon: 'cart', label: 'Bán hàng / Dịch vụ', roles: ['staff', 'manager'] },
       // 1 mục gồm tab Tồn kho / Đã bán / Nhập kho / Tra cứu bảo hành (also: các trang con vẫn sáng mục này)
-      { key: 'm-inventory', also: ['inventory', 'inventory-new', 'search'], href: '/staff/inventory', icon: 'archive', label: 'Quản lý kho', roles: ['staff', 'manager'] },
+      { key: 'm-inventory', also: ['inventory', 'inventory-new', 'search', 'ic'], href: '/staff/inventory', icon: 'archive', label: 'Quản lý kho', roles: ['staff', 'manager'] },
     ],
   },
   {

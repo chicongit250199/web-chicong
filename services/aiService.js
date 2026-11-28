@@ -166,6 +166,110 @@ async function researchPcPart({ name, category, condition, fields }) {
   return { specs, summary: String(out.summary || '').replace(/\*\*/g, '').trim().slice(0, 600), sources };
 }
 
+// IC sửa chữa (main laptop / PC / VGA): tra chức năng + link datasheet trên Google
+async function researchIc({ code, marking, note }) {
+  const prompt = [
+    `Mã IC: ${code}`,
+    marking ? `Ký hiệu in trên chip: ${marking}` : '',
+    note ? `Ghi chú của thợ: ${note}` : '',
+    '',
+    'Đây là IC dùng khi sửa mainboard laptop / PC / card màn hình. TÌM TRÊN GOOGLE đúng mã này (mã có thể viết tắt, sai hoa thường, thiếu tiền tố hãng như ISL/uP/RT),',
+    'rồi trả về DUY NHẤT một khối JSON:',
+    '{"function": "...", "maker": "...", "datasheet_url": "...", "confident": true}',
+    '- function: chức năng ngắn gọn bằng tiếng Việt, tối đa ~120 ký tự, kiểu "IC sạc pin buck-boost NVDC (SMBus)", "IC điều khiển Vcore CPU Intel IMVP8 đa pha", "DrMOS 45A", "LDO 3A", "MOSFET kênh N 30V". Thêm nơi hay dùng trên main nếu biết (VD: nguồn 3V/5V, Vcore GPU, RAM).',
+    '- maker: tên hãng sản xuất (VD Renesas, uPI, Richtek, onsemi, TI, MPS, GStek, Anpec, AOS), không rõ thì "".',
+    '- datasheet_url: link trực tiếp tới file PDF datasheet hoặc trang sản phẩm chính thức của hãng. Chỉ ghi link bạn thực sự thấy trong kết quả tìm kiếm, KHÔNG tự đoán đường dẫn. Không có thì "".',
+    '- confident: false nếu không tìm thấy thông tin khớp đúng mã này (chỉ đoán theo mã gần giống).',
+    'Không bịa. Văn bản thuần, không markdown.',
+  ].filter(Boolean).join('\n');
+  const res = await withFallback((model, ai) => ai.models.generateContent({
+    model,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    config: { tools: [{ googleSearch: {} }], temperature: 0.1, systemInstruction: 'Bạn là kỹ thuật viên sửa mainboard. Chỉ dùng thông tin tìm được từ nguồn đáng tin; không chắc thì nói rõ.' },
+  }));
+  const m = (res.text || '').match(/\{[\s\S]*\}/);
+  if (!m) throw Object.assign(new Error('AI không trả về đúng định dạng, thử lại.'), { status: 502, expose: true });
+  let out;
+  try { out = JSON.parse(m[0]); } catch {
+    try { out = JSON.parse(m[0].replace(/"((?:[^"\\]|\\.)*)"/gs, (x, inner) => '"' + inner.replace(/\r?\n/g, ' ') + '"')); } catch {
+      throw Object.assign(new Error('AI không trả về đúng định dạng, thử lại.'), { status: 502, expose: true });
+    }
+  }
+  const clean = s => String(s || '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
+  const chunks = (res.candidates && res.candidates[0] && res.candidates[0].groundingMetadata && res.candidates[0].groundingMetadata.groundingChunks) || [];
+  const sources = [...new Map(chunks.filter(c => c.web && c.web.uri).map(c => [c.web.title || c.web.uri, { title: c.web.title || c.web.uri, uri: c.web.uri }])).values()].slice(0, 6);
+  const url = clean(out.datasheet_url);
+  return {
+    function: clean(out.function).slice(0, 250),
+    maker: clean(out.maker).slice(0, 60),
+    datasheet_url: /^https?:\/\/\S+$/i.test(url) && !/vertexaisearch|google\.com\/(search|url)/i.test(url) ? url : '',
+    confident: out.confident !== false,
+    sources,
+  };
+}
+
+// Tra cứu IC: chức năng, thông số chính, kiểu chân, datasheet, IC tương đương / thay thế được
+// Chỉ có ký hiệu (marking code) thì AI xác định IC thật; ký hiệu trùng nhiều IC -> candidates
+async function lookupIc({ code, marking, hint, known = [] }) {
+  const prompt = [
+    code ? `Mã IC cần tra: ${code}` : 'Không có mã IC — chỉ có ký hiệu in trên chip, hãy xác định đây là IC gì.',
+    marking ? `Ký hiệu in trên chip (marking code / top mark): ${marking}` : '',
+    hint ? `Thông tin thêm của thợ (kiểu chân, số chân, vị trí / mạch trên main, model main): ${hint}` : '',
+    known.length ? `Danh sách IC của tiệm (thợ đã ghi tay) có ký hiệu này thuộc IC: ${known.join(', ')}. Kiểm tra IC này trước: nếu datasheet của nó có marking code khớp thì chọn nó; nếu không khớp thì vẫn đưa vào candidates.` : '',
+    '',
+    'Đây là IC trên mainboard laptop / PC / card màn hình, thợ cần tra để thay thế. Mã có thể viết tắt, sai hoa thường, thiếu tiền tố hãng, hoặc là marking code in trên chip.',
+    'TÌM TRÊN GOOGLE (datasheet, trang hãng, diễn đàn sửa main như badcaps, vinafix, laptop-schematics) rồi trả về DUY NHẤT một khối JSON:',
+    '{"code": "...", "maker": "...", "function": "...", "package": "...", "specs": ["..."], "usage": "...", "datasheet_url": "...",',
+    ' "equivalents": [{"code": "...", "level": "drop-in|check|similar", "note": "..."}], "candidates": [{"code": "...", "maker": "...", "package": "...", "note": "..."}], "notes": "...", "confident": true}',
+    '- code: mã IC đầy đủ, đúng chuẩn của hãng (VD "uP1666Q", "ISL9238HRTZ"). Nếu chỉ có ký hiệu thì ghi mã IC thật khớp nhất với ký hiệu đó (tra bảng marking code trong datasheet, các trang tra "SMD marking code"). Không xác định được thì "".',
+    '- candidates: khi tra bằng ký hiệu (không có mã IC) LUÔN liệt kê các IC khác cũng có thể mang ký hiệu này (ký hiệu SMD ngắn hay trùng nhiều hãng / nhiều loại vỏ), tối đa 6, kèm kiểu vỏ và cách phân biệt (số chân, vỏ, mạch dùng) trong note. Có mã IC thì [].',
+    '- Ký hiệu thường có phần mã ngày / lô sản xuất (VD "ADPJ" = AD + PJ, "7J=5A" có 7J... ) — tách phần nhận dạng ra khi tra.',
+    '- function: chức năng ngắn gọn tiếng Việt (VD "IC sạc pin buck-boost NVDC, SMBus").',
+    '- package: kiểu chân / vỏ (VD "TQFN-32 4x4", "WDFN-10 3x3"), không rõ thì "".',
+    '- specs: 3–6 thông số chính, mỗi dòng ngắn (VD "Vào 3.8–24V", "Dòng ra 6A", "Tần số 500kHz").',
+    '- usage: hay dùng ở mạch nào trên main (VD "nguồn 3V/5V ALW", "Vcore CPU", "sạc pin"), tiếng Việt.',
+    '- datasheet_url: link PDF datasheet hoặc trang sản phẩm chính thức — chỉ link thực sự thấy trong kết quả tìm kiếm, KHÔNG đoán. Không có thì "".',
+    '- equivalents: tối đa 8 IC thay thế được. level: "drop-in" = cùng chân cùng chức năng, thay thẳng; "check" = thường thay được nhưng cần kiểm tra (điện trở set, firmware, hậu tố); "similar" = cùng chức năng khác chân / khác thông số, chỉ để tham khảo. note: lý do / điều cần lưu ý, tiếng Việt ngắn. Chỉ ghi IC có căn cứ (datasheet ghi pin-compatible, bảng thay thế, thợ đã thay thành công); không có thì [].',
+    '- notes: lưu ý khi thay (dễ chết do đâu, kiểm tra gì trước khi thay), tiếng Việt, tối đa 2 câu. Không có thì "".',
+    '- confident: false nếu không tìm thấy đúng mã này.',
+    'Không bịa. Văn bản thuần, không markdown.',
+  ].filter(Boolean).join('\n');
+  const res = await withFallback((model, ai) => ai.models.generateContent({
+    model,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    config: { tools: [{ googleSearch: {} }], temperature: 0.1, systemInstruction: 'Bạn là kỹ thuật viên sửa mainboard lâu năm. Chỉ dùng thông tin tìm được từ nguồn đáng tin; không chắc thì nói rõ, không bịa IC tương đương.' },
+  }));
+  const m = (res.text || '').match(/\{[\s\S]*\}/);
+  const bad = () => Object.assign(new Error('AI không trả về đúng định dạng, thử lại.'), { status: 502, expose: true });
+  if (!m) throw bad();
+  let out;
+  try { out = JSON.parse(m[0]); } catch {
+    try { out = JSON.parse(m[0].replace(/"((?:[^"\\]|\\.)*)"/gs, (x, inner) => '"' + inner.replace(/\r?\n/g, ' ') + '"')); } catch { throw bad(); }
+  }
+  const clean = (s, n = 300) => String(s == null ? '' : s).replace(/\*\*/g, '').replace(/\s+/g, ' ').trim().slice(0, n);
+  const chunks = (res.candidates && res.candidates[0] && res.candidates[0].groundingMetadata && res.candidates[0].groundingMetadata.groundingChunks) || [];
+  const sources = [...new Map(chunks.filter(c => c.web && c.web.uri).map(c => [c.web.title || c.web.uri, { title: c.web.title || c.web.uri, uri: c.web.uri }])).values()].slice(0, 8);
+  const url = clean(out.datasheet_url, 1000);
+  return {
+    code: clean(out.code, 80) || code || '',
+    maker: clean(out.maker, 60),
+    function: clean(out.function, 250),
+    package: clean(out.package, 80),
+    specs: (Array.isArray(out.specs) ? out.specs : []).map(x => clean(x, 120)).filter(Boolean).slice(0, 8),
+    usage: clean(out.usage, 250),
+    datasheet_url: /^https?:\/\/\S+$/i.test(url) && !/vertexaisearch|google\.com\/(search|url)/i.test(url) ? url : '',
+    equivalents: (Array.isArray(out.equivalents) ? out.equivalents : []).map(e => ({
+      code: clean(e && e.code, 80), level: ['drop-in', 'check', 'similar'].includes(e && e.level) ? e.level : 'check', note: clean(e && e.note, 250),
+    })).filter(e => e.code && e.code.toLowerCase() !== String(code || out.code || '').toLowerCase()).slice(0, 8),
+    candidates: (Array.isArray(out.candidates) ? out.candidates : []).map(c => ({
+      code: clean(c && c.code, 80), maker: clean(c && c.maker, 60), package: clean(c && c.package, 80), note: clean(c && c.note, 250),
+    })).filter(c => c.code && c.code.toLowerCase() !== String(out.code || '').toLowerCase()).slice(0, 6),
+    notes: clean(out.notes, 400),
+    confident: out.confident !== false,
+    sources,
+  };
+}
+
 async function translateProduct({ name, desc }) {
   const lang = { type: 'object', properties: { name: { type: 'string' }, desc: { type: 'string' } }, required: ['name', 'desc'] };
   return generateJson(
@@ -243,4 +347,4 @@ async function chatWithTools({ system, history = [], text, tools = [], run, maxS
   }
 }
 
-module.exports = { isEnabled, chatWithTools, writeProductDescription, researchProduct, researchPcPart, translateProduct, extractInvoice };
+module.exports = { isEnabled, chatWithTools, writeProductDescription, researchProduct, researchPcPart, researchIc, lookupIc, translateProduct, extractInvoice };

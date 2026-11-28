@@ -6,5 +6,6 @@
   <a href="/staff/inventory?tab=in_stock<%= qs + cq %>" class="tab <%= invTab === 'in_stock' ? 'tab-active' : '' %>">Tồn kho<%= cnt('in_stock') %></a>
   <a href="/staff/inventory?tab=sold<%= qs + cq %>" class="tab <%= invTab === 'sold' ? 'tab-active' : '' %>">Đã bán<%= cnt('sold') %></a>
   <a href="/staff/inventory/new" class="tab flex items-center gap-1.5 <%= invTab === 'new' ? 'tab-active' : '' %>"><%- icon('plusSquare', 'h-4 w-4') %>Nhập kho</a>
+  <a href="/staff/ic" class="tab flex items-center gap-1.5 <%= invTab === 'ic' ? 'tab-active' : '' %>"><%- icon('cpu', 'h-4 w-4') %>IC sửa chữa</a>
   <a href="/staff/search" class="tab flex items-center gap-1.5 <%= invTab === 'search' ? 'tab-active' : '' %>"><%- icon('search', 'h-4 w-4') %>Tra cứu bảo hành</a>
 </div>

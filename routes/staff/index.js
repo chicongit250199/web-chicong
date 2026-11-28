@@ -12,6 +12,7 @@ router.use(appShell);
 router.use(require('./tasks'));
 router.use(require('./sales'));
 router.use(require('./inventory'));
+router.use(require('./icParts'));
 router.use(require('./products'));
 router.use(require('./build'));
 router.use(require('./pcParts'));

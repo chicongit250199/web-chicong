@@ -1,0 +1,111 @@
+<%- include('../app/_top') %>
+<% const backUrl = '/staff/ic' + (search || filter ? '?' + new URLSearchParams(Object.entries({ q: search, f: filter }).filter(([, x]) => x)).toString() : ''); %>
+<div class="page-title">
+  <h1><%- icon('cpu', 'h-6 w-6 text-brand-600') %>Quản lý IC</h1>
+</div>
+<div class="mb-4 grid grid-cols-3 gap-3">
+  <div class="stat"><p class="stat-label">Loại IC</p><p class="stat-value"><%= fmt.num(sum.n) %></p></div>
+  <div class="stat"><p class="stat-label">Tổng số con</p><p class="stat-value"><%= fmt.num(sum.total) %></p></div>
+  <a href="?f=out" class="stat hover:border-brand-400 <%= filter === 'out' ? 'ring-2 ring-brand-500' : '' %>"><p class="stat-label">Đã hết</p><p class="stat-value <%= sum.out ? 'text-red-600' : '' %>"><%= fmt.num(sum.out || 0) %></p></a>
+</div>
+<%- include('_inv_tabs', { invTab: 'ic' }) %>
+<%- include('_ic_tabs', { icTab: 'list' }) %>
+
+<div x-data="{ ed: null, nf: { code: '', marking: '', note: '', function: '', datasheet_url: '' }, aiBusy: '', aiMsg: '', aiFor: '', aiSrc: [],
+       askAi(o, who) {
+         if (this.aiBusy) return;
+         if (!String(o.code || '').trim()) { this.aiFor = who; this.aiMsg = 'Nhập mã IC trước'; return; }
+         this.aiBusy = who; this.aiFor = who; this.aiMsg = ''; this.aiSrc = [];
+         api('/staff/ic/ai', { method: 'POST', body: { code: o.code, marking: o.marking, note: o.note } }).then(d => {
+           if (d.function) o.function = d.function + (d.maker && !d.function.toLowerCase().includes(d.maker.toLowerCase()) ? ' — ' + d.maker : '') + (d.confident ? '' : ' (chưa chắc)');
+           if (d.datasheet_url) o.datasheet_url = d.datasheet_url;
+           this.aiSrc = d.sources || [];
+           this.aiMsg = (d.function ? 'AI đã điền chức năng' + (d.confident ? '' : ' (AI không chắc)') : 'AI không tìm thấy chức năng')
+             + (d.link === 'ok' ? ' + link datasheet (đã kiểm tra mở được).' : d.link === 'blocked' ? ' + link datasheet (trang chặn máy chủ, bấm thử link trước khi lưu).' : '. Không có link datasheet chắc chắn — để trống thì icon sẽ tìm trên Google.')
+             + ' Xem lại rồi bấm Lưu.';
+         }).catch(e => { this.aiMsg = e.message }).finally(() => { this.aiBusy = '' });
+       } }" @keydown.escape.window="ed = null">
+  <form method="post" action="/staff/ic" class="card mb-4 grid gap-3 sm:grid-cols-2 md:grid-cols-[1fr_1fr_6rem_1.5fr]">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="back" value="<%= backUrl %>">
+    <label class="block"><span class="label req">Mã IC</span><input name="code" x-model="nf.code" class="input" required maxlength="80" placeholder="VD: ISL9238"></label>
+    <label class="block"><span class="label">Ký hiệu trên chip</span><input name="marking" x-model="nf.marking" class="input" maxlength="120" placeholder="VD: 53603A"></label>
+    <label class="block"><span class="label">SL</span><input name="qty" type="number" min="0" value="1" class="input" inputmode="numeric"></label>
+    <label class="block"><span class="label">Ghi chú</span><input name="note" x-model="nf.note" class="input" maxlength="500" placeholder="VD: IC vcore dell 5420"></label>
+    <label class="block sm:col-span-2 md:col-span-2"><span class="label">Chức năng IC</span><input name="function" x-model="nf.function" class="input" maxlength="300" placeholder="VD: IC sạc pin, điều khiển Vcore, DrMOS..."></label>
+    <label class="block"><span class="label">Link datasheet</span><input name="datasheet_url" type="url" x-model="nf.datasheet_url" class="input" maxlength="1000" placeholder="https://..."></label>
+    <div class="flex items-end gap-2"><button type="button" @click="askAi(nf, 'new')" :disabled="!!aiBusy" class="btn-secondary <%= aiEnabled ? '' : 'hidden' %>" title="Gemini tìm trên Google chức năng + link datasheet theo mã IC">
+          <span x-show="aiBusy !== 'new'"><%- icon('sparkles', 'h-4 w-4 text-violet-600') %></span><span x-show="aiBusy === 'new'" x-cloak class="h-4 w-4 animate-spin rounded-full border-2 border-violet-500 border-t-transparent"></span><span x-text="aiBusy === 'new' ? 'Đang tìm...' : 'AI tìm'"></span></button><button class="btn-primary flex-1"><%- icon('plusSquare', 'h-4 w-4') %>Thêm IC</button></div>
+    <div x-show="aiFor === 'new' && aiMsg" x-cloak class="rounded-lg bg-violet-50 px-3 py-2 text-xs text-violet-900 dark:bg-violet-950/50 dark:text-violet-200 sm:col-span-2 md:col-span-4">
+      <span x-text="aiMsg"></span>
+      <template x-if="aiSrc.length"><span> Nguồn: <template x-for="(x, k) in aiSrc" :key="k"><a :href="x.uri" target="_blank" rel="noopener noreferrer" class="mr-2 underline" x-text="x.title"></a></template></span></template>
+    </div>
+  </form>
+
+  <form class="mb-3 flex gap-2">
+    <% if (filter) { %><input type="hidden" name="f" value="<%= filter %>"><% } %>
+    <input name="q" value="<%= search %>" class="input" placeholder="Tìm mã IC, ký hiệu, ghi chú, chức năng (VD: sạc, vcore)..." autocomplete="off">
+    <button class="btn-primary" aria-label="Tìm"><%- icon('search', 'h-4 w-4') %></button>
+    <% if (search || filter) { %><a href="/staff/ic" class="btn-secondary">Bỏ lọc</a><% } %>
+  </form>
+
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Mã IC</th><th>Ký hiệu</th><th class="text-center">Số lượng</th><th>Ghi chú</th><th>Chức năng IC</th><th>Cập nhật</th><th></th></tr></thead>
+    <tbody>
+      <% items.forEach(i => { %>
+        <tr x-data="{ qty: <%= i.qty %>, busy: false, by: '',
+              set(body) { if (this.busy) return; this.busy = true;
+                api('/staff/ic/<%= i.id %>/qty', { method: 'POST', body }).then(d => { this.qty = d.qty; this.by = d.by; })
+                  .catch(e => { $el.querySelector('input').value = this.qty; uiConfirm(e.message, { tone: 'danger' }) }).finally(() => { this.busy = false }) } }">
+          <td class="whitespace-nowrap font-mono font-semibold"><%= i.code %></td>
+          <td class="whitespace-nowrap font-mono text-sm text-slate-600 dark:text-slate-400"><%= i.marking || '' %></td>
+          <td class="whitespace-nowrap">
+            <div class="flex items-center justify-center gap-1">
+              <button type="button" @click="set({ delta: -1 })" :disabled="busy || qty <= 0" class="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-lg font-bold hover:bg-slate-100 disabled:opacity-30 dark:border-slate-700 dark:hover:bg-slate-800" aria-label="Bớt 1">−</button>
+              <input type="number" min="0" :value="qty" @change="set({ qty: $event.target.value })" @keydown.enter.prevent="$event.target.blur()"
+                     class="w-14 rounded-lg border border-slate-200 bg-transparent py-1 text-center font-semibold tabular-nums dark:border-slate-700"
+                     :class="qty === 0 ? 'text-red-600' : ''" inputmode="numeric" aria-label="Số lượng">
+              <button type="button" @click="set({ delta: 1 })" :disabled="busy" class="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-lg font-bold hover:bg-slate-100 disabled:opacity-30 dark:border-slate-700 dark:hover:bg-slate-800" aria-label="Thêm 1">+</button>
+            </div>
+          </td>
+          <td class="min-w-40 text-sm"><%= i.note || '' %></td>
+          <td class="min-w-56 text-sm"><div class="flex items-start gap-1.5">
+            <% const ds = i.datasheet_url || 'https://www.google.com/search?q=' + encodeURIComponent(i.code.trim() + ' datasheet pdf'); %>
+            <a href="<%= ds %>" target="_blank" rel="noopener noreferrer" class="mt-0.5 shrink-0 rounded p-0.5 <%= i.datasheet_url ? 'text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800' %>"
+               title="<%= i.datasheet_url ? 'Mở datasheet' : 'Chưa có link — tìm datasheet trên Google' %>"><%- icon(i.datasheet_url ? 'fileSheet' : 'search', 'h-4 w-4') %></a>
+            <span class="<%= /chưa (chắc|rõ)/i.test(i.function || '') ? 'text-slate-500' : '' %>"><%= i.function || '' %></span></div></td>
+          <td class="whitespace-nowrap text-xs text-slate-500"><span x-show="!by"><%= fmt.datetime(i.updated_at) %><% if (i.updated_name) { %><br><%= i.updated_name %><% } %></span><span x-show="by" x-cloak>Vừa sửa<br><span x-text="by"></span></span></td>
+          <td class="text-right"><button type="button" @click="aiMsg = ''; ed = <%= JSON.stringify({ id: i.id, code: i.code, marking: i.marking || '', qty: i.qty, note: i.note || '', function: i.function || '', datasheet_url: i.datasheet_url || '' }) %>; ed.qty = qty" class="inline-grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-slate-800" title="Sửa / xóa"><%- icon('edit', 'h-4 w-4') %></button></td>
+        </tr>
+      <% }) %>
+      <% if (!items.length) { %><tr><td colspan="7" class="py-8 text-center text-sm text-slate-500"><%= search || filter ? 'Không có IC phù hợp.' : 'Chưa có IC nào — thêm ở trên.' %></td></tr><% } %>
+    </tbody>
+  </table></div>
+  <p class="mt-2 text-xs text-slate-500">IC dùng để thay khi sửa chữa — không bán, không tính vào tồn kho / doanh thu. Bấm − / + hoặc gõ số để đổi số lượng (lưu ngay). Icon <b>tài liệu</b> = mở datasheet; icon <b>kính lúp</b> = chưa có link, tìm trên Google. "(chưa chắc)" = chức năng chưa xác nhận bằng datasheet.</p>
+
+  <template x-if="ed">
+    <div class="modal-backdrop" @click.self="ed = null">
+      <div class="modal space-y-3">
+        <form method="post" :action="'/staff/ic/' + ed.id" class="space-y-3">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="back" value="<%= backUrl %>">
+          <h3 class="text-lg font-semibold">Sửa IC</h3>
+          <label class="block"><span class="label req">Mã IC</span><input name="code" x-model="ed.code" class="input" required maxlength="80"></label>
+          <label class="block"><span class="label">Ký hiệu trên chip</span><input name="marking" x-model="ed.marking" class="input" maxlength="120"></label>
+          <label class="block"><span class="label">Số lượng</span><input name="qty" type="number" min="0" x-model="ed.qty" class="input" inputmode="numeric"></label>
+          <label class="block"><span class="label">Ghi chú</span><textarea name="note" x-model="ed.note" rows="2" class="input" maxlength="500"></textarea></label>
+          <label class="block"><span class="label">Chức năng IC</span><textarea name="function" x-model="ed.function" rows="2" class="input" maxlength="300"></textarea></label>
+          <label class="block"><span class="label">Link datasheet</span><input name="datasheet_url" type="url" x-model="ed.datasheet_url" class="input" maxlength="1000" placeholder="https://... (để trống = tìm trên Google)"></label>
+          <div x-show="aiFor === 'ed' && aiMsg" x-cloak class="rounded-lg bg-violet-50 px-3 py-2 text-xs text-violet-900 dark:bg-violet-950/50 dark:text-violet-200 ">
+      <span x-text="aiMsg"></span>
+      <template x-if="aiSrc.length"><span> Nguồn: <template x-for="(x, k) in aiSrc" :key="k"><a :href="x.uri" target="_blank" rel="noopener noreferrer" class="mr-2 underline" x-text="x.title"></a></template></span></template>
+    </div>
+          <div class="flex flex-wrap justify-end gap-2"><span class="mr-auto"><button type="button" @click="askAi(ed, 'ed')" :disabled="!!aiBusy" class="btn-secondary <%= aiEnabled ? '' : 'hidden' %>" title="Gemini tìm trên Google chức năng + link datasheet theo mã IC">
+          <span x-show="aiBusy !== 'ed'"><%- icon('sparkles', 'h-4 w-4 text-violet-600') %></span><span x-show="aiBusy === 'ed'" x-cloak class="h-4 w-4 animate-spin rounded-full border-2 border-violet-500 border-t-transparent"></span><span x-text="aiBusy === 'ed' ? 'Đang tìm...' : 'AI tìm'"></span></button></span><button type="button" @click="ed = null" class="btn-secondary">Hủy</button><button class="btn-primary">Lưu</button></div>
+        </form>
+        <form method="post" :action="'/staff/ic/' + ed.id + '/delete'" class="border-t border-slate-200 pt-2 text-right dark:border-slate-800" data-confirm="Xóa IC này khỏi danh sách? Không thể hoàn tác.">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="back" value="<%= backUrl %>">
+          <button class="text-xs text-red-600 hover:underline">Xóa IC</button></form>
+      </div>
+    </div>
+  </template>
+</div>
+<%- include('../app/_bottom') %>

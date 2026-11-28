@@ -1,0 +1,133 @@
+<%- include('../app/_top') %>
+<div class="page-title">
+  <h1><%- icon('cpu', 'h-6 w-6 text-brand-600') %>Tra cứu IC</h1>
+</div>
+<%- include('_inv_tabs', { invTab: 'ic' }) %>
+<%- include('_ic_tabs', { icTab: 'lookup' }) %>
+
+<div x-data="{ code: <%= JSON.stringify(q) %>, marking: <%= JSON.stringify(m) %>, hint: <%= JSON.stringify(h) %>, busy: false, err: '', r: null,
+       go(refresh) {
+         if (this.busy) return;
+         if (!this.code.trim() && !this.marking.trim()) { this.err = 'Nhập mã IC hoặc ký hiệu trên chip'; return; }
+         this.busy = true; this.err = ''; if (!refresh) this.r = null;
+         const qs = new URLSearchParams(Object.entries({ q: this.code.trim(), m: this.marking.trim(), h: this.hint.trim() }).filter(([, x]) => x)).toString();
+         history.replaceState(null, '', '/staff/ic/lookup' + (qs ? '?' + qs : ''));
+         api('/staff/ic/lookup', { method: 'POST', body: { code: this.code, marking: this.marking, hint: this.hint, refresh: !!refresh } })
+           .then(d => { this.r = d }).catch(e => { this.err = e.message }).finally(() => { this.busy = false });
+       },
+       pick(c, m, h) { this.code = c || ''; this.marking = m || ''; this.hint = h || ''; this.go(false); window.scrollTo({ top: 0, behavior: 'smooth' }) },
+       google(c) { return 'https://www.google.com/search?q=' + encodeURIComponent(c + ' datasheet pdf') },
+       lv: { 'drop-in': ['Thay thẳng', 'badge-green'], check: ['Cần kiểm tra', 'badge-amber'], similar: ['Tham khảo', 'badge-gray'] } }"
+     x-init="(code || marking) && go(false)">
+
+  <% if (!aiEnabled) { %><p class="card mb-4 text-sm text-red-600">Chưa cấu hình GEMINI_API_KEY — chưa tra cứu được.</p><% } %>
+  <form @submit.prevent="go(false)" class="card mb-4 grid gap-3 sm:grid-cols-2 md:grid-cols-[1.5fr_1.5fr_2fr_auto]">
+    <label class="block"><span class="label">Mã IC</span><input x-model="code" class="input font-mono" maxlength="80" placeholder="VD: ISL9238, uP1666Q" autocomplete="off" autofocus></label>
+    <label class="block"><span class="label">Ký hiệu trên chip</span><input x-model="marking" class="input font-mono" maxlength="80" placeholder="VD: 7J=5A, ADPJ, AL00" autocomplete="off"></label>
+    <label class="block"><span class="label">Thông tin thêm <span class="font-normal text-slate-400">(giúp tra ký hiệu)</span></span><input x-model="hint" class="input" maxlength="200" placeholder="VD: 6 chân SOT-23, gần IC sạc, main Dell 5420" autocomplete="off"></label>
+    <div class="flex items-end"><button class="btn-primary w-full" :disabled="busy">
+      <span x-show="!busy"><%- icon('search', 'h-4 w-4') %></span><span x-show="busy" x-cloak class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+      <span x-text="busy ? 'Đang tra (~10–20 giây)...' : 'Tra cứu'"></span></button></div>
+    <p class="text-xs text-slate-500 sm:col-span-2 md:col-span-4">Nhập <b>mã IC</b> hoặc chỉ <b>ký hiệu in trên chip</b> (IC không có mã) — ký hiệu ngắn hay trùng nhiều IC, ghi thêm kiểu chân / vị trí trên main để AI đoán đúng hơn. AI (Gemini) tìm trên Google: chức năng, thông số, kiểu chân, datasheet và IC tương đương. Kết quả được lưu lại — tra lại mã cũ ra ngay, không tốn lượt AI. Chỉ là tham khảo, đối chiếu datasheet trước khi thay.</p>
+  </form>
+  <p x-show="err" x-cloak x-text="err" class="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/50 dark:text-red-300"></p>
+
+  <template x-if="r">
+    <section class="card mb-6 space-y-4" :class="busy ? 'opacity-60' : ''">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 class="flex flex-wrap items-center gap-2 text-xl font-bold"><span class="font-mono" x-text="r.code || 'Chưa xác định được IC'"></span>
+            <span x-show="r.maker" class="text-sm font-normal text-slate-500" x-text="r.maker"></span>
+            <span x-show="!r.confident" class="badge-amber">AI không chắc</span></h2>
+          <p class="mt-1" x-text="r.function || 'Không tìm thấy chức năng'"></p>
+          <p x-show="(r.input && r.code && r.input.toLowerCase() !== r.code.toLowerCase()) || r.marking" class="text-xs text-slate-500">Bạn tra:
+            <span x-show="r.input">mã <span class="font-mono" x-text="r.input"></span></span>
+            <span x-show="r.marking">ký hiệu <span class="font-mono font-semibold" x-text="r.marking"></span></span>
+            <span x-show="r.hint" x-text="'· ' + r.hint"></span></p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <a x-show="r.code || r.datasheet_url" :href="r.datasheet_url || google(r.code)" target="_blank" rel="noopener noreferrer" class="btn-primary px-3 py-1.5 text-sm">
+            <%- icon('fileSheet', 'h-4 w-4') %><span x-text="r.datasheet_url ? 'Datasheet' : 'Tìm datasheet (Google)'"></span></a>
+          <button type="button" @click="go(true)" :disabled="busy" class="btn-secondary px-3 py-1.5 text-sm" title="Gọi AI tra lại, bỏ kết quả đã lưu"><%- icon('refresh', 'h-4 w-4') %>Tra lại</button>
+        </div>
+      </div>
+      <p x-show="r.datasheet_url && r.link === 'blocked'" class="-mt-2 text-xs text-amber-700 dark:text-amber-400">Link datasheet chưa kiểm tra được (trang chặn máy chủ) — mở thử, không được thì bấm tìm Google.</p>
+
+      <%# Tra bằng ký hiệu: các IC khác cũng mang ký hiệu này %>
+      <template x-if="r.candidates && r.candidates.length">
+        <div class="rounded-lg border border-amber-200 px-3 py-2 text-sm dark:border-amber-900">
+          <p class="mb-1 font-semibold text-amber-800 dark:text-amber-300">Ký hiệu này cũng có thể là:</p>
+          <ul class="space-y-1">
+            <template x-for="(c, k) in r.candidates" :key="k">
+              <li class="flex flex-wrap items-center gap-2">
+                <button type="button" @click="pick(c.code, '', '')" class="font-mono font-semibold text-brand-600 hover:underline" title="Tra cứu IC này" x-text="c.code"></button>
+                <span class="text-xs text-slate-500" x-text="[c.maker, c.package].filter(Boolean).join(' · ')"></span>
+                <template x-for="s in c.stock" :key="s.id"><span :class="!s.qty ? 'badge-gray' : s.near ? 'badge-amber' : 'badge-green'" x-text="!s.qty ? 'Có trong DS (hết)' : (s.near ? 'Gần giống ' + s.code + ': ' : 'Đang có ') + s.qty + ' con'"></span></template>
+                <span x-show="c.note" class="w-full text-xs text-slate-500" x-text="c.note"></span>
+              </li>
+            </template>
+          </ul>
+        </div>
+      </template>
+
+      <%# Trong danh sách IC đang có %>
+      <div class="rounded-lg px-3 py-2 text-sm" :class="r.stock.length ? 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200' : 'bg-slate-50 text-slate-600 dark:bg-slate-800/60 dark:text-slate-300'">
+        <template x-if="r.stock.length"><span>Đang có trong danh sách IC:
+          <template x-for="s in r.stock" :key="s.id"><a :href="'/staff/ic?q=' + encodeURIComponent(s.code)" class="mr-2 font-semibold underline"><span class="font-mono" x-text="s.code"></span> — <span x-text="(s.qty ? s.qty + ' con' : 'đã hết') + (s.near ? ' (mã gần giống, kiểm tra hậu tố)' : '')"></span></a></template></span></template>
+        <span x-show="!r.stock.length">Không có IC này trong danh sách IC đang có<span x-show="r.equivalents.some(e => e.stock.some(s => s.qty && !s.near))"> — nhưng <b>có IC tương đương</b> (xem bên dưới)</span>.</span>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="space-y-2 text-sm">
+          <p x-show="r.package"><span class="text-slate-500">Kiểu chân / vỏ:</span> <b x-text="r.package"></b></p>
+          <p x-show="r.usage"><span class="text-slate-500">Hay dùng ở:</span> <span x-text="r.usage"></span></p>
+          <template x-if="r.specs.length"><ul class="list-inside list-disc space-y-0.5"><template x-for="(x, k) in r.specs" :key="k"><li x-text="x"></li></template></ul></template>
+          <p x-show="r.notes" class="rounded-lg bg-amber-50 px-3 py-2 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"><b>Lưu ý:</b> <span x-text="r.notes"></span></p>
+        </div>
+        <div>
+          <h3 class="mb-2 text-sm font-semibold">IC tương đương / thay thế</h3>
+          <p x-show="!r.equivalents.length" class="text-sm text-slate-500">AI không tìm thấy IC tương đương có căn cứ.</p>
+          <ul class="divide-y divide-slate-100 dark:divide-slate-800">
+            <template x-for="(e, k) in r.equivalents" :key="k">
+              <li class="py-2 text-sm">
+                <div class="flex flex-wrap items-center gap-2">
+                  <button type="button" @click="pick(e.code)" class="font-mono font-semibold text-brand-600 hover:underline" title="Tra cứu IC này" x-text="e.code"></button>
+                  <span :class="lv[e.level][1]" x-text="lv[e.level][0]"></span>
+                  <template x-for="s in e.stock" :key="s.id"><a :href="'/staff/ic?q=' + encodeURIComponent(s.code)" :class="!s.qty ? 'badge-gray' : s.near ? 'badge-amber' : 'badge-green'"
+                    :title="s.near ? 'Trong danh sách có mã gần giống: ' + s.code : ''" x-text="!s.qty ? 'Có trong DS (hết)' : s.near ? 'Gần giống: ' + s.code + ' (' + s.qty + ')' : 'Đang có ' + s.qty + ' con'"></a></template>
+                  <a :href="google(e.code)" target="_blank" rel="noopener noreferrer" class="ml-auto text-slate-400 hover:text-brand-600" title="Tìm datasheet"><%- icon('fileSheet', 'h-4 w-4') %></a>
+                </div>
+                <p x-show="e.note" class="mt-0.5 text-xs text-slate-500" x-text="e.note"></p>
+              </li>
+            </template>
+          </ul>
+        </div>
+      </div>
+
+      <div class="border-t border-slate-200 pt-2 text-xs text-slate-500 dark:border-slate-800">
+        <span x-show="r.cached" x-text="'Kết quả đã lưu lúc ' + new Date(r.cached).toLocaleString('vi-VN') + ' · bấm Tra lại để cập nhật. '"></span>
+        <template x-if="r.sources && r.sources.length"><span>Nguồn: <template x-for="(x, k) in r.sources" :key="k"><a :href="x.uri" target="_blank" rel="noopener noreferrer" class="mr-2 underline" x-text="x.title"></a></template></span></template>
+      </div>
+    </section>
+  </template>
+
+  <% if (recent.length) { %>
+    <h2 class="mb-2 text-sm font-semibold text-slate-600 dark:text-slate-400">Tra cứu gần đây</h2>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>Đã tra</th><th>Kết quả</th><th>Người tra</th><th>Lúc</th></tr></thead>
+      <tbody>
+        <% recent.forEach(x => { %>
+          <tr class="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50" @click="pick(<%= JSON.stringify(x.input || '') %>, <%= JSON.stringify(x.marking || '') %>, <%= JSON.stringify(x.hint || '') %>)">
+            <td class="whitespace-nowrap"><% if (x.input) { %><span class="font-mono font-semibold text-brand-600"><%= x.input %></span><% } %>
+              <% if (x.marking) { %><span class="text-xs text-slate-500">ký hiệu</span> <span class="font-mono font-semibold text-brand-600"><%= x.marking %></span><% } %>
+              <% if (x.hint) { %><p class="max-w-48 truncate text-xs text-slate-500"><%= x.hint %></p><% } %></td>
+            <td class="text-sm"><% if (x.found && (!x.input || x.found.toLowerCase() !== x.input.toLowerCase())) { %><span class="font-mono font-semibold"><%= x.found %></span> — <% } %><%= x.function || '' %></td>
+            <td class="whitespace-nowrap text-sm"><%= x.by_name || '' %></td>
+            <td class="whitespace-nowrap text-xs text-slate-500"><%= fmt.datetime(x.created_at) %><% if (x.hits > 1) { %> · <%= x.hits %> lần<% } %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table></div>
+  <% } %>
+</div>
+<%- include('../app/_bottom') %>

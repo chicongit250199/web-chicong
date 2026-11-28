@@ -1,0 +1,44 @@
+-- IC sửa chữa: thêm chức năng IC + link datasheet (bấm icon để mở). Không có link -> trang tự mở tìm kiếm datasheet.
+ALTER TABLE ic_parts ADD COLUMN function TEXT;
+ALTER TABLE ic_parts ADD COLUMN datasheet_url TEXT;
+
+-- Điền sẵn cho 39 IC trong file List IC (28/11/2026). "(chưa chắc)" = chưa xác nhận được bằng datasheet, nên kiểm tra lại.
+UPDATE ic_parts SET function = 'IC sạc pin buck-boost NVDC (SMBus, hỗ trợ USB-C / OTG) — Renesas (Intersil)', datasheet_url = 'https://www.renesas.com/products/ISL9238' WHERE lower(trim(code)) = lower('ISL9238');
+UPDATE ic_parts SET function = 'IC sạc pin buck-boost NVDC (SMBus) — Renesas (Intersil)', datasheet_url = NULL WHERE lower(trim(code)) = lower('ISL9538H');
+UPDATE ic_parts SET function = 'IC hạ áp buck đồng bộ ~8A, ra 0.8–20V (nguồn phụ Vcore / I/O) — GStek', datasheet_url = 'https://docs.ampnuts.ru/eevblog.docs/_Datasheets/_DC_DC/gs9238.pdf' WHERE lower(trim(code)) = lower('GS9238');
+UPDATE ic_parts SET function = 'IC điều khiển buck kiểu COT (on-time đặt bằng điện trở) — GStek (chưa chắc)', datasheet_url = NULL WHERE lower(trim(code)) = lower('GS9216');
+UPDATE ic_parts SET function = 'IC điều khiển Vcore CPU đa pha — uPI (chưa chắc)', datasheet_url = NULL WHERE lower(trim(code)) = lower('UP9509');
+UPDATE ic_parts SET function = 'IC điều khiển Vcore đa pha — uPI (chưa chắc)', datasheet_url = NULL WHERE lower(trim(code)) = lower('UP9505');
+UPDATE ic_parts SET function = 'IC điều khiển buck 1 kênh (nguồn phụ: VCCIO / 1.05V...) — uPI (chưa chắc)', datasheet_url = NULL WHERE lower(trim(code)) = lower('UP1666q');
+UPDATE ic_parts SET function = 'DrMOS (driver + MOSFET tầng công suất Vcore) — AL00 là ký hiệu trên chip', datasheet_url = NULL WHERE lower(trim(code)) = lower('AL00');
+UPDATE ic_parts SET function = 'Chưa rõ chức năng — kiểm tra datasheet', datasheet_url = NULL WHERE lower(trim(code)) = lower('UP5650q');
+UPDATE ic_parts SET function = 'IC điều khiển buck 1 kênh — uPI (chưa chắc)', datasheet_url = NULL WHERE lower(trim(code)) = lower('UP1540');
+UPDATE ic_parts SET function = 'IC điều khiển buck đồng bộ 5V/12V, 600kHz (main, card màn hình) — GStek', datasheet_url = 'https://docs.ampnuts.ru/eevblog.docs/_Datasheets/_DC_DC/gs7256.pdf' WHERE lower(trim(code)) = lower('GS7256');
+UPDATE ic_parts SET function = 'DrMOS / Smart Power Stage 45A (tầng công suất Vcore CPU/GPU) — onsemi', datasheet_url = 'https://www.onsemi.com/download/data-sheet/pdf/ncp302045-d.pdf' WHERE lower(trim(code)) = lower('NCP302045');
+UPDATE ic_parts SET function = 'IC điều khiển hạ áp buck (D-CAP / COT) — TI (chưa chắc)', datasheet_url = NULL WHERE lower(trim(code)) = lower('TPS53603');
+UPDATE ic_parts SET function = 'IC điều khiển Vcore đa pha — uPI (chưa chắc)', datasheet_url = NULL WHERE lower(trim(code)) = lower('UP9511q');
+UPDATE ic_parts SET function = 'IC điều khiển buck 1 pha (Vcore / I/O / RAM, VCCIN_AUX Intel ICL-TGL) — Richtek', datasheet_url = NULL WHERE lower(trim(code)) = lower('RT6543');
+UPDATE ic_parts SET function = 'Driver MOSFET 1 pha (đi kèm IC Vcore đa pha) — onsemi', datasheet_url = 'https://www.onsemi.com/download/data-sheet/pdf/ncp81158-d.pdf' WHERE lower(trim(code)) = lower('NCP81158');
+UPDATE ic_parts SET function = 'PMIC nguồn RAM DDR5 — Renesas P8911 (chưa chắc với hậu tố YD)', datasheet_url = 'https://www.renesas.com/products/P8911' WHERE lower(trim(code)) = lower('P8911YD');
+UPDATE ic_parts SET function = 'IC điều khiển Vcore GPU đa pha — uPI (chưa chắc)', datasheet_url = NULL WHERE lower(trim(code)) = lower('UP9512s');
+UPDATE ic_parts SET function = 'IC hạ áp buck đồng bộ 3A, vào tới 16V — MPS', datasheet_url = 'https://www.monolithicpower.com/en/mp1475.html' WHERE lower(trim(code)) = lower('MP1475');
+UPDATE ic_parts SET function = 'IC điều khiển buck 1 kênh, vào 3–26V, ra 0.7–2.6V (nguồn RAM / I/O) — uPI', datasheet_url = NULL WHERE lower(trim(code)) = lower('Up1537P');
+UPDATE ic_parts SET function = 'Chưa rõ chức năng — kiểm tra datasheet', datasheet_url = NULL WHERE lower(trim(code)) = lower('Up1728q');
+UPDATE ic_parts SET function = 'DrMOS / Smart Power Stage (tầng công suất Vcore) (chưa chắc)', datasheet_url = NULL WHERE lower(trim(code)) = lower('QD9619A');
+UPDATE ic_parts SET function = 'LDO 300mA (ổn áp tuyến tính) — onsemi NCP114', datasheet_url = 'https://www.onsemi.com/download/data-sheet/pdf/ncp114-d.pdf' WHERE lower(trim(code)) = lower('NCP114AM');
+UPDATE ic_parts SET function = 'IC điều khiển Vcore GPU đa pha (PWMVID, card NVIDIA) — onsemi', datasheet_url = 'https://www.onsemi.com/download/data-sheet/pdf/ncp81174-d.pdf' WHERE lower(trim(code)) = lower('NCP81174');
+UPDATE ic_parts SET function = 'IC điều khiển Vcore GPU đa pha (PWMVID) — Richtek', datasheet_url = NULL WHERE lower(trim(code)) = lower('RT8816A');
+UPDATE ic_parts SET function = 'Chưa rõ chức năng — kiểm tra datasheet', datasheet_url = NULL WHERE lower(trim(code)) = lower('UP8801P');
+UPDATE ic_parts SET function = 'IC điều khiển Vcore GPU đa pha (PWMVID) — onsemi', datasheet_url = 'https://www.onsemi.com/download/data-sheet/pdf/ncp81610-d.pdf' WHERE lower(trim(code)) = lower('NCP81610');
+UPDATE ic_parts SET function = 'LDO 3A sụt áp thấp (ổn áp tuyến tính) — GStek', datasheet_url = 'https://xdevs.com/doc/_Datasheets/_DC_DC/gs7133.pdf' WHERE lower(trim(code)) = lower('Gs7133');
+UPDATE ic_parts SET function = 'IC điều khiển Vcore CPU AMD (SVI2, 2 ngõ ra) — onsemi (chưa chắc)', datasheet_url = NULL WHERE lower(trim(code)) = lower('NCP81022');
+UPDATE ic_parts SET function = 'IC điều khiển Vcore CPU Intel IMVP8 (3+2 pha) — onsemi', datasheet_url = NULL WHERE lower(trim(code)) = lower('NCP81203');
+UPDATE ic_parts SET function = 'IC sạc pin buck-boost NVDC (USB-C) — Renesas ISL9241', datasheet_url = 'https://www.renesas.com/products/ISL9241' WHERE lower(trim(code)) = lower('intersil 9241H');
+UPDATE ic_parts SET function = 'Diode kép (ký hiệu KL3) (chưa chắc)', datasheet_url = NULL WHERE lower(trim(code)) = lower('diot KL3');
+UPDATE ic_parts SET function = 'IC điều khiển USB Type-C / Power Delivery 2 cổng — TI', datasheet_url = 'https://www.ti.com/lit/ds/symlink/tps65994ad.pdf' WHERE lower(trim(code)) = lower('TPS65994AD');
+UPDATE ic_parts SET function = 'IC điều khiển buck 1 kênh — uPI (chưa chắc)', datasheet_url = NULL WHERE lower(trim(code)) = lower('up1542S');
+UPDATE ic_parts SET function = 'IC điều khiển Vcore CPU Intel IMVP8 đa pha — Renesas (Intersil)', datasheet_url = NULL WHERE lower(trim(code)) = lower('ISL95860');
+UPDATE ic_parts SET function = 'IC sạc pin 1–4 cell (SMBus, có Hybrid Power Boost) — TI', datasheet_url = 'https://www.ti.com/lit/ds/symlink/bq24780s.pdf' WHERE lower(trim(code)) = lower('BQ24780S');
+UPDATE ic_parts SET function = 'MOSFET kênh N 30V (DFN 5x6) — AOS', datasheet_url = 'https://www.aosmd.com/res/datasheets/AON6414A.pdf' WHERE lower(trim(code)) = lower('AON6414A');
+UPDATE ic_parts SET function = 'IC hạ áp buck đồng bộ 6A, vào tới 24V (nguồn 3V/5V) — MPS', datasheet_url = 'https://www.monolithicpower.com/en/nb671.html' WHERE lower(trim(code)) = lower('NB671LB');
+UPDATE ic_parts SET function = 'IC nguồn nhiều ngõ ra (VNN / V1P05A nền Intel) — Anpec (chưa chắc)', datasheet_url = NULL WHERE lower(trim(code)) = lower('apw8743c');
