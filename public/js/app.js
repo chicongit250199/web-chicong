@@ -152,6 +152,7 @@
         .then(function (html) {
           var doc = new DOMParser().parseFromString(html, 'text/html');
           swap('[data-live-nav]', doc);
+          if (window.menuFilter) window.menuFilter();
           if (!onlyNav && !userBusy()) swap('main', doc);
           else swapLive(doc);
         })
@@ -351,4 +352,48 @@
     var num = typeof n === 'number' ? n : Number(String(n).replace(/[^\d-]/g, '')) || 0;
     return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 3 }).format(num);
   };
+})();
+
+// Ô "Tìm chức năng" đầu menu: lọc mục menu + hiện trang con khớp (không dấu, nhiều từ). Enter = mở kết quả đầu, Esc = xóa, phím / = nhảy vào ô tìm
+(function () {
+  function norm(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd'); }
+  function hit(el, words) { var k = norm(el.getAttribute('data-k') || el.title || el.textContent); return words.every(function (w) { return k.indexOf(w) >= 0; }); }
+  function filter() {
+    document.querySelectorAll('[data-menu-search]').forEach(function (inp) {
+      var box = inp.closest('aside');
+      if (!box) return;
+      var words = norm(inp.value).trim().split(/\s+/).filter(Boolean);
+      box.querySelectorAll('[data-live-nav] nav').forEach(function (nav) {
+        var any = false;
+        nav.querySelectorAll('a').forEach(function (a) { var ok = !words.length || hit(a, words); a.classList.toggle('hidden', !ok); any = any || ok; });
+        nav.classList.toggle('hidden', !any);
+        var p = nav.previousElementSibling;
+        if (p && p.tagName === 'P') p.classList.toggle('hidden', !any);
+      });
+      var ex = box.querySelector('[data-menu-extras]'), anyEx = false;
+      if (ex) {
+        ex.querySelectorAll('a').forEach(function (a) { var ok = words.length > 0 && hit(a, words); a.classList.toggle('hidden', !ok); anyEx = anyEx || ok; });
+        ex.hidden = !anyEx;
+      }
+    });
+  }
+  window.menuFilter = filter;
+  document.addEventListener('input', function (e) { if (e.target.matches && e.target.matches('[data-menu-search]')) filter(); });
+  document.addEventListener('keydown', function (e) {
+    var t = e.target;
+    if (t.matches && t.matches('[data-menu-search]')) {
+      if (e.key === 'Escape') { t.value = ''; filter(); t.blur(); }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        var box = t.closest('aside');
+        var first = box && Array.prototype.find.call(box.querySelectorAll('[data-live-nav] a, [data-menu-extras] a'), function (a) { return a.offsetParent !== null; });
+        if (first) location.href = first.href;
+      }
+      return;
+    }
+    if (e.key === '/' && !e.defaultPrevented && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && !t.isContentEditable) {
+      var inp = Array.prototype.find.call(document.querySelectorAll('[data-menu-search]'), function (i) { return i.offsetParent !== null; });
+      if (inp) { e.preventDefault(); inp.focus(); }
+    }
+  });
 })();

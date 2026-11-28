@@ -38,7 +38,7 @@ const GROUPS = [
   {
     title: 'Tiện ích',
     items: [
-      { key: 'print', href: '/staff/print', icon: 'printer', label: 'In tài liệu', roles: ['staff', 'manager'] },
+      { key: 'print', href: '/staff/print', icon: 'printer', label: 'In tài liệu', kw: 'in phieu gui hang in file may in', roles: ['staff', 'manager'] },
     ],
   },
   {
@@ -63,6 +63,32 @@ const GROUPS = [
   },
 ];
 
+// Trang con (tab) — chỉ hiện khi gõ tìm ở ô "Tìm chức năng" đầu menu. kw: từ khóa thêm (không dấu)
+const EXTRAS = [
+  { label: 'Nhận máy', parent: 'Nhận - Trả', href: '/staff/tasks/new', icon: 'inbox', kw: 'phieu nhan may tiep nhan', roles: ['staff', 'manager'] },
+  { label: 'Trả máy', parent: 'Nhận - Trả', href: '/staff/return', icon: 'checkCircle', kw: 'giao may tra khach', roles: ['staff', 'manager'] },
+  { label: 'Task quá hạn', parent: 'Quản lý task', href: '/staff/tasks?view=overdue', icon: 'alert', kw: 'qua han tre', roles: ['staff', 'manager'] },
+  { label: 'Task đang làm', parent: 'Quản lý task', href: '/staff/tasks?view=processing', icon: 'wrench', kw: 'dang sua', roles: ['staff', 'manager'] },
+  { label: 'Máy đã trả', parent: 'Quản lý task', href: '/staff/tasks?view=completed', icon: 'checkCircle', kw: 'da tra lich su', roles: ['staff', 'manager'] },
+  { label: 'Phân task', parent: 'Quản lý task', href: '/manager/assign', icon: 'userCheck', kw: 'giao viec phan cong', roles: ['manager'] },
+  { label: 'Nhập kho', parent: 'Quản lý kho', href: '/staff/inventory/new', icon: 'plusSquare', kw: 'them hang nhap hang', roles: ['staff', 'manager'] },
+  { label: 'Hàng đã bán', parent: 'Quản lý kho', href: '/staff/inventory?tab=sold', icon: 'archive', kw: 'da ban', roles: ['staff', 'manager'] },
+  { label: 'IC sửa chữa', parent: 'Quản lý kho', href: '/staff/ic', icon: 'cpu', kw: 'ic chip linh kien', roles: ['staff', 'manager'] },
+  { label: 'Tra cứu IC', parent: 'Quản lý kho', href: '/staff/ic/lookup', icon: 'search', kw: 'ic datasheet tuong duong ky hieu', roles: ['staff', 'manager'] },
+  { label: 'Tra cứu bảo hành', parent: 'Quản lý kho', href: '/staff/search', icon: 'search', kw: 'bao hanh serial', roles: ['staff', 'manager'] },
+  { label: 'Thống kê doanh thu', parent: 'Doanh thu', href: '/manager/revenue', icon: 'chart', kw: 'thong ke bao cao', roles: ['manager'] },
+  { label: 'Chi phí', parent: 'Doanh thu', href: '/manager/expenses', icon: 'cash', kw: 'chi phi chi tieu', roles: ['manager'] },
+  { label: 'Công nợ', parent: 'Doanh thu', href: '/manager/debts', icon: 'bank', kw: 'no cong no', roles: ['manager'] },
+  { label: 'Sản phẩm chờ duyệt', parent: 'Quản lý sản phẩm', href: '/manager/products?tab=pending', icon: 'upload', kw: 'duyet', roles: ['manager'] },
+  { label: 'Trang chủ website', parent: 'Quản lý sản phẩm', href: '/manager/homepage', icon: 'home', kw: 'website trang chu', roles: ['manager'] },
+  { label: 'Máy in & phiếu', parent: 'Hệ thống', href: '/manager/system?tab=printers', icon: 'printer', kw: 'may in phieu', roles: ['manager'] },
+  { label: 'Cài đặt', parent: 'Hệ thống', href: '/manager/system?tab=settings', icon: 'settings', kw: 'cai dat qr google sheet email bao cao', roles: ['manager'] },
+  { label: 'Script Windows', parent: 'Hệ thống', href: '/manager/system/scripts', icon: 'terminal', kw: 'powershell script shel cai win', roles: ['manager'] },
+  { label: 'Sao lưu', parent: 'Hệ thống', href: '/manager/system?tab=backup', icon: 'lock', kw: 'sao luu backup', roles: ['manager'] },
+  { label: 'Import Excel', parent: 'Hệ thống', href: '/manager/import', icon: 'fileSheet', kw: 'import excel nhap file', roles: ['manager'] },
+  { label: 'Nhân viên - Zalo', parent: 'Hệ thống', href: '/manager/users', icon: 'key', kw: 'nhan vien tai khoan zalo bot', roles: ['manager'] },
+];
+
 // Nhóm menu theo vai trò (bỏ nhóm rỗng)
 const cache = {};
 function groupsFor(role) {
@@ -70,4 +96,6 @@ function groupsFor(role) {
   return cache[role];
 }
 
-module.exports = { groupsFor };
+const extrasFor = (role) => EXTRAS.filter(i => i.roles.includes(role));
+
+module.exports = { groupsFor, extrasFor };

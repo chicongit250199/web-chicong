@@ -47,6 +47,7 @@ function appShell(req, res, next) {
   res.locals.notifBase = isManager ? '/manager' : '/staff';
   res.locals.isManager = isManager;
   res.locals.menuGroups = menu.groupsFor(isManager ? 'manager' : 'staff');
+  res.locals.menuExtras = menu.extrasFor(isManager ? 'manager' : 'staff');
   res.locals.badges = badges;
   // Task quá lâu chưa thay đổi -> khung cảnh báo đầu trang + nhãn trên thẻ task
   res.locals.taskAlerts = taskAlerts.forUser(u);
