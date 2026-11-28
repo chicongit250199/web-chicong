@@ -50,6 +50,32 @@
     }, 0);
   });
 
+  // Giữ sẵn 1 kết nối tới máy chủ khi tab đang hiển thị: máy khách dò tên chicongcomputer.local mất 3–20 giây,
+  // còn kết nối mở sẵn thì lệnh sau (gợi ý hàng, thông báo...) dùng lại ngay, khỏi dò tên lại.
+  // Gọi /ping mỗi 30 giây (< keepAliveTimeout 65 giây trong server.js); vừa có lệnh api thì bỏ qua lượt đó.
+  var lastNet = Date.now();
+  window.warmUp = function () {
+    if (Date.now() - lastNet < 20000) return;
+    lastNet = Date.now();
+    fetch('/ping', { cache: 'no-store' }).catch(function () {});
+  };
+  setInterval(function () { if (!document.hidden) window.warmUp(); }, 30000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) window.warmUp(); });
+
+  // Gợi ý khi gõ: chỉ 1 lệnh chạy cùng lúc (dùng lại kết nối có sẵn, không mở thêm kết nối phải dò tên).
+  // Gõ tiếp trong lúc chờ thì chỉ gửi chữ mới nhất khi lệnh trước xong; kết quả cũ / đã hủy bị bỏ qua.
+  window.suggester = function () {
+    var busy = false, queued = null, seq = 0;
+    function send(url, cb, my) {
+      busy = true;
+      window.api(url).then(function (d) { if (my === seq) cb(null, d); }, function (e) { if (my === seq) cb(e); })
+        .finally(function () { busy = false; if (queued) { var q = queued; queued = null; send(q[0], q[1], q[2]); } });
+    }
+    var s = function (url, cb) { var my = ++seq; if (busy) queued = [url, cb, my]; else send(url, cb, my); };
+    s.cancel = function () { seq++; queued = null; };
+    return s;
+  };
+
   window.api = async function (url, opts) {
     opts = opts || {};
     var headers = Object.assign({ Accept: 'application/json', 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content }, opts.headers || {});
@@ -60,6 +86,7 @@
     var t0 = performance.now();
     var res = await fetch(url, Object.assign({}, opts, { headers: headers }));
     var took = performance.now() - t0;
+    lastNet = Date.now();
     if (took > 3000) perfReport({ kind: 'api', path: url, total: took, ttfb: took });
     var data = await res.json().catch(function () { return {}; });
     if (!res.ok) throw new Error(data.error || ('Lỗi ' + res.status));

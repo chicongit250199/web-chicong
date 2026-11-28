@@ -1,5 +1,6 @@
 // Form "Hoàn thành — trả máy": tiền sửa máy + bán kèm hàng / dịch vụ (trừ kho như trang Bán hàng)
 window.completeForm = function (repairAmount) {
+  var suggest = window.suggester(); // 1 lệnh gợi ý mỗi lúc, chỉ lấy kết quả mới nhất (app.js)
   return {
     amount: String(repairAmount || 0),
     pay: 'cash', paid: '', // hình thức thanh toán; công nợ: số khách trả trước
@@ -35,13 +36,14 @@ window.completeForm = function (repairAmount) {
       var self = this;
       clearTimeout(this.timer);
       this.group = null; this.unitId = '';
-      if (!this.q.trim()) { this.results = []; this.open = false; return; }
+      if (!this.q.trim()) { suggest.cancel(); this.results = []; this.open = false; this.loading = false; return; }
       this.timer = setTimeout(function () {
         self.loading = true;
-        api('/staff/api/inventory/suggest?q=' + encodeURIComponent(self.q.trim()))
-          .then(function (d) { self.results = d.items; self.open = true; self.hi = d.items.length ? 0 : -1; })
-          .catch(function (e) { self.error = e.message; })
-          .finally(function () { self.loading = false; });
+        suggest('/staff/api/inventory/suggest?q=' + encodeURIComponent(self.q.trim()), function (e, d) {
+          self.loading = false;
+          if (e) { self.error = e.message; return; }
+          self.results = d.items; self.open = true; self.hi = d.items.length ? 0 : -1;
+        });
       }, 200);
     },
     move: function (d) { if (this.results.length) this.hi = (this.hi + d + this.results.length) % this.results.length; },

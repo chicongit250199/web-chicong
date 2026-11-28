@@ -25,6 +25,8 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 // CSP với nonce cho script inline; Alpine.js cần 'unsafe-eval'
+// Trình duyệt gọi định kỳ để giữ sẵn kết nối (public/js/app.js warmUp) — đặt trước reqStats để không làm phình số request
+app.get('/ping', (req, res) => res.set('Cache-Control', 'no-store').status(204).end());
 app.use(require('./services/reqStats').middleware); // đếm request (trang Hệ thống)
 app.use(require('./services/perfWatch').router); // trình duyệt báo trang tải chậm (log [perf])
 require('./services/perfWatch').start(); // log [lag] khi luồng xử lý bị đứng
