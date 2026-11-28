@@ -90,13 +90,48 @@ async function call(method, params, timeoutMs = 15000) {
   } finally { clearTimeout(t); }
 }
 
+// ---------- Nhật ký tin nhắn (bảng zalo_messages, xem ở Hệ thống → Nhân viên - Zalo) ----------
+const LOG_KEEP_DAYS = 2; // chỉ giữ 2 ngày gần nhất
+const lq = {
+  insert: db.prepare(`INSERT INTO zalo_messages (created_at, dir, kind, chat_id, chat_name, sender, is_group, text, reply_to, ai, ok, error)
+    VALUES (@created_at, @dir, @kind, @chat_id, @chat_name, @sender, @is_group, @text, @reply_to, @ai, @ok, @error)`),
+  note: db.prepare('UPDATE zalo_messages SET note = ? WHERE id = ?'),
+  prune: db.prepare('DELETE FROM zalo_messages WHERE created_at < ?'),
+  userName: db.prepare('SELECT full_name AS name FROM users WHERE zalo_chat_id = ?'),
+  partnerName: db.prepare('SELECT name FROM partners WHERE zalo_chat_id = ?'),
+};
+function chatLabel(chatId) {
+  const r = lq.userName.get(chatId) || lq.partnerName.get(chatId);
+  return r ? r.name : null;
+}
+function record(r) {
+  try {
+    return lq.insert.run({
+      created_at: new Date().toISOString(), sender: null, is_group: 0, reply_to: null, ai: 0, ok: 1, error: null,
+      ...r, chat_id: String(r.chat_id), text: String(r.text || '').slice(0, 4000),
+      chat_name: r.chat_name !== undefined ? r.chat_name : chatLabel(String(r.chat_id)),
+      is_group: r.is_group ? 1 : 0, ai: r.ai ? 1 : 0, ok: r.ok === false ? 0 : 1,
+    }).lastInsertRowid;
+  } catch (e) { console.error('[zalo] ghi nhật ký:', e.message); return null; }
+}
+function noteIn(id, note) { if (id) try { lq.note.run(note, id); } catch (e) { console.error('[zalo] ghi nhật ký:', e.message); } }
+function pruneLog() {
+  try { lq.prune.run(new Date(Date.now() - LOG_KEEP_DAYS * 86400e3).toISOString()); } catch (e) { console.error('[zalo] dọn nhật ký:', e.message); }
+}
+
 // ---------- Gửi ----------
 function clip(s) { s = String(s || ''); return s.length > MAX_TEXT ? s.slice(0, MAX_TEXT - 1) + '…' : s; }
 
-function enqueue(chatId, text) {
+// meta: { kind: 'reply' | 'notify' | 'partner' | 'overdue', replyTo: id tin nhận, ai: true/false } — ghi nhật ký sau khi gửi
+function enqueue(chatId, text, meta) {
   if (!ENABLED || !chatId) return false;
-  if (queue.length >= MAX_QUEUE) { state.failed++; return false; }
-  queue.push({ chatId: String(chatId), text: clip(text) });
+  meta = meta || {};
+  if (queue.length >= MAX_QUEUE) {
+    state.failed++;
+    record({ dir: 'out', kind: meta.kind || 'notify', chat_id: chatId, text: clip(text), reply_to: meta.replyTo, ai: meta.ai, ok: false, error: 'Hàng đợi gửi đầy' });
+    return false;
+  }
+  queue.push({ chatId: String(chatId), text: clip(text), meta });
   pump();
   return true;
 }
@@ -107,10 +142,12 @@ async function pump() {
   try {
     while (queue.length) {
       const m = queue.shift();
+      const rec = { dir: 'out', kind: m.meta.kind || 'notify', chat_id: m.chatId, text: m.text, reply_to: m.meta.replyTo, ai: m.meta.ai };
       try {
         await call('sendMessage', { chat_id: m.chatId, text: m.text });
         state.sent++; state.lastSentAt = new Date().toISOString();
-      } catch (e) { state.failed++; fail('gửi tin', e); }
+        record(rec);
+      } catch (e) { state.failed++; fail('gửi tin', e); record({ ...rec, ok: false, error: String(e.message || e).slice(0, 300) }); }
       await new Promise(r => setTimeout(r, GAP_MS));
     }
   } finally { sending = false; }
@@ -145,11 +182,11 @@ function onNotification(n, meta) {
       const want = kind === 'task_assigned' ? u.id === meta.userId
         : u.role === 'manager' ? MANAGER_KINDS.has(kind)
         : kind === 'task_new';
-      if (want) enqueue(u.zalo_chat_id, text);
+      if (want) enqueue(u.zalo_chat_id, text, { kind: 'notify' });
     }
     if (PARTNER_KINDS.has(kind) && meta.taskId) {
       const t = q.task.get(meta.taskId);
-      if (t && t.p_chat && t.p_on) enqueue(t.p_chat, partnerText(kind, t));
+      if (t && t.p_chat && t.p_on) enqueue(t.p_chat, partnerText(kind, t), { kind: 'partner' });
     }
   } catch (e) { fail('chọn người nhận', e); }
 }
@@ -176,7 +213,7 @@ function sendOverdue() {
   for (const u of q.users.all()) {
     const rows = list.all(u.id);
     if (!rows.length) continue;
-    enqueue(u.zalo_chat_id, overdueText(u.full_name, rows));
+    enqueue(u.zalo_chat_id, overdueText(u.full_name, rows), { kind: 'overdue' });
     people++;
   }
   state.lastOverdue = { at: new Date().toISOString(), people };
@@ -307,19 +344,21 @@ function priceAnswer(user, text) {
 }
 
 // Trả lời bằng AI (nếu bật trong Hệ thống → Nhân viên - Zalo); AI tắt / lỗi → câu trả lời theo luật (fallback)
-function viaAi(chatId, fallback, aiCall) {
+function viaAi(chatId, fallback, aiCall, replyTo) {
   const plain = () => (typeof fallback === 'function' ? fallback() : fallback);
+  const meta = { kind: 'reply', replyTo };
   let zai;
   try { zai = require('./zaloAi'); } catch (e) { fail('nạp AI', e); }
-  if (!zai || !zai.isOn()) return enqueue(chatId, plain());
+  if (!zai || !zai.isOn()) return enqueue(chatId, plain(), meta);
   state.aiBusy++;
   aiCall().then(out => {
     state.aiReplies++;
     if (out.used.length) log(`AI dùng: ${out.used.join(', ')}`);
-    enqueue(chatId, out.text);
+    enqueue(chatId, out.text, { ...meta, ai: true });
   }).catch(e => {
     state.aiFailed++; fail('AI trả lời', e);
-    enqueue(chatId, plain());
+    noteIn(replyTo, `AI lỗi (${String(e.message || e).slice(0, 120)}) → trả lời kiểu cũ`);
+    enqueue(chatId, plain(), meta);
   }).finally(() => { state.aiBusy--; });
 }
 
@@ -367,43 +406,52 @@ function handleUpdate(up) {
   const sender = (m.from && m.from.display_name) || null;
   const chatName = isGroup ? (m.chat.display_name || m.chat.name || 'Nhóm Zalo') : sender;
   const text = String(m.text || '').trim();
+  // Nhật ký: ai nhắn gì (tin không có chữ — ảnh, sticker... — ghi kèm loại tin)
+  const inId = record({
+    dir: 'in', kind: 'msg', chat_id: chatId, chat_name: chatLabel(chatId) || chatName, sender, is_group: isGroup,
+    text: text || `(không có chữ${m.message_type ? ' — ' + String(m.message_type).slice(0, 40) : ''})`,
+  });
+  const reply = (msg, note) => { if (note) noteIn(inId, note); return enqueue(chatId, msg, { kind: 'reply', replyTo: inId }); };
   const match = text.match(/\b(\d{6})\b/);
   const c = match && codes.get(match[1]);
   if (c) {
     codes.delete(match[1]);
-    if (c.exp < Date.now()) return enqueue(chatId, 'Mã liên kết đã hết hạn. Nhờ quản lý tạo mã mới trên web.');
-    if (c.kind === 'user' && isGroup) return enqueue(chatId, 'Mã này dùng cho tài khoản nhân viên — hãy nhắn riêng cho bot, không nhắn trong nhóm. Nhờ quản lý tạo mã mới.');
+    if (c.exp < Date.now()) return reply('Mã liên kết đã hết hạn. Nhờ quản lý tạo mã mới trên web.');
+    if (c.kind === 'user' && isGroup) return reply('Mã này dùng cho tài khoản nhân viên — hãy nhắn riêng cho bot, không nhắn trong nhóm. Nhờ quản lý tạo mã mới.');
     let row;
-    try { row = target(c.kind, c.id).row; } catch { return enqueue(chatId, 'Không còn tồn tại trên web.'); }
+    try { row = target(c.kind, c.id).row; } catch { return reply('Không còn tồn tại trên web.'); }
     const t = TARGET[c.kind];
     db.transaction(() => { T.users.freeChat.run(chatId); T.partners.freeChat.run(chatId); T[t.table].link.run(chatId, chatName, row.id); })();
     log(`liên kết ${c.kind === 'user' ? 'tài khoản' : 'đối tác'} ${row.name} ↔ ${chatName || chatId}`);
-    return enqueue(chatId, c.kind === 'user'
+    noteIn(inId, `Liên kết ${c.kind === 'user' ? 'tài khoản' : 'đối tác'} "${row.name}"`);
+    return reply(c.kind === 'user'
       ? `✅ Đã liên kết Zalo với tài khoản "${row.name}". Từ giờ thông báo của web sẽ gửi về đây; muốn tra giá linh kiện, kho, máy đang sửa thì nhắn hỏi bot (VD: \"giá ram 8gb\", \"máy của anh Hùng xong chưa\").`
       : `✅ Đã liên kết với đối tác "${row.name}". Nhóm sẽ nhận thông báo khi máy của ${row.name} bắt đầu sửa và sửa xong; muốn hỏi tình trạng máy thì nhắn tên máy (VD: "main b760 sao rồi").`);
   }
   const partner = q.partnerByChat.get(chatId);
-  if (partner && text) {
+  if (partner) {
+    if (!text) return noteIn(inId, 'Tin không có chữ — bot không trả lời');
     const ans = partnerAnswer(partner, text, isGroup); // null = tin trong nhóm không phải câu hỏi về máy → im lặng
-    if (ans && canReply(chatId)) {
-      log(`trả lời ${partner.name}: "${text.slice(0, 60)}"`);
-      viaAi(chatId, ans, () => require('./zaloAi').partnerAiAnswer(partner, chatId, text));
-    }
+    if (!ans) return noteIn(inId, 'Tin trong nhóm không phải câu hỏi về máy — bot không trả lời');
+    if (!canReply(chatId)) return noteIn(inId, `Vượt giới hạn ${REPLY_PER_HOUR} tin trả lời/giờ — bot không trả lời`);
+    log(`trả lời ${partner.name}: "${text.slice(0, 60)}"`);
+    viaAi(chatId, ans, () => require('./zaloAi').partnerAiAnswer(partner, chatId, text), inId);
     return;
   }
-  if (isGroup) return; // nhóm chưa liên kết: chỉ phản hồi mã liên kết, không làm phiền
+  if (isGroup) return noteIn(inId, 'Nhóm chưa liên kết — bot không trả lời'); // chỉ phản hồi mã liên kết, không làm phiền
   const owner = q.userByChat.get(chatId);
   if (owner) {
-    if (!owner.is_active) return enqueue(chatId, 'Tài khoản này đã bị khóa trên web.');
-    if (text && canReply(chatId, 60)) {
-      log(`${owner.full_name} hỏi: "${text.slice(0, 60)}"`);
-      const u = { ...owner, role: q.userRole.get(owner.id).role };
-      viaAi(chatId, () => priceAnswer(owner, text), () => require('./zaloAi').staffAnswer(u, chatId, text));
-    }
+    if (!owner.is_active) return reply('Tài khoản này đã bị khóa trên web.');
+    if (!text) return noteIn(inId, 'Tin không có chữ — bot không trả lời');
+    if (!canReply(chatId, 60)) return noteIn(inId, 'Vượt giới hạn 60 tin trả lời/giờ — bot không trả lời');
+    log(`${owner.full_name} hỏi: "${text.slice(0, 60)}"`);
+    const u = { ...owner, role: q.userRole.get(owner.id).role };
+    viaAi(chatId, () => priceAnswer(owner, text), () => require('./zaloAi').staffAnswer(u, chatId, text), inId);
     return;
   }
-  enqueue(chatId, match ? 'Mã liên kết không đúng hoặc đã dùng. Nhờ quản lý tạo mã mới trên web.'
-    : 'Chào bạn! Bot gửi thông báo tự động của cửa hàng. Để nhận thông báo, nhắn mã liên kết 6 số (quản lý lấy trên web) vào đây.');
+  reply(match ? 'Mã liên kết không đúng hoặc đã dùng. Nhờ quản lý tạo mã mới trên web.'
+    : 'Chào bạn! Bot gửi thông báo tự động của cửa hàng. Để nhận thông báo, nhắn mã liên kết 6 số (quản lý lấy trên web) vào đây.',
+  'Người lạ (chưa liên kết)');
 }
 
 // ---------- Vòng nhận tin ----------
@@ -428,6 +476,8 @@ async function pollLoop() {
 
 async function start() {
   if (!ENABLED) { if (TOKEN) log('tắt trên máy chủ thử'); return; }
+  pruneLog();
+  setInterval(pruneLog, 3600e3).unref();
   try {
     state.bot = await call('getMe');
     log(`bot sẵn sàng: ${botName() || '(không rõ tên)'} · nhắc task quá hạn lúc ${overdueAt()} (trừ CN)`);
@@ -445,7 +495,12 @@ async function sendTest(kind, id) {
   if (!ENABLED) throw httpErr(TOKEN ? 'Bot đang tắt (máy chủ thử)' : 'Chưa cấu hình ZALO_BOT_TOKEN trong .env');
   const { row } = target(kind, id);
   if (!row.zalo_chat_id) throw httpErr('Chưa liên kết Zalo');
-  await call('sendMessage', { chat_id: row.zalo_chat_id, text: `🔔 Tin thử từ ${settings.get('company_name') || 'Chí Công Computer'} gửi tới "${row.name}" — nhận được là đã liên kết đúng.` });
+  const text = `🔔 Tin thử từ ${settings.get('company_name') || 'Chí Công Computer'} gửi tới "${row.name}" — nhận được là đã liên kết đúng.`;
+  try { await call('sendMessage', { chat_id: row.zalo_chat_id, text }); } catch (e) {
+    record({ dir: 'out', kind: 'test', chat_id: row.zalo_chat_id, text, ok: false, error: String(e.message || e).slice(0, 300) });
+    throw e;
+  }
+  record({ dir: 'out', kind: 'test', chat_id: row.zalo_chat_id, text });
   state.sent++; state.lastSentAt = new Date().toISOString();
 }
 
@@ -467,4 +522,34 @@ function status() {
   };
 }
 
-module.exports = { start, onNotification, createLinkCode, linkInfo, sendTest, setEnabled, unlink, status, setOverdueAt, setAi, partnerAnswer, priceAnswer, sendOverdue };
+// Nhật ký cho trang Nhân viên - Zalo. type: 'all' | 'chat' (tin người nhắn + bot trả lời) | 'notify' (bot tự gửi)
+// Tin trả lời không đứng riêng mà nằm trong .replies của tin nhận tương ứng.
+function listLog({ type = 'all', q: search = '', before = 0, limit = 50 } = {}) {
+  limit = Math.min(Math.max(Number(limit) || 50, 1), 200);
+  const where = ["NOT (m.dir = 'out' AND m.reply_to IS NOT NULL)"], args = [];
+  if (type === 'chat') where.push("m.dir = 'in'");
+  else if (type === 'notify') where.push("m.dir = 'out'");
+  if (Number(before) > 0) { where.push('m.id < ?'); args.push(Number(before)); }
+  const s = (db.vn(String(search).trim()) || '').slice(0, 100);
+  if (s) {
+    const like = `%${s.replace(/[\\%_]/g, c => '\\' + c)}%`;
+    where.push(`(vn(m.text) LIKE ? ESCAPE '\\' OR vn(coalesce(m.chat_name, '')) LIKE ? ESCAPE '\\' OR vn(coalesce(m.sender, '')) LIKE ? ESCAPE '\\'
+      OR EXISTS (SELECT 1 FROM zalo_messages r WHERE r.reply_to = m.id AND vn(r.text) LIKE ? ESCAPE '\\'))`);
+    args.push(like, like, like, like);
+  }
+  const rows = db.prepare(`SELECT m.* FROM zalo_messages m WHERE ${where.join(' AND ')} ORDER BY m.id DESC LIMIT ?`).all(...args, limit + 1);
+  const more = rows.length > limit;
+  if (more) rows.pop();
+  const ins = rows.filter(r => r.dir === 'in').map(r => r.id);
+  const byParent = new Map();
+  if (ins.length) {
+    for (const r of db.prepare(`SELECT * FROM zalo_messages WHERE reply_to IN (${ins.map(() => '?').join(',')}) ORDER BY id`).all(...ins)) {
+      if (!byParent.has(r.reply_to)) byParent.set(r.reply_to, []);
+      byParent.get(r.reply_to).push(r);
+    }
+  }
+  for (const r of rows) if (r.dir === 'in') r.replies = byParent.get(r.id) || [];
+  return { items: rows, more };
+}
+
+module.exports = { listLog, start, onNotification, createLinkCode, linkInfo, sendTest, setEnabled, unlink, status, setOverdueAt, setAi, partnerAnswer, priceAnswer, sendOverdue };

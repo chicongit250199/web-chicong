@@ -60,3 +60,27 @@ window.zaloLink = function (base, extra) {
     },
   }, extra || {});
 };
+
+// Nhật ký Zalo (Hệ thống → Nhân viên - Zalo): tin người nhắn + bot trả lời, tin bot tự gửi
+window.zaloLog = function () {
+  var KIND = { notify: ['Thông báo', 'badge-blue'], partner: ['Gửi nhóm đối tác', 'badge-green'], overdue: ['Nhắc quá hạn', 'badge-amber'], test: ['Tin thử', 'badge-gray'], reply: ['Trả lời', 'badge-gray'] };
+  return {
+    items: [], more: false, loading: false, err: '', type: 'all', q: '', seq: 0,
+    init: function () { this.load(); },
+    load: function (append) {
+      var self = this, n = ++this.seq;
+      var url = '/manager/users/zalo/log?limit=50&type=' + this.type + '&q=' + encodeURIComponent(this.q || '');
+      if (append && this.items.length) url += '&before=' + this.items[this.items.length - 1].id;
+      this.loading = true; this.err = '';
+      api(url).then(function (d) {
+        if (n !== self.seq) return; // đã có lần tải mới hơn (gõ tìm nhanh)
+        self.items = append ? self.items.concat(d.items) : d.items;
+        self.more = d.more;
+      }).catch(function (e) { if (n === self.seq) self.err = e.message; })
+        .finally(function () { if (n === self.seq) self.loading = false; });
+    },
+    kindLabel: function (r) { return r.dir === 'in' ? (r.is_group ? 'Nhóm' : 'Nhắn riêng') : (KIND[r.kind] || [r.kind])[0]; },
+    kindBadge: function (r) { return r.dir === 'in' ? 'badge-violet' : (KIND[r.kind] || [0, 'badge-gray'])[1]; },
+    when: function (iso) { return iso ? new Date(iso).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : ''; },
+  };
+};
