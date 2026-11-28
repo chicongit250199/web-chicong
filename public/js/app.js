@@ -194,7 +194,7 @@
             if (self.open) return; // đang mở khung thì không cần banner
             var t = Object.assign({ leaving: false }, n);
             self.toasts.push(t);
-            setTimeout(function () { self.dismiss(t); }, 5000);
+            setTimeout(function () { self.dismiss(t); }, 2000);
           });
         };
         var disconnect = function () { if (self.es) { self.es.close(); self.es = null; self.live = false; } };
@@ -216,13 +216,13 @@
         clearTimeout(this._ringT);
         this._ringT = setTimeout(function () { self.ring = false; self.pop = false; }, 1200);
       },
-      // banner thu nhỏ bay vào nút chuông rồi biến mất
+      // banner mờ dần sang phải rồi biến mất
       dismiss: function (t) {
         var self = this;
         var cur = this.toasts.find(function (x) { return x.id === t.id; });
         if (!cur || cur.leaving) return;
         cur.leaving = true;
-        setTimeout(function () { self.toasts = self.toasts.filter(function (x) { return x.id !== t.id; }); }, 450);
+        setTimeout(function () { self.toasts = self.toasts.filter(function (x) { return x.id !== t.id; }); }, 300);
       },
       toggleSound: function () {
         this.sound = !this.sound;
